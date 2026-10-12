@@ -24,6 +24,8 @@
 3. Supabase → 왼쪽 메뉴 **SQL Editor** → **+ (New query)** 를 누릅니다.
    (1단계 때 쓴 탭이 남아 있다면, 그 안의 내용을 **Ctrl+A** 로 전부 선택하고 지운 뒤 붙여넣어도 돼요)
 4. **Ctrl + V** (맥은 **⌘ + V**)로 붙여넣고 **Run** 을 누릅니다.
+   > ⚠️ **Run 누르기 전에 입력칸을 한 번 클릭**해서, 파랗게 칠해진(선택된) 글자가 없게 해 주세요.
+   > 일부만 칠해져 있으면 Supabase는 **그 부분만** 실행해서 `syntax error at end of input` 오류가 나요.
 5. 경고 창이 뜨면 **Run this query** 를 누릅니다.
 6. **Success. No rows returned** 가 보이면 끝!
 7. 휴대폰에서 **https://talkfeed.netlify.app/#/check** 를 열어 **"데이터베이스 최신 버전"** 이 초록색 ✓ 인지 확인하세요.

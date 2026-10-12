@@ -716,7 +716,6 @@ create policy "family_photos_delete_owner" on storage.objects
     and owner_id = (select auth.uid())::text
   );
 
--- 앱이 새 기능(함수)을 바로 찾을 수 있도록 서버의 목록을 새로고침
-notify pgrst, 'reload schema';
-
 -- 끝! 아래 "Success. No rows returned" 가 보이면 성공입니다.
+-- (마지막 줄: 앱이 새 기능(함수)을 바로 찾을 수 있도록 서버의 목록을 새로고침)
+notify pgrst, 'reload schema';

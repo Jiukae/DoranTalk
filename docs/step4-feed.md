@@ -27,6 +27,8 @@
 2. 맨 위에 **`★ 버전 4 (4단계: 소식·사진·댓글·하트) ★`** 가 보이는지 확인 → **복사 아이콘**
 3. Supabase **SQL Editor** → 입력칸 클릭 → **Ctrl+A** 로 전부 지우기 → **Ctrl+V** → **Run**
    (경고 창이 뜨면 **Run this query**)
+   > ⚠️ **Run 누르기 전에 입력칸을 한 번 클릭**해서, 파랗게 칠해진(선택된) 글자가 없게 해 주세요.
+   > 일부만 칠해져 있으면 Supabase는 **그 부분만** 실행해서 `syntax error at end of input` 오류가 나요.
 4. **Success** 확인
 5. 휴대폰에서 **https://talkfeed.netlify.app/#/check** → 4개 모두 초록색 ✓ ("최신 버전(4)")
 
