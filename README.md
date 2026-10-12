@@ -10,7 +10,7 @@
 
 | 단계 | 내용 | 상태 |
 |---|---|---|
-| 1 | 프로젝트 구조 + Supabase 연결 + DB/보안(RLS) 설계 | ✅ 완료 → [안내서](docs/step1-supabase-setup.md) |
+| 1 | 프로젝트 구조 + Supabase 연결 + DB/보안(RLS) 설계 | ✅ 완료 (Supabase 연결됨) → [안내서](docs/step1-supabase-setup.md) |
 | 2 | 회원가입 / 로그인 / 닉네임 | |
 | 3 | 가족 그룹 만들기 + 닉네임 초대 + 수락/거절 | |
 | 4 | 피드 (글, 사진, 댓글, 좋아요) | |

@@ -7,5 +7,5 @@
 //     (앱이 알아서 감지하고 작동을 멈춥니다)
 // =====================================================================
 
-export const SUPABASE_URL = 'PASTE_SUPABASE_URL_HERE';
-export const SUPABASE_ANON_KEY = 'PASTE_SUPABASE_ANON_KEY_HERE';
+export const SUPABASE_URL = 'https://jksstsimlqxleoerizzy.supabase.co';
+export const SUPABASE_ANON_KEY = 'sb_publishable_Aws1OnmwOZF_tMDzbOz9rA_XtuSDgZX';
