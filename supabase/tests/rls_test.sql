@@ -73,6 +73,22 @@ values ((select v from pg_temp.ids where k='g'), '첫 글', array[(select v from
 insert into pg_temp.ids values ('p', (select id from public.posts limit 1));
 insert into public.messages (group_id, content) values ((select v from pg_temp.ids where k='g'), '안녕');
 insert into storage.objects (bucket_id, name) values ('family-photos', (select v from pg_temp.ids where k='g')::text || '/posts/a.jpg');
+-- 사진 경로는 자기 그룹 폴더만
+do $$ begin
+  insert into public.posts (group_id, content, image_paths)
+  values ((select v from pg_temp.ids where k='g'), '남의 폴더', array['00000000-0000-0000-0000-000000000000/posts/x.jpg']);
+  raise exception 'TEST FAILED: foreign folder path accepted';
+exception when check_violation then null; end $$;
+do $$ begin
+  insert into public.posts (group_id, content, image_paths)
+  values ((select v from pg_temp.ids where k='g'), '상위폴더', array[(select v from pg_temp.ids where k='g')::text || '/posts/../../x.jpg']);
+  raise exception 'TEST FAILED: dotdot path accepted';
+exception when check_violation then null; end $$;
+do $$ begin
+  insert into public.messages (group_id, image_path)
+  values ((select v from pg_temp.ids where k='g'), (select v from pg_temp.ids where k='g')::text || '/posts/a.jpg');
+  raise exception 'TEST FAILED: chat image outside chat folder accepted';
+exception when check_violation then null; end $$;
 -- 작성자 위조 불가
 do $$ begin
   insert into public.posts (group_id, content, author_id)
@@ -209,6 +225,19 @@ reset role;
 select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000002');
 delete from public.group_members where user_id = 'aaaaaaaa-0000-0000-0000-000000000002';
 select pg_temp.assert((select count(*) from public.messages) = 0, 'left member sees nothing');
+reset role;
+-- 떠난 아빠가 남긴 댓글의 닉네임은 엄마에게 계속 보임
+select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000001');
+insert into public.posts (group_id, content) values ((select v from pg_temp.ids where k='g'), '두 번째 글');
+reset role;
+insert into public.comments (post_id, author_id, content)
+  select id, 'aaaaaaaa-0000-0000-0000-000000000002', '예전 댓글' from public.posts where content = '두 번째 글';
+select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000001');
+select pg_temp.assert((select count(*) from public.profiles where nickname = '아빠') = 1, 'left author nickname visible');
+reset role;
+-- 외부인에게는 여전히 안 보임
+select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000004');
+select pg_temp.assert((select count(*) from public.profiles where nickname = '아빠') = 0, 'stranger cannot see author');
 reset role;
 
 select 'ALL RLS TESTS PASSED' as result;

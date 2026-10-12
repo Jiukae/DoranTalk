@@ -4,7 +4,7 @@ import { sb, checkConfig, createGuestClient } from '../supabase.js';
 import { el, render, brandHeader } from '../ui.js';
 
 // 앱이 기대하는 schema.sql 버전. SQL 파일 맨 위 "버전 N" 과 같아야 해요.
-export const REQUIRED_SCHEMA_VERSION = 3;
+export const REQUIRED_SCHEMA_VERSION = 4;
 
 const CHECKS = [
   { id: 'config', title: '설정 파일', run: checkConfigStep },

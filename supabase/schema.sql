@@ -1,6 +1,6 @@
 -- =====================================================================
 --  TalkFeed 데이터베이스 설계 (테이블 + 보안 규칙 RLS + 사진 저장소)
---  ★ 버전 3 (3단계: 가족 그룹·초대) ★
+--  ★ 버전 4 (4단계: 소식·사진·댓글·하트) ★
 --    앱 주소 뒤에 #/check 를 붙여 열면 DB 버전이 최신인지 확인할 수 있어요.
 -- ---------------------------------------------------------------------
 --  사용법: Supabase 대시보드 → SQL Editor → 이 파일 내용을 전부 붙여넣고 Run
@@ -122,6 +122,31 @@ create table if not exists public.chat_reads (
 );
 
 
+-- (4단계에서 추가) 사진 경로 규칙: 글/채팅의 사진은 반드시 "자기 그룹 폴더" 안에 있어야 함
+-- (not valid: 이미 있는 글은 건드리지 않고, 새로 쓰거나 고치는 글부터 검사)
+create or replace function public.paths_in_group_folder(paths text[], gid uuid, folder text)
+returns boolean
+language sql immutable set search_path = ''
+as $$
+  select not exists (
+    select 1 from unnest(coalesce(paths, '{}')) as p
+    where p not like gid::text || '/' || folder || '/%' or p like '%..%'
+  );
+$$;
+
+alter table public.posts drop constraint if exists posts_image_paths_in_group;
+alter table public.posts add constraint posts_image_paths_in_group
+  check (public.paths_in_group_folder(image_paths, group_id, 'posts')) not valid;
+alter table public.messages drop constraint if exists messages_image_path_in_group;
+alter table public.messages add constraint messages_image_path_in_group
+  check (image_path is null or public.paths_in_group_folder(array[image_path], group_id, 'chat')) not valid;
+
+-- 닉네임 보기 규칙(아래 can_see_profile)이 빨리 동작하도록 색인 추가
+create index if not exists posts_author_idx on public.posts (author_id);
+create index if not exists comments_author_idx on public.comments (author_id);
+create index if not exists messages_sender_idx on public.messages (sender_id);
+
+
 -- ---------------------------------------------------------------------
 -- 2. 보조 함수 (보안 규칙 안에서 사용)
 --    security definer = 보안 규칙을 거치지 않고 "멤버인지"만 확인.
@@ -152,7 +177,8 @@ as $$
 $$;
 
 -- 이 사람의 닉네임을 내가 볼 수 있는가?
--- (나 자신 / 같은 그룹 멤버 / 나와 초대를 주고받은 사람 / 내 그룹에 초대되어 대기 중인 사람)
+-- (나 자신 / 같은 그룹 멤버 / 나와 초대를 주고받은 사람 / 내 그룹에 초대되어 대기 중인 사람 /
+--  그룹을 떠났지만 내 그룹에 글·댓글·채팅을 남긴 사람)
 create or replace function public.can_see_profile(target uuid)
 returns boolean
 language sql stable security definer set search_path = ''
@@ -172,6 +198,22 @@ as $$
     select 1 from public.group_invitations i
     join public.group_members m on m.group_id = i.group_id
     where m.user_id = auth.uid() and i.invitee_id = target and i.status = 'pending'
+  )
+  or exists (
+    select 1 from public.posts p
+    join public.group_members m on m.group_id = p.group_id
+    where m.user_id = auth.uid() and p.author_id = target
+  )
+  or exists (
+    select 1 from public.comments c
+    join public.posts p on p.id = c.post_id
+    join public.group_members m on m.group_id = p.group_id
+    where m.user_id = auth.uid() and c.author_id = target
+  )
+  or exists (
+    select 1 from public.messages msg
+    join public.group_members m on m.group_id = msg.group_id
+    where m.user_id = auth.uid() and msg.sender_id = target
   );
 $$;
 
@@ -227,7 +269,7 @@ create trigger on_auth_user_created
 create or replace function public.talkfeed_schema_version()
 returns integer
 language sql immutable set search_path = ''
-as $$ select 3 $$;
+as $$ select 4 $$;
 
 -- 닉네임 사용 가능 여부 (가입 화면에서 로그인 전에 확인)
 create or replace function public.is_nickname_available(nick text)
@@ -574,6 +616,7 @@ revoke execute on function
   public.handle_new_user(),
   public.is_nickname_available(text),
   public.talkfeed_schema_version(),
+  public.paths_in_group_folder(text[], uuid, text),
   public.create_group(text),
   public.invite_by_nickname(uuid, text),
   public.get_my_invitations(),
@@ -586,6 +629,7 @@ revoke execute on function
 grant execute on function public.is_nickname_available(text) to anon, authenticated;
 grant execute on function public.talkfeed_schema_version() to anon, authenticated;
 grant execute on function
+  public.paths_in_group_folder(text[], uuid, text),
   public.is_group_member(uuid),
   public.can_access_post(uuid),
   public.can_see_profile(uuid),

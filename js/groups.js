@@ -37,7 +37,7 @@ export async function respondInvitation(id, accept) {
 export async function fetchMembers(groupId) {
   const rows = check(await sb
     .from('group_members')
-    .select('user_id, role, joined_at, profile:profiles(nickname)')
+    .select('user_id, role, joined_at, profile:profiles!group_members_user_id_fkey(nickname)')
     .eq('group_id', groupId)
     .order('joined_at', { ascending: true }));
   return rows.map((m) => ({ ...m, nickname: m.profile?.nickname ?? '(알 수 없음)' }));

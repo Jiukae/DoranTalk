@@ -1,5 +1,5 @@
 // 가족 그룹 화면: 아래쪽 탭(피드 · 채팅 · 가족)으로 이동합니다.
-// 3단계에서는 "가족" 탭(멤버 보기, 초대하기)이 동작하고, 피드·채팅은 4·5단계에서 채워집니다.
+// 소식 탭은 pages/feed.js, 채팅 탭은 5단계에서 채워집니다.
 import { sb } from '../supabase.js';
 import { state } from '../state.js';
 import { go, navToken, isStale } from '../router.js';
@@ -14,6 +14,7 @@ import {
 } from '../groups.js';
 import { nicknameFormatError } from './auth.js';
 import { timeAgo } from '../format.js';
+import { renderFeedTab } from './feed.js';
 
 const TABS = [
   { key: 'feed', label: '소식', icon: '📰' },
@@ -28,6 +29,13 @@ function tabBar(groupId, active) {
         href: `#/group/${groupId}/${t.key}`,
         class: `tab ${t.key === active ? 'active' : ''}`,
         'aria-current': t.key === active ? 'page' : false,
+        // 지금 보고 있는 탭을 다시 누르면 새로 불러오기
+        onclick: (e) => {
+          if (t.key !== active) return;
+          e.preventDefault();
+          window.scrollTo(0, 0);
+          go(`/group/${groupId}/${t.key}`);
+        },
       },
         el('span', { class: 'tab-icon', 'aria-hidden': 'true' }, t.icon),
         el('span', { class: 'tab-label' }, t.label),
@@ -76,11 +84,7 @@ export async function renderGroup({ id, tab }) {
     tabBar(group.id, tab),
   );
 
-  if (tab === 'feed') {
-    main.append(el('section', { class: 'card' },
-      emptyState('📰', '가족 소식은 곧 생겨요', '글과 사진 올리기, 댓글, 하트는 4단계에서 여기에 만들어져요.')));
-    return undefined;
-  }
+  if (tab === 'feed') return renderFeedTab(main, group, token);
   if (tab === 'chat') {
     main.append(el('section', { class: 'card' },
       emptyState('💬', '가족 채팅방은 곧 생겨요', '실시간 채팅은 5단계에서 여기에 만들어져요.')));

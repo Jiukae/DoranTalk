@@ -14,7 +14,7 @@
 | 1 | 프로젝트 구조 + Supabase 연결 + DB/보안(RLS) 설계 | ✅ 완료 (Supabase 연결됨) → [안내서](docs/step1-supabase-setup.md) |
 | 2 | 회원가입 / 로그인 / 닉네임 | ✅ 완료 → [안내서](docs/step2-auth-setup.md) |
 | 3 | 가족 그룹 만들기 + 닉네임 초대 + 수락/거절 | ✅ 완료 → [안내서](docs/step3-groups.md) |
-| 4 | 피드 (글, 사진, 댓글, 좋아요) | |
+| 4 | 피드 (글, 사진, 댓글, 좋아요) | ✅ 완료 → [안내서](docs/step4-feed.md) |
 | 5 | 실시간 채팅 | |
 | 6 | PWA + 배포 + 가족 접속 링크 | |
 
@@ -34,6 +34,10 @@ js/pages/auth.js        로그인 · 회원가입 · 비밀번호 찾기/재설�
 js/pages/home.js        홈(받은 초대, 그룹 목록) · 그룹 만들기 · 내 정보
 js/pages/group.js       그룹 화면(소식·채팅·가족 탭), 초대·멤버·나가기
 js/groups.js            그룹·초대 관련 서버 요청과 실시간 알림
+js/pages/feed.js        소식 목록 · 글쓰기/수정 · 글 상세(댓글, 하트)
+js/feed.js              글·댓글·하트 서버 요청과 실시간 알림
+js/images.js            사진 고르기 · 자동으로 줄이기 · 올리기 · 임시 주소 받기
+js/lightbox.js          사진 크게 보기
 js/format.js            "방금 전", "어제" 같은 날짜 표시
 js/pages/check.js       연결 점검 화면 (#/check)
 vendor/supabase.js      Supabase 공식 라이브러리 v2.117.1 (MIT 라이선스)

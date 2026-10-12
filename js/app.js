@@ -8,6 +8,7 @@ import { renderCheck } from './pages/check.js';
 import { renderLogin, renderSignup, renderForgot, renderNewPassword } from './pages/auth.js';
 import { renderHome, renderMe, renderNewGroup } from './pages/home.js';
 import { renderGroup } from './pages/group.js';
+import { renderWrite, renderPostDetail } from './pages/feed.js';
 
 // 메일 링크(비밀번호 재설정·가입 인증)를 눌러 들어왔는지 확인
 const initialHash = location.hash;
@@ -56,6 +57,10 @@ route('/new-password', renderNewPassword, { access: 'auth' });
 route('/home', needsProfile(renderHome));
 route('/me', needsProfile(renderMe));
 route('/groups/new', needsProfile(renderNewGroup));
+// 더 구체적인 주소를 먼저 등록해야 해요 (/group/:id/write 가 :tab 으로 잡히지 않게)
+route('/group/:id/write', needsProfile(renderWrite));
+route('/group/:id/post/:postId', needsProfile(renderPostDetail));
+route('/group/:id/post/:postId/edit', needsProfile(renderWrite));
 route('/group/:id/:tab', needsProfile(renderGroup));
 
 setGuard((path, access) => {
