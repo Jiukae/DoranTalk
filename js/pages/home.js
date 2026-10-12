@@ -12,6 +12,7 @@ import {
   fetchMyGroups, fetchMyInvitations, respondInvitation, createGroup, watchMyInvitations,
 } from '../groups.js';
 import { timeAgo } from '../format.js';
+import { APP_VERSION } from '../version.js';
 
 function meButton() {
   return el('button', { class: 'btn btn-ghost btn-small', type: 'button', onclick: () => go('/me') },
@@ -278,6 +279,8 @@ export function renderMe() {
         el('p', { class: 'muted' }, '이 기기에서는 로그아웃하기 전까지 계속 로그인되어 있어요.'),
         logout,
       ),
+      el('p', { class: 'muted small center' },
+        `앱 버전: ${APP_VERSION} · `, el('a', { href: '#/check', class: 'muted' }, '연결 점검')),
     ),
   );
 }

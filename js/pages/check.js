@@ -2,6 +2,7 @@
 // Supabase 연결과 보안 규칙이 제대로 되어 있는지 확인합니다. 문제가 생겼을 때 진단용.
 import { sb, checkConfig, createGuestClient } from '../supabase.js';
 import { el, render, brandHeader } from '../ui.js';
+import { APP_VERSION } from '../version.js';
 
 // 앱이 기대하는 schema.sql 버전. SQL 파일 맨 위 "버전 N" 과 같아야 해요.
 export const REQUIRED_SCHEMA_VERSION = 4;
@@ -83,7 +84,8 @@ export async function renderCheck() {
   const states = CHECKS.map(() => ({ status: 'wait', detail: '확인하는 중…' }));
   const banner = el('div', { class: 'banner wait', role: 'status' }, '연결 상태를 확인하고 있어요…');
   const list = el('ul', { class: 'checklist' });
-  const retry = el('button', { class: 'btn btn-secondary btn-block', onclick: renderCheck }, '다시 확인하기');
+  // 페이지를 새로 받아서 다시 점검 (예전에 열어 둔 창이어도 항상 최신 앱으로 확인)
+  const retry = el('button', { class: 'btn btn-secondary btn-block', onclick: () => location.reload() }, '다시 확인하기');
 
   const paint = () => list.replaceChildren(...CHECKS.map((c, i) => checkRow(c, states[i])));
   paint();
@@ -97,6 +99,7 @@ export async function renderCheck() {
     ),
     retry,
     el('a', { href: '#/home', class: 'btn btn-ghost btn-block', style: 'margin-top:8px' }, '‹ 앱으로 돌아가기'),
+    el('p', { class: 'muted small center', style: 'margin-top:12px' }, `앱 버전: ${APP_VERSION}`),
   ));
 
   for (let i = 0; i < CHECKS.length; i++) {
