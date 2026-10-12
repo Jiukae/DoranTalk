@@ -1,0 +1,27 @@
+# Netlify 배포 설정 — 빌드 과정 없이 폴더 그대로 올립니다.
+[build]
+  publish = "."
+  command = ""
+
+# 코드가 바뀌면 휴대폰에서도 바로 새 버전을 받도록 (저장된 옛 파일 대신 서버 확인)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "DENY"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache"
