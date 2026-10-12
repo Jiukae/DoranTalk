@@ -40,7 +40,7 @@ Supabase는 TalkFeed의 **서버 겸 창고**예요. 회원 정보, 글, 채팅,
 TalkFeed에 필요한 표(회원·그룹·글·댓글·채팅 등)와 **보안 규칙**을 한 번에 만드는 작업이에요.
 
 ### B-1. SQL 파일 내용 복사하기
-1. GitHub에서 이 저장소(**jiukae/talkfeed**)를 엽니다.
+1. GitHub에서 이 저장소(**Jiukae/TalkFeed**)를 엽니다.
 2. 왼쪽 위의 브랜치 선택 버튼(`main` 이라고 써 있을 수 있음)을 눌러
    **claude/talkfeed-family-app-qyi292** 를 고릅니다.
 3. **supabase** 폴더 → **schema.sql** 파일을 누릅니다.
@@ -108,8 +108,8 @@ URL: https://abcdefghijklmn.supabase.co
 1. **https://app.netlify.com/signup** 에 들어가서 **Sign up with GitHub** → GitHub 로그인 → 권한 허용.
    (처음 가입하면 몇 가지 질문이 나오는데, 개인용(Personal)으로 고르고 넘어가면 돼요.)
 2. 대시보드에서 **Add new project** (또는 **Add new site**) → **Import an existing project** 를 누릅니다.
-3. **Deploy with GitHub** (GitHub 버튼)를 누르고, 권한 창이 뜨면 **jiukae/talkfeed** 저장소를 허용합니다.
-4. 저장소 목록에서 **talkfeed** 를 고릅니다.
+3. **Deploy with GitHub** (GitHub 버튼)를 누르고, 권한 창이 뜨면 **Jiukae/TalkFeed** 저장소를 허용합니다.
+4. 저장소 목록에서 **TalkFeed** 를 고릅니다.
 5. 설정 화면에서:
    - **Branch to deploy**: `claude/talkfeed-family-app-qyi292` 로 바꿔 주세요. ← 중요!
    - Build command: **비워 두기**
