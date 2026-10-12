@@ -189,6 +189,104 @@ a { color: var(--primary); }
 .banner.fail { background: var(--danger-soft); color: var(--danger); }
 .banner.wait { background: var(--surface-soft); color: var(--muted); }
 
+/* ---------- 위쪽 막대 ---------- */
+.appbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(255, 248, 241, 0.96);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  padding-top: env(safe-area-inset-top);
+}
+.appbar-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  min-height: 64px;
+  padding: 0 8px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.appbar-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.appbar-side { display: flex; align-items: center; min-width: 0; }
+.appbar-right { justify-content: flex-end; }
+
+.btn-small {
+  min-height: 48px;
+  padding: 8px 12px;
+  font-size: 1rem;
+}
+
+/* ---------- 비밀번호 칸 + 보기 버튼 ---------- */
+.pw-wrap { position: relative; }
+.pw-wrap .input { padding-right: 92px; }
+.pw-toggle {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  bottom: 4px;
+  min-width: 76px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--primary-hover);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ---------- 폼 안내/오류 상자 ---------- */
+.form-msg {
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  font-weight: 600;
+}
+.form-msg.error { background: var(--danger-soft); color: var(--danger); }
+.form-msg.success { background: var(--ok-soft); color: var(--ok); }
+.form-msg.info { background: var(--surface-soft); color: var(--muted); }
+
+.nick-status { margin: 6px 0 0; font-weight: 700; font-size: 0.95rem; min-height: 0; }
+.nick-status:empty { display: none; }
+.nick-status.good { color: var(--ok); }
+.nick-status.bad { color: var(--danger); }
+
+.link-strong { font-weight: 700; display: inline-block; padding: 10px 4px; }
+
+.spinner-sm { width: 18px; height: 18px; border-width: 3px; }
+
+/* ---------- 프로필 동그라미 ---------- */
+.avatar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+.avatar-sm { width: 32px; height: 32px; font-size: 0.9rem; }
+.avatar-lg { width: 64px; height: 64px; font-size: 1.6rem; }
+
+.welcome { display: flex; align-items: center; gap: 16px; }
+.welcome-hello { font-size: 1.25rem; font-weight: 800; margin: 0; }
+.big-emoji { font-size: 3rem; line-height: 1; }
+
 /* ---------- 로딩 ---------- */
 .spinner {
   width: 22px;
@@ -214,7 +312,9 @@ a { color: var(--primary); }
   left: 50%;
   bottom: calc(24px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
+  width: max-content;
   max-width: calc(100% - 32px);
+  text-align: center;
   background: rgba(58, 42, 32, 0.94);
   color: #fff;
   padding: 14px 20px;

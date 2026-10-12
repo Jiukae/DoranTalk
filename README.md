@@ -11,7 +11,7 @@
 | 단계 | 내용 | 상태 |
 |---|---|---|
 | 1 | 프로젝트 구조 + Supabase 연결 + DB/보안(RLS) 설계 | ✅ 완료 (Supabase 연결됨) → [안내서](docs/step1-supabase-setup.md) |
-| 2 | 회원가입 / 로그인 / 닉네임 | |
+| 2 | 회원가입 / 로그인 / 닉네임 | ✅ 완료 → [안내서](docs/step2-auth-setup.md) |
 | 3 | 가족 그룹 만들기 + 닉네임 초대 + 수락/거절 | |
 | 4 | 피드 (글, 사진, 댓글, 좋아요) | |
 | 5 | 실시간 채팅 | |
@@ -24,8 +24,14 @@ index.html              앱의 시작 화면 (한 페이지 앱)
 css/style.css           디자인 (큰 글씨, 누르기 쉬운 버튼, 따뜻한 색)
 js/config.js            Supabase 주소 + 공개(anon/publishable) 키  ← 여기만 채우면 연결
 js/supabase.js          Supabase 연결 + 키 안전 검사 (비밀 키 감지 시 작동 중지)
+js/app.js               앱 시작: 로그인 상태 확인, 화면 연결
+js/router.js            주소(#/login, #/home …)에 따라 화면 바꾸기
+js/state.js             로그인 정보와 내 닉네임 보관
+js/errors.js            서버 오류를 쉬운 한국어로 바꾸기
 js/ui.js                화면 그리기 도우미 (사용자 글은 항상 텍스트로만 표시)
-js/app.js               앱 시작 / 화면 전환
+js/pages/auth.js        로그인 · 회원가입 · 비밀번호 찾기/재설정
+js/pages/home.js        홈 · 내 정보(닉네임 변경, 로그아웃)
+js/pages/check.js       연결 점검 화면 (#/check)
 vendor/supabase.js      Supabase 공식 라이브러리 v2.117.1 (MIT 라이선스)
 supabase/schema.sql     DB 테이블 + 보안 규칙(RLS) + 사진 저장소 설정 — SQL Editor에서 실행
 supabase/tests/         보안 규칙 자동 검사 (개발용, Supabase에 실행하지 않음)

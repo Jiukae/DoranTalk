@@ -49,3 +49,75 @@ export function brandHeader(subtitle = '우리 가족 소식방') {
     ),
   );
 }
+
+// 화면 위쪽 막대. left/right 에 버튼을 넣을 수 있어요.
+export function appBar(title, { left = null, right = null } = {}) {
+  return el('header', { class: 'appbar' },
+    el('div', { class: 'appbar-inner' },
+      el('div', { class: 'appbar-side' }, left),
+      el('h1', { class: 'appbar-title' }, title),
+      el('div', { class: 'appbar-side appbar-right' }, right),
+    ),
+  );
+}
+
+export function backButton(onClick, label = '뒤로') {
+  return el('button', { class: 'btn btn-ghost btn-small', type: 'button', onclick: onClick },
+    el('span', { 'aria-hidden': 'true' }, '‹ '), label);
+}
+
+let fieldSeq = 0;
+// 이름표 + 입력칸 + 도움말을 한 묶음으로. control 은 입력칸 또는 passwordInput() 결과
+export function field(labelText, control, hintText) {
+  const input = control.input || control;
+  input.id = input.id || `f${++fieldSeq}`;
+  const hint = hintText ? el('p', { class: 'hint', id: `${input.id}-hint` }, hintText) : null;
+  if (hint) input.setAttribute('aria-describedby', hint.id);
+  return el('div', { class: 'field' }, el('label', { class: 'label', for: input.id }, labelText), control, hint);
+}
+
+// 비밀번호 칸 + "보기" 버튼. 돌려준 묶음의 .input 이 실제 입력칸이에요.
+export function passwordInput(attrs = {}) {
+  const input = el('input', { class: 'input', type: 'password', minlength: 6, required: true, ...attrs });
+  const toggle = el('button', {
+    class: 'pw-toggle', type: 'button', 'aria-label': '비밀번호 보기',
+    onclick: () => {
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      toggle.textContent = show ? '숨기기' : '보기';
+      toggle.setAttribute('aria-label', show ? '비밀번호 숨기기' : '비밀번호 보기');
+    },
+  }, '보기');
+  const wrap = el('div', { class: 'pw-wrap' }, input, toggle);
+  wrap.input = input;
+  return wrap;
+}
+
+// 폼 안에 보여 주는 안내/오류 상자
+export function messageBox() {
+  const box = el('div', { class: 'form-msg', role: 'alert', hidden: true });
+  box.show = (text, kind = 'error') => {
+    box.className = `form-msg ${kind}`;
+    box.textContent = text;
+    box.hidden = false;
+  };
+  box.clear = () => { box.hidden = true; box.textContent = ''; };
+  return box;
+}
+
+// 버튼을 "처리 중" 상태로 바꿨다가 되돌리기
+export function setBusy(button, busy, busyText = '잠시만요…') {
+  if (busy) {
+    button.dataset.label = button.textContent;
+    button.disabled = true;
+    button.replaceChildren(el('span', { class: 'spinner spinner-sm', 'aria-hidden': 'true' }), busyText);
+  } else {
+    button.disabled = false;
+    button.textContent = button.dataset.label || button.textContent;
+  }
+}
+
+export function loadingScreen(text = '불러오는 중…') {
+  return el('div', { class: 'splash' },
+    el('div', { class: 'center muted' }, el('div', { class: 'spinner', style: 'margin:0 auto 12px' }), text));
+}
