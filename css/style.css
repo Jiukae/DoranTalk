@@ -332,3 +332,144 @@ a { color: var(--primary); }
   .spinner { animation-duration: 2s; }
   .btn:active { transform: none; }
 }
+
+/* ---------- 3단계: 홈 · 초대 · 그룹 ---------- */
+.section-title {
+  font-size: 1.15rem;
+  margin: 8px 4px 12px;
+}
+
+.invite-card {
+  border: 2px solid #f2b48f;
+  background: #fffaf6;
+}
+.invite-from { color: var(--muted); margin: 0 0 4px; font-size: 0.95rem; }
+.invite-group { font-size: 1.35rem; font-weight: 800; margin: 0 0 6px; }
+
+.btn-row { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+
+.group-list { list-style: none; margin: 0 0 16px; padding: 0; }
+.group-list li + li { margin-top: 12px; }
+.group-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 84px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  text-decoration: none;
+}
+.group-item:active { background: var(--surface-soft); }
+.group-icon {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--primary-soft);
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+}
+.group-text { flex: 1; min-width: 0; }
+.group-name {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chevron { color: var(--muted); font-size: 2rem; line-height: 1; }
+
+.empty { text-align: center; padding: 8px 0 4px; }
+.empty .big-emoji { margin-bottom: 8px; }
+.empty-title { font-size: 1.15rem; font-weight: 800; margin-bottom: 6px; }
+
+.my-nick {
+  background: var(--surface-soft);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin: 12px 0 16px;
+  text-align: center;
+}
+.my-nick-value { font-size: 1.5rem; font-weight: 800; color: var(--primary-hover); margin: 4px 0 0; }
+
+/* 아래쪽 탭 (소식 · 채팅 · 가족) */
+.page-with-tabs { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  background: rgba(255, 255, 255, 0.97);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -2px 10px rgba(90, 50, 20, 0.06);
+}
+.tabbar-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 68px;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.95rem;
+  position: relative;
+}
+.tab-icon { font-size: 1.5rem; line-height: 1.1; filter: grayscale(0.6); opacity: 0.75; }
+.tab.active { color: var(--primary); }
+.tab.active .tab-icon { filter: none; opacity: 1; }
+.tab.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 25%;
+  right: 25%;
+  height: 4px;
+  border-radius: 0 0 4px 4px;
+  background: var(--primary);
+}
+
+/* 사람 목록 */
+.people { list-style: none; margin: 0; padding: 0; }
+.person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+.person:first-child { border-top: 0; padding-top: 0; }
+.person:last-child { padding-bottom: 0; }
+.person-text { flex: 1; min-width: 0; }
+.person-name { margin: 0; font-weight: 700; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.badge {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+}
+.badge-owner { background: var(--primary-soft); color: var(--primary-hover); }
+
+.btn-danger-text { color: var(--danger); }
+.btn-danger-text:hover { background: var(--danger-soft); }
+
+/* 아래쪽 탭이 있는 화면에서는 알림 문구를 탭 위로 */
+body:has(.tabbar) .toast { bottom: calc(88px + env(safe-area-inset-bottom)); }

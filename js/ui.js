@@ -121,3 +121,24 @@ export function loadingScreen(text = '불러오는 중…') {
   return el('div', { class: 'splash' },
     el('div', { class: 'center muted' }, el('div', { class: 'spinner', style: 'margin:0 auto 12px' }), text));
 }
+
+// 닉네임 첫 글자가 들어간 동그라미
+export function avatar(nickname, size = '') {
+  return el('div', { class: `avatar ${size}`, 'aria-hidden': 'true' }, (nickname || '?').slice(0, 1));
+}
+
+// 내용이 없을 때 보여 주는 안내
+export function emptyState(emoji, title, ...lines) {
+  return el('div', { class: 'empty' },
+    el('div', { class: 'big-emoji', 'aria-hidden': 'true' }, emoji),
+    el('p', { class: 'empty-title' }, title),
+    ...lines.map((line) => el('p', { class: 'muted' }, line)),
+  );
+}
+
+export function errorCard(message, onRetry) {
+  return el('section', { class: 'card stack' },
+    el('p', { class: 'form-msg error', style: 'margin:0' }, message),
+    onRetry && el('button', { class: 'btn btn-secondary btn-block', type: 'button', onclick: onRetry }, '다시 시도'),
+  );
+}

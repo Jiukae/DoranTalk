@@ -53,7 +53,7 @@ create table if not exists public.group_invitations (
   inviter_id    uuid references public.profiles (id) on delete set null,
   invitee_id    uuid not null references public.profiles (id) on delete cascade,
   status        text not null default 'pending'
-                check (status in ('pending', 'accepted', 'declined')),
+                check (status in ('pending', 'accepted', 'declined', 'canceled')),
   created_at    timestamptz not null default now(),
   responded_at  timestamptz
 );
@@ -62,6 +62,10 @@ create unique index if not exists group_invitations_one_pending
   on public.group_invitations (group_id, invitee_id) where status = 'pending';
 create index if not exists group_invitations_invitee_idx
   on public.group_invitations (invitee_id, status);
+-- (3단계에서 추가) 초대 취소 상태 허용 — 예전에 만든 표에도 적용되도록 규칙을 다시 만듦
+alter table public.group_invitations drop constraint if exists group_invitations_status_check;
+alter table public.group_invitations add constraint group_invitations_status_check
+  check (status in ('pending', 'accepted', 'declined', 'canceled'));
 
 -- 피드 글 (사진은 저장소 경로 목록으로 보관)
 create table if not exists public.posts (
@@ -146,7 +150,7 @@ as $$
 $$;
 
 -- 이 사람의 닉네임을 내가 볼 수 있는가?
--- (나 자신 / 같은 그룹 멤버 / 나와 초대를 주고받은 사람만)
+-- (나 자신 / 같은 그룹 멤버 / 나와 초대를 주고받은 사람 / 내 그룹에 초대되어 대기 중인 사람)
 create or replace function public.can_see_profile(target uuid)
 returns boolean
 language sql stable security definer set search_path = ''
@@ -161,6 +165,11 @@ as $$
     select 1 from public.group_invitations i
     where (i.invitee_id = auth.uid() and i.inviter_id = target)
        or (i.inviter_id = auth.uid() and i.invitee_id = target)
+  )
+  or exists (
+    select 1 from public.group_invitations i
+    join public.group_members m on m.group_id = i.group_id
+    where m.user_id = auth.uid() and i.invitee_id = target and i.status = 'pending'
   );
 $$;
 
@@ -342,10 +351,27 @@ begin
 
     insert into public.chat_reads (group_id, user_id)
     values (inv.group_id, uid)
-    on conflict do nothing;
+    on conflict (group_id, user_id) do update set last_read_at = now();
   end if;
 
   return inv.group_id;
+end;
+$$;
+
+-- 보낸 초대 취소 (그 그룹 멤버라면 누구나, 아직 대기 중인 초대만)
+create or replace function public.cancel_invitation(inv_id uuid)
+returns void
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  update public.group_invitations i
+  set status = 'canceled', responded_at = now()
+  where i.id = inv_id
+    and i.status = 'pending'
+    and public.is_group_member(i.group_id);
+  if not found then
+    raise exception '이 초대를 취소할 수 없어요. 이미 수락·거절되었을 수 있어요.';
+  end if;
 end;
 $$;
 
@@ -543,6 +569,7 @@ revoke execute on function
   public.invite_by_nickname(uuid, text),
   public.get_my_invitations(),
   public.respond_invitation(uuid, boolean),
+  public.cancel_invitation(uuid),
   public.mark_chat_read(uuid),
   public.get_unread_counts()
   from public, anon, authenticated;
@@ -556,6 +583,7 @@ grant execute on function
   public.invite_by_nickname(uuid, text),
   public.get_my_invitations(),
   public.respond_invitation(uuid, boolean),
+  public.cancel_invitation(uuid),
   public.mark_chat_read(uuid),
   public.get_unread_counts()
   to authenticated;

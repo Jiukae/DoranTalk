@@ -99,7 +99,13 @@ do $$ begin
   insert into storage.objects (bucket_id, name) values ('family-photos', (select v from pg_temp.ids where k='g')::text || '/posts/x.jpg');
   raise exception 'TEST FAILED: invitee uploaded';
 exception when insufficient_privilege then null; end $$;
+reset role;
+-- 엄마가 보낸 초대 목록에서 대기 중인 사람 닉네임이 보임
+select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000001');
+select pg_temp.assert((select count(*) from public.profiles where nickname in ('아빠', 'Daughter')) = 2, 'member sees pending invitee nicknames');
+reset role;
 -- 딸은 거절
+select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000003');
 select public.respond_invitation((select id from public.get_my_invitations()), false);
 select pg_temp.assert((select count(*) from public.get_my_invitations()) = 0, 'declined invite gone');
 select pg_temp.assert((select count(*) from public.posts) = 0, 'declined still cannot see');
@@ -127,6 +133,26 @@ do $$ begin
 exception when raise_exception then
   if sqlerrm like 'TEST FAILED%' then raise; end if;
 end $$;
+reset role;
+
+-- 엄마가 딸을 다시 초대했다가 취소 → 딸에게 초대가 사라짐, 외부인은 취소 불가
+select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000001');
+select public.invite_by_nickname((select v from pg_temp.ids where k='g'), 'Daughter');
+insert into pg_temp.ids values ('inv2', (select id from public.group_invitations where status = 'pending' and invitee_id = 'aaaaaaaa-0000-0000-0000-000000000003'));
+reset role;
+select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000004');
+do $$ begin
+  perform public.cancel_invitation((select v from pg_temp.ids where k='inv2'));
+  raise exception 'TEST FAILED: stranger canceled';
+exception when raise_exception then
+  if sqlerrm like 'TEST FAILED%' then raise; end if;
+end $$;
+reset role;
+select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000001');
+select public.cancel_invitation((select v from pg_temp.ids where k='inv2'));
+reset role;
+select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000003');
+select pg_temp.assert((select count(*) from public.get_my_invitations()) = 0, 'canceled invite gone');
 reset role;
 
 -- 아빠: 수락 후 모든 내용이 보임

@@ -10,8 +10,12 @@ create table auth.users (
   email text,
   raw_user_meta_data jsonb default '{}'
 );
+-- 실제 Supabase와 같은 방식: PostgREST가 넣어 주는 JWT 정보에서 사용자 ID를 꺼냄
 create function auth.uid() returns uuid language sql stable as $$
-  select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
+  )::uuid
 $$;
 grant usage on schema auth to anon, authenticated;
 

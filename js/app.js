@@ -6,7 +6,8 @@ import { el, render, brandHeader, loadingScreen, toast } from './ui.js';
 import { friendlyError } from './errors.js';
 import { renderCheck } from './pages/check.js';
 import { renderLogin, renderSignup, renderForgot, renderNewPassword } from './pages/auth.js';
-import { renderHome, renderMe } from './pages/home.js';
+import { renderHome, renderMe, renderNewGroup } from './pages/home.js';
+import { renderGroup } from './pages/group.js';
 
 // 메일 링크(비밀번호 재설정·가입 인증)를 눌러 들어왔는지 확인
 const initialHash = location.hash;
@@ -18,7 +19,7 @@ const linkError = (() => {
 
 // 로그인이 필요한 화면은 닉네임 정보까지 준비된 뒤에 그립니다
 function needsProfile(renderPage) {
-  return async () => {
+  return async (params) => {
     if (!state.profile) {
       render(loadingScreen());
       try {
@@ -28,7 +29,7 @@ function needsProfile(renderPage) {
       }
       if (!state.profile) return renderProfileError('내 닉네임 정보를 찾을 수 없어요.');
     }
-    return renderPage();
+    return renderPage(params);
   };
 }
 
@@ -54,6 +55,8 @@ route('/forgot', renderForgot, { access: 'guest' });
 route('/new-password', renderNewPassword, { access: 'auth' });
 route('/home', needsProfile(renderHome));
 route('/me', needsProfile(renderMe));
+route('/groups/new', needsProfile(renderNewGroup));
+route('/group/:id/:tab', needsProfile(renderGroup));
 
 setGuard((path, access) => {
   if (access === 'any') return null;
@@ -79,6 +82,7 @@ function listenAuthChanges() {
         go('/login', { replace: true });
       } else if (event === 'SIGNED_IN' && !wasLoggedIn) {
         state.profile = null;
+        state.autoOpen = true;
         go(state.recovery ? '/new-password' : '/home', { replace: true });
       }
     }, 0);
@@ -110,6 +114,8 @@ async function start() {
   if (state.recovery) {
     history.replaceState(null, '', '#/new-password');
   } else if (!currentPath()) {
+    // 앱을 그냥 열었을 때: 가족 그룹이 하나뿐이면 홈에서 바로 그 그룹으로 넘어가요
+    state.autoOpen = Boolean(state.session);
     history.replaceState(null, '', state.session ? '#/home' : '#/login');
   }
   await startRouter();
