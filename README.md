@@ -5,6 +5,7 @@
 - 프론트엔드: HTML + CSS + 순수 JavaScript (빌드 과정 없음)
 - 백엔드: Supabase (로그인, 데이터베이스, 실시간 채팅, 사진 저장)
 - 배포: Netlify (정적 사이트) · PWA로 휴대폰 홈 화면에 추가 가능
+- 앱 주소: https://talkfeed.netlify.app
 
 ## 진행 단계
 

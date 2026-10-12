@@ -114,7 +114,7 @@ URL: https://abcdefghijklmn.supabase.co
    - **Branch to deploy**: `claude/talkfeed-family-app-qyi292` 로 바꿔 주세요. ← 중요!
    - Build command: **비워 두기**
    - Publish directory: **비워 두기** (저장소의 설정 파일 `netlify.toml` 이 알아서 정해 줘요)
-   - Project name(사이트 이름): 원하면 `우리가족talkfeed` 같은 영어 이름으로 바꿀 수 있어요. 예: `kim-family-talkfeed`
+   - Project name(사이트 이름): 영어 소문자·숫자·`-`로 원하는 이름을 정할 수 있어요. (우리 앱은 `talkfeed` 로 정했어요)
 6. **Deploy** 버튼을 누릅니다. 1분 정도 지나면 `https://프로젝트이름.netlify.app` 주소가 생겨요.
 7. 그 주소를 휴대폰으로 열어 보세요.
    - 제가 키를 넣기 **전**: "설정 파일" 항목에 빨간 ! 가 보이면 정상이에요.

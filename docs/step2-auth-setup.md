@@ -33,13 +33,13 @@ Supabase 화면은 가끔 바뀌어서 메뉴 이름이 조금 다를 수 있어
 돌아오게 하려면 Supabase에 앱 주소를 알려 줘야 해요.
 
 1. **Authentication** → **URL Configuration** 을 누릅니다.
-2. **Site URL** 칸을 지우고 Netlify 주소를 넣습니다. 예) `https://kim-family-talkfeed.netlify.app`
+2. **Site URL** 칸을 지우고 우리 앱 주소를 그대로 넣습니다: `https://talkfeed.netlify.app`
    → **Save** 누르기
 3. 같은 화면 아래 **Redirect URLs** 에서 **Add URL** 을 누르고 아래처럼 입력 후 저장합니다.
    ```
-   https://kim-family-talkfeed.netlify.app/**
+   https://talkfeed.netlify.app/**
    ```
-   (`kim-family-talkfeed` 부분은 실제 내 Netlify 주소로 바꿔 주세요. 끝의 `/**` 까지 꼭 넣어 주세요.)
+   (끝의 `/**` 까지 꼭 넣어 주세요. 다른 주소가 들어 있으면 지워 주세요.)
 
 ---
 
