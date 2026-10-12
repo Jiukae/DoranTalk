@@ -41,7 +41,8 @@ js/lightbox.js          사진 크게 보기
 js/format.js            "방금 전", "어제" 같은 날짜 표시
 js/pages/check.js       연결 점검 화면 (#/check)
 vendor/supabase.js      Supabase 공식 라이브러리 v2.117.1 (MIT 라이선스)
-supabase/schema.sql     DB 테이블 + 보안 규칙(RLS) + 사진 저장소 설정 — SQL Editor에서 실행
+supabase/schema.sql     DB 전체 설계(테이블 + 보안 규칙 RLS + 사진 저장소) — 처음 설치할 때 SQL Editor에서 실행
+supabase/updates/       단계별 짧은 업데이트 파일 (이미 설치한 DB에 바뀐 부분만 적용)
 supabase/tests/         보안 규칙 자동 검사 (개발용, Supabase에 실행하지 않음)
 docs/                   단계별 안내서
 netlify.toml            배포 설정
