@@ -43,6 +43,19 @@ function jwtRole(key) {
 
 const config = checkConfig();
 
+// 로그인 정보를 전혀 쓰지 않는 "손님" 연결. 연결 점검에서 로그인 안 한 사람처럼 시험할 때만 씁니다.
+export function createGuestClient() {
+  if (!config.ok) return null;
+  return window.supabase.createClient(SUPABASE_URL.trim().replace(/\/$/, ''), SUPABASE_ANON_KEY.trim(), {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      storageKey: 'talkfeed-guest-check',
+    },
+  });
+}
+
 export const sb = config.ok
   ? window.supabase.createClient(SUPABASE_URL.trim().replace(/\/$/, ''), SUPABASE_ANON_KEY.trim(), {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },

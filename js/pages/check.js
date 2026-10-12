@@ -1,6 +1,6 @@
 // 연결 점검 화면 (#/check)
 // Supabase 연결과 보안 규칙이 제대로 되어 있는지 확인합니다. 문제가 생겼을 때 진단용.
-import { sb, checkConfig } from '../supabase.js';
+import { sb, checkConfig, createGuestClient } from '../supabase.js';
 import { el, render, brandHeader } from '../ui.js';
 
 // 앱이 기대하는 schema.sql 버전. SQL 파일 맨 위 "버전 N" 과 같아야 해요.
@@ -39,8 +39,10 @@ async function checkServerStep() {
 }
 
 async function checkSecurityStep() {
-  // 로그인하지 않은 상태로 가족 글을 읽어 봅니다. "거절"당해야 정상입니다.
-  const { data, error } = await sb.from('posts').select('id').limit(1);
+  // 로그인하지 않은 사람인 척 가족 글을 읽어 봅니다. "거절"당해야 정상입니다.
+  // (지금 로그인되어 있어도 영향을 받지 않도록 로그인 정보가 없는 별도 연결을 씁니다)
+  const guest = createGuestClient();
+  const { data, error } = await guest.from('posts').select('id').limit(1);
   if (error && (error.code === '42501' || /permission denied/i.test(error.message))) {
     return { status: 'ok', detail: '로그인하지 않은 사람은 가족 글을 볼 수 없어요. (정상)' };
   }
