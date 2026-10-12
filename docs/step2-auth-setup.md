@@ -43,26 +43,19 @@ Supabase 화면은 가끔 바뀌어서 메뉴 이름이 조금 다를 수 있어
 
 ---
 
-## C. (선택) 비밀번호 찾기 메일을 한국어로 바꾸기
+## C. 메일 양식(한국어 메일)은 지금 건너뛰세요
 
-기본 메일은 영어라 부모님이 헷갈릴 수 있어요.
+Supabase의 기본(무료) 메일 발송에는 제한이 있어요.
 
-1. **Authentication** → **Emails** (또는 **Email Templates**) 를 누릅니다.
-2. **Reset Password** (또는 **Reset password**) 를 고릅니다.
-3. **Subject heading(제목)** 칸을 아래로 바꿉니다.
-   ```
-   [TalkFeed] 비밀번호를 새로 정해 주세요
-   ```
-4. **Message body(본문)** 칸의 내용을 모두 지우고 아래를 붙여넣습니다.
-   ```html
-   <h2>TalkFeed 비밀번호 재설정</h2>
-   <p>아래 버튼을 누르면 새 비밀번호를 정할 수 있어요.</p>
-   <p><a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 24px;background:#c9581f;color:#ffffff;border-radius:12px;text-decoration:none;font-weight:bold;font-size:18px">새 비밀번호 정하기</a></p>
-   <p>직접 요청하지 않았다면 이 메일은 무시하셔도 괜찮아요.</p>
-   ```
-5. **Save changes** 를 누릅니다.
+- **메일 양식(제목·본문)을 바꿀 수 없어요.** Templates 화면에
+  "Set up custom SMTP to edit templates" 라고 나오면 이 제한 때문이에요. 그냥 건너뛰면 돼요.
+- **Supabase 프로젝트 팀원(=나)에게만 메일이 가요.** 그래서 지금은 가족이 "비밀번호를 잊으셨나요?"를
+  눌러도 메일이 가지 않고, 앱에 "지금은 메일을 보낼 수 없어요" 라는 안내가 떠요.
+- 1시간에 2통 정도만 보낼 수 있어요.
 
-> A에서 이메일 인증을 **켜 둔 채로** 쓰실 거라면, 같은 방법으로 **Confirm signup** 메일도 한국어로 바꿀 수 있어요.
+이 문제는 **6단계(배포)** 에서 "나만의 메일 발송 설정(Custom SMTP)"을 하면 한꺼번에 풀려요.
+(예: Gmail 계정으로 TalkFeed 메일 보내기) 그때 한국어 메일 양식도 함께 넣을게요.
+회원가입·로그인은 메일이 필요 없어서(A에서 이메일 인증을 껐기 때문) 지금도 잘 돼요.
 
 ---
 
@@ -95,5 +88,5 @@ Netlify 주소를 휴대폰으로 열고, 아래 순서대로 해 보세요. (�
 
 - [ ] A. Confirm email 끄기 → Save
 - [ ] B. Site URL과 Redirect URLs에 Netlify 주소 넣기
-- [ ] C. (선택) 비밀번호 찾기 메일 한국어로 바꾸기
+- [ ] C. 메일 양식은 건너뛰기 (6단계에서 설정)
 - [ ] D. 휴대폰으로 1~9번 확인

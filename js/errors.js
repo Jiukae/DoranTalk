@@ -9,6 +9,7 @@ const AUTH_CODES = {
   same_password: '지금 쓰는 비밀번호와 달라야 해요.',
   email_address_invalid: '이메일 주소 모양이 올바르지 않아요.',
   validation_failed: '입력한 내용을 다시 확인해 주세요.',
+  email_address_not_authorized: '지금은 비밀번호 찾기 메일을 보낼 수 없어요. 가족 중 앱 관리자에게 비밀번호 초기화를 부탁해 주세요.',
   over_email_send_rate_limit: '메일을 너무 자주 보냈어요. 1시간쯤 뒤에 다시 시도해 주세요.',
   over_request_rate_limit: '너무 많이 시도했어요. 잠시 후에 다시 해 주세요.',
   signup_disabled: '지금은 회원가입이 막혀 있어요. 관리자에게 문의해 주세요.',
@@ -35,6 +36,7 @@ export function friendlyError(error) {
   if (/email not confirmed/i.test(msg)) return AUTH_CODES.email_not_confirmed;
   if (/password should be at least/i.test(msg)) return '비밀번호는 6자 이상이어야 해요.';
   if (/database error saving new user/i.test(msg)) return AUTH_CODES.unexpected_failure;
+  if (/email address not authorized/i.test(msg)) return AUTH_CODES.email_address_not_authorized;
   if (/rate limit/i.test(msg)) return AUTH_CODES.over_request_rate_limit;
   if (/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) {
     return '인터넷 연결을 확인해 주세요. 연결이 되어 있다면 잠시 후 다시 시도해 주세요.';
