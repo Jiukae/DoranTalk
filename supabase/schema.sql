@@ -1,5 +1,7 @@
 -- =====================================================================
 --  TalkFeed 데이터베이스 설계 (테이블 + 보안 규칙 RLS + 사진 저장소)
+--  ★ 버전 3 (3단계: 가족 그룹·초대) ★
+--    앱 주소 뒤에 #/check 를 붙여 열면 DB 버전이 최신인지 확인할 수 있어요.
 -- ---------------------------------------------------------------------
 --  사용법: Supabase 대시보드 → SQL Editor → 이 파일 내용을 전부 붙여넣고 Run
 --  여러 번 실행해도 안전하도록(이미 있으면 건너뛰도록) 작성했습니다.
@@ -220,6 +222,12 @@ create trigger on_auth_user_created
 -- ---------------------------------------------------------------------
 -- 4. 앱에서 부르는 기능 함수 (RPC)
 -- ---------------------------------------------------------------------
+
+-- 이 SQL 파일의 버전 (앱의 "연결 점검" 화면이 최신인지 확인할 때 사용)
+create or replace function public.talkfeed_schema_version()
+returns integer
+language sql immutable set search_path = ''
+as $$ select 3 $$;
 
 -- 닉네임 사용 가능 여부 (가입 화면에서 로그인 전에 확인)
 create or replace function public.is_nickname_available(nick text)
@@ -565,6 +573,7 @@ revoke execute on function
   public.touch_updated_at(),
   public.handle_new_user(),
   public.is_nickname_available(text),
+  public.talkfeed_schema_version(),
   public.create_group(text),
   public.invite_by_nickname(uuid, text),
   public.get_my_invitations(),
@@ -575,6 +584,7 @@ revoke execute on function
   from public, anon, authenticated;
 
 grant execute on function public.is_nickname_available(text) to anon, authenticated;
+grant execute on function public.talkfeed_schema_version() to anon, authenticated;
 grant execute on function
   public.is_group_member(uuid),
   public.can_access_post(uuid),
@@ -661,5 +671,8 @@ create policy "family_photos_delete_owner" on storage.objects
     bucket_id = 'family-photos'
     and owner_id = (select auth.uid())::text
   );
+
+-- 앱이 새 기능(함수)을 바로 찾을 수 있도록 서버의 목록을 새로고침
+notify pgrst, 'reload schema';
 
 -- 끝! 아래 "Success. No rows returned" 가 보이면 성공입니다.

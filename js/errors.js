@@ -26,6 +26,9 @@ export function friendlyError(error) {
   if (AUTH_CODES[code]) return AUTH_CODES[code];
 
   // 데이터베이스 오류 코드
+  if (code === 'PGRST202' || code === 'PGRST205') {
+    return '서버(데이터베이스)가 예전 버전이라 이 기능을 쓸 수 없어요. 관리자가 최신 schema.sql 을 다시 실행해야 해요. (앱 주소 뒤에 #/check 를 붙여 열면 확인할 수 있어요)';
+  }
   if (code === '23505') return '이미 사용 중인 닉네임이에요. 다른 닉네임을 골라 주세요.';
   if (code === '23514') return '입력한 내용이 규칙에 맞지 않아요.';
   if (code === '42501') return '이 작업을 할 수 있는 권한이 없어요.';
