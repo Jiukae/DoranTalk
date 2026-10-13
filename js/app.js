@@ -8,6 +8,8 @@ import { renderCheck } from './pages/check.js';
 import { renderLogin, renderSignup, renderForgot, renderNewPassword } from './pages/auth.js';
 import { renderHome, renderMe, renderNewGroup } from './pages/home.js';
 import { renderGroup } from './pages/group.js';
+import { renderHelp } from './pages/help.js';
+import { setupInstall } from './install.js';
 import { renderWrite, renderPostDetail } from './pages/feed.js';
 
 // 메일 링크(비밀번호 재설정·가입 인증)를 눌러 들어왔는지 확인
@@ -50,6 +52,7 @@ function renderProfileError(message) {
 }
 
 route('/check', renderCheck, { access: 'any' });
+route('/help', renderHelp, { access: 'any' });
 route('/login', renderLogin, { access: 'guest' });
 route('/signup', renderSignup, { access: 'guest' });
 route('/forgot', renderForgot, { access: 'guest' });
@@ -93,6 +96,9 @@ function listenAuthChanges() {
     }, 0);
   });
 }
+
+// "홈 화면에 추가" 신호는 앱이 열리자마자 올 수 있어서 가장 먼저 준비
+setupInstall();
 
 async function start() {
   trackKeyboard();

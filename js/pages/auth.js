@@ -6,6 +6,7 @@ import { friendlyError } from '../errors.js';
 import {
   el, render, brandHeader, field, passwordInput, messageBox, setBusy, toast,
 } from '../ui.js';
+import { inAppBrowserNotice } from '../install.js';
 
 export const NICKNAME_RULE = /^[가-힣a-zA-Z0-9_]{2,12}$/;
 export const NICKNAME_HINT = '2~12자, 한글·영어·숫자로 지어 주세요. 가족이 나를 초대할 때 이 이름으로 찾아요.';
@@ -74,6 +75,7 @@ export function renderLogin() {
 
   render(el('main', { class: 'page' },
     brandHeader(),
+    inAppBrowserNotice(),
     form,
     el('section', { class: 'card center' },
       el('p', { class: 'muted', style: 'margin-bottom:12px' }, '처음 오셨나요?'),
@@ -188,6 +190,7 @@ export function renderSignup() {
 
   render(el('main', { class: 'page' },
     brandHeader('가족과 함께 시작해요'),
+    inAppBrowserNotice(),
     form,
     el('p', { class: 'center' },
       '이미 가입하셨나요? ', el('a', { href: '#/login', class: 'link-strong' }, '로그인')),
@@ -284,5 +287,6 @@ export function renderNewPassword() {
 
 function footerLinks() {
   return el('p', { class: 'center small muted', style: 'margin-top:8px' },
+    el('a', { href: '#/help', class: 'link-strong' }, '📖 사용 방법'), ' · ',
     el('a', { href: '#/check', class: 'muted' }, '연결 점검'));
 }

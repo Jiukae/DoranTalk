@@ -878,3 +878,29 @@ body.typing .page-chat { padding-bottom: calc(100px + env(safe-area-inset-bottom
 }
 .tab-badge { position: absolute; top: 6px; left: calc(50% + 8px); }
 .unread-badge { flex: none; font-size: 0.95rem; padding: 4px 10px; }
+
+/* ---------- 6단계: 설치 안내 · 사용 방법 ---------- */
+img.brand-logo { object-fit: cover; }
+
+.notice {
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  border: 2px solid var(--border);
+  background: var(--surface);
+}
+.notice p { margin: 0 0 12px; }
+.notice-title { font-weight: 800; font-size: 1.1rem; }
+.notice-warn { border-color: #f2c66d; background: var(--warn-soft); }
+.notice-install { border-color: #f2b48f; background: #fffaf6; }
+
+.help h2 { margin-bottom: 12px; }
+.help h3 { margin: 18px 0 8px; font-size: 1.05rem; color: var(--primary-hover); }
+.help h3:first-of-type { margin-top: 8px; }
+.steps { margin: 0 0 8px; padding-left: 1.4em; }
+.steps li { margin-bottom: 8px; padding-left: 4px; }
+.bullets { margin: 0; padding-left: 1.2em; }
+.bullets li { margin-bottom: 10px; }
+
+.share-hint { margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--border); }
+.share-hint p { margin-bottom: 10px; }

@@ -14,6 +14,7 @@ import {
 import { timeAgo } from '../format.js';
 import { fetchUnreadCounts, watchNewMessages } from '../chat.js';
 import { APP_VERSION } from '../version.js';
+import { installBanner, inAppBrowserNotice } from '../install.js';
 
 function meButton() {
   return el('button', { class: 'btn btn-ghost btn-small', type: 'button', onclick: () => go('/me') },
@@ -52,6 +53,7 @@ export async function renderHome() {
     }
 
     content.replaceChildren(
+      ...[inAppBrowserNotice() || installBanner()].filter(Boolean),
       ...(invites.length > 0 ? [invitationsSection(invites, load)] : []),
       groupsSection(groups, unread),
     );
@@ -296,7 +298,8 @@ export function renderMe() {
         logout,
       ),
       el('p', { class: 'muted small center' },
-        `앱 버전: ${APP_VERSION} · `, el('a', { href: '#/check', class: 'muted' }, '연결 점검')),
+        el('a', { href: '#/help', class: 'link-strong' }, '📖 사용 방법'), ' · ',
+        el('a', { href: '#/check', class: 'muted' }, '연결 점검'), ` · 앱 버전: ${APP_VERSION}`),
     ),
   );
 }

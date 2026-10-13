@@ -16,12 +16,15 @@
 | 3 | 가족 그룹 만들기 + 닉네임 초대 + 수락/거절 | ✅ 완료 → [안내서](docs/step3-groups.md) |
 | 4 | 피드 (글, 사진, 댓글, 좋아요) | ✅ 완료 → [안내서](docs/step4-feed.md) |
 | 5 | 실시간 채팅 | ✅ 완료 → [안내서](docs/step5-chat.md) |
-| 6 | PWA + 배포 + 가족 접속 링크 | |
+| 6 | PWA + 배포 + 가족 접속 링크 | ✅ 완료 → [안내서](docs/step6-launch.md) · [가족 초대 문구](docs/family-invite.md) |
 
 ## 폴더 구조
 
 ```
 index.html              앱의 시작 화면 (한 페이지 앱)
+manifest.webmanifest    홈 화면 앱 정보(이름, 아이콘, 색)
+sw.js                   서비스 워커: 앱 화면 저장(인터넷이 약해도 열림), 항상 최신 파일 우선
+icons/                  앱 아이콘 (주황색 집 + 하트)
 css/style.css           디자인 (큰 글씨, 누르기 쉬운 버튼, 따뜻한 색)
 js/config.js            Supabase 주소 + 공개(anon/publishable) 키  ← 여기만 채우면 연결
 js/supabase.js          Supabase 연결 + 키 안전 검사 (비밀 키 감지 시 작동 중지)
@@ -41,6 +44,8 @@ js/lightbox.js          사진 크게 보기
 js/pages/chat.js        채팅방: 실시간 메시지, 사진, 안 읽은 가족 수, 놓친 메시지 따라잡기
 js/chat.js              메시지·읽음 표시·안 읽은 수 서버 요청과 실시간 연결
 js/version.js           앱 버전 표시
+js/install.js           홈 화면 추가 안내, 카카오톡 안 브라우저 안내, 서비스 워커 등록
+js/pages/help.js        사용 방법 화면 (#/help)
 js/format.js            "방금 전", "어제" 같은 날짜 표시
 js/pages/check.js       연결 점검 화면 (#/check)
 vendor/supabase.js      Supabase 공식 라이브러리 v2.117.1 (MIT 라이선스)
@@ -48,7 +53,7 @@ supabase/schema.sql     DB 전체 설계(테이블 + 보안 규칙 RLS + 사진 
 supabase/updates/       단계별 짧은 업데이트 파일 (이미 설치한 DB에 바뀐 부분만 적용)
 supabase/tests/         보안 규칙 자동 검사 (개발용, Supabase에 실행하지 않음)
 docs/                   단계별 안내서
-netlify.toml            배포 설정
+netlify.toml            배포 설정 + 보안 머리말(CSP 등)
 ```
 
 ## 보안 설계 요약

@@ -42,7 +42,7 @@ export function toast(message, ms = 2600) {
 
 export function brandHeader(subtitle = '우리 가족 소식방') {
   return el('div', { class: 'brand' },
-    el('div', { class: 'brand-logo', 'aria-hidden': 'true' }, '🏡'),
+    el('img', { class: 'brand-logo', src: 'icons/icon-192.png', alt: '', width: 52, height: 52 }),
     el('div', {},
       el('p', { class: 'brand-name' }, 'TalkFeed'),
       el('p', { class: 'brand-sub' }, subtitle),
@@ -155,4 +155,26 @@ export function trackKeyboard() {
   vv.addEventListener('resize', update);
   vv.addEventListener('scroll', update);
   update();
+}
+
+// 아직 가입하지 않은 가족에게 TalkFeed 주소 보내기 (휴대폰: 공유 창 → 카카오톡 등 / 컴퓨터: 복사)
+export async function shareAppLink() {
+  const url = `${location.origin}/`;
+  const text = '우리 가족 소식방 TalkFeed에 초대할게요! 😊\n'
+    + '① 아래 링크를 눌러 회원가입해 주세요\n'
+    + '② 가입할 때 정한 닉네임을 저에게 알려 주세요';
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'TalkFeed', text, url });
+      return;
+    } catch (err) {
+      if (err?.name === 'AbortError') return; // 사용자가 공유 창을 닫음
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(`${text}\n${url}`);
+    toast('초대 문구와 링크를 복사했어요. 카카오톡 대화방에 붙여넣어 보내 주세요.', 4500);
+  } catch {
+    toast(`이 주소를 가족에게 보내 주세요: ${url}`, 6000);
+  }
 }

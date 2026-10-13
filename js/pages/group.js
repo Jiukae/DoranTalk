@@ -6,7 +6,7 @@ import { go, navToken, isStale } from '../router.js';
 import { friendlyError } from '../errors.js';
 import {
   el, render, appBar, backButton, field, messageBox, setBusy, toast, avatar, emptyState, errorCard,
-  loadingScreen,
+  loadingScreen, shareAppLink,
 } from '../ui.js';
 import {
   fetchGroup, fetchMembers, fetchPendingInvites, inviteByNickname, cancelInvitation, leaveGroup,
@@ -186,6 +186,10 @@ function inviteForm(group, onInvited) {
     field('초대할 가족의 닉네임', nick, '가족이 TalkFeed에 가입할 때 정한 닉네임을 정확히 입력해 주세요.'),
     msg,
     submit,
+    el('div', { class: 'share-hint' },
+      el('p', { class: 'muted small' }, '아직 가입하지 않은 가족이 있나요? 링크를 보내 가입을 부탁해 보세요.'),
+      el('button', { class: 'btn btn-secondary btn-block', type: 'button', onclick: shareAppLink }, '📤 가족에게 TalkFeed 링크 보내기'),
+    ),
   );
 }
 

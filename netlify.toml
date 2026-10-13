@@ -3,14 +3,19 @@
   publish = "."
   command = ""
 
-# 코드가 바뀌면 휴대폰에서도 바로 새 버전을 받도록 (저장된 옛 파일 대신 서버 확인)
+# 보안 머리말
+# - Content-Security-Policy: 우리 사이트 파일과 우리 Supabase 주소만 쓰도록 제한 (해킹 코드가 끼어들기 어렵게)
+# - 다른 사이트가 TalkFeed를 몰래 틀 안에 넣지 못하게 (X-Frame-Options / frame-ancestors)
 [[headers]]
   for = "/*"
   [headers.values]
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     X-Frame-Options = "DENY"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://jksstsimlqxleoerizzy.supabase.co; connect-src 'self' https://jksstsimlqxleoerizzy.supabase.co wss://jksstsimlqxleoerizzy.supabase.co; font-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 
+# 코드가 바뀌면 휴대폰에서도 바로 새 버전을 받도록 (저장된 옛 파일 대신 서버 확인)
 [[headers]]
   for = "/*.js"
   [headers.values]
@@ -25,3 +30,26 @@
   for = "/*.html"
   [headers.values]
     Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# 서비스 워커는 항상 최신으로 확인
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json; charset=utf-8"
+    Cache-Control = "no-cache"
+
+# 아이콘은 오래 저장해도 돼요
+[[headers]]
+  for = "/icons/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
