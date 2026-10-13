@@ -15,7 +15,7 @@
 | 2 | 회원가입 / 로그인 / 닉네임 | ✅ 완료 → [안내서](docs/step2-auth-setup.md) |
 | 3 | 가족 그룹 만들기 + 닉네임 초대 + 수락/거절 | ✅ 완료 → [안내서](docs/step3-groups.md) |
 | 4 | 피드 (글, 사진, 댓글, 좋아요) | ✅ 완료 → [안내서](docs/step4-feed.md) |
-| 5 | 실시간 채팅 | |
+| 5 | 실시간 채팅 | ✅ 완료 → [안내서](docs/step5-chat.md) |
 | 6 | PWA + 배포 + 가족 접속 링크 | |
 
 ## 폴더 구조
@@ -38,6 +38,9 @@ js/pages/feed.js        소식 목록 · 글쓰기/수정 · 글 상세(댓글, 
 js/feed.js              글·댓글·하트 서버 요청과 실시간 알림
 js/images.js            사진 고르기 · 자동으로 줄이기 · 올리기 · 임시 주소 받기
 js/lightbox.js          사진 크게 보기
+js/pages/chat.js        채팅방: 실시간 메시지, 사진, 안 읽은 가족 수, 놓친 메시지 따라잡기
+js/chat.js              메시지·읽음 표시·안 읽은 수 서버 요청과 실시간 연결
+js/version.js           앱 버전 표시
 js/format.js            "방금 전", "어제" 같은 날짜 표시
 js/pages/check.js       연결 점검 화면 (#/check)
 vendor/supabase.js      Supabase 공식 라이브러리 v2.117.1 (MIT 라이선스)

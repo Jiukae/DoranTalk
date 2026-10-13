@@ -142,3 +142,17 @@ export function errorCard(message, onRetry) {
     onRetry && el('button', { class: 'btn btn-secondary btn-block', type: 'button', onclick: onRetry }, '다시 시도'),
   );
 }
+
+// 휴대폰 키보드가 올라오면 아래쪽 입력칸(댓글·채팅)이 키보드 바로 위에 붙도록
+// 키보드 높이를 CSS 변수 --kb 로 알려 줘요. (아이폰 Safari 대응)
+export function trackKeyboard() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const update = () => {
+    const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+    document.documentElement.style.setProperty('--kb', `${kb}px`);
+  };
+  vv.addEventListener('resize', update);
+  vv.addEventListener('scroll', update);
+  update();
+}

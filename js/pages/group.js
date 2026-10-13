@@ -1,5 +1,5 @@
 // 가족 그룹 화면: 아래쪽 탭(피드 · 채팅 · 가족)으로 이동합니다.
-// 소식 탭은 pages/feed.js, 채팅 탭은 5단계에서 채워집니다.
+// 소식 탭은 pages/feed.js, 채팅 탭은 pages/chat.js 에 있어요.
 import { sb } from '../supabase.js';
 import { state } from '../state.js';
 import { go, navToken, isStale } from '../router.js';
@@ -15,6 +15,8 @@ import {
 import { nicknameFormatError } from './auth.js';
 import { timeAgo } from '../format.js';
 import { renderFeedTab } from './feed.js';
+import { renderChatTab } from './chat.js';
+import { fetchUnreadCounts, watchNewMessages } from '../chat.js';
 
 const TABS = [
   { key: 'feed', label: '소식', icon: '📰' },
@@ -39,6 +41,7 @@ function tabBar(groupId, active) {
       },
         el('span', { class: 'tab-icon', 'aria-hidden': 'true' }, t.icon),
         el('span', { class: 'tab-label' }, t.label),
+        t.key === 'chat' && el('span', { class: 'tab-badge', hidden: true }),
       )),
     ),
   );
@@ -84,13 +87,39 @@ export async function renderGroup({ id, tab }) {
     tabBar(group.id, tab),
   );
 
-  if (tab === 'feed') return renderFeedTab(main, group, token);
-  if (tab === 'chat') {
-    main.append(el('section', { class: 'card' },
-      emptyState('💬', '가족 채팅방은 곧 생겨요', '실시간 채팅은 5단계에서 여기에 만들어져요.')));
-    return undefined;
-  }
-  return renderMembersTab(main, group, token);
+  if (tab === 'chat') return renderChatTab(main, group, token);
+
+  // 소식·가족 탭에서는 채팅 탭에 안 읽은 메시지 수를 표시
+  const stopBadge = chatBadge(group.id);
+  const stopTab = tab === 'feed'
+    ? await renderFeedTab(main, group, token)
+    : await renderMembersTab(main, group, token);
+  return () => {
+    stopBadge();
+    if (typeof stopTab === 'function') stopTab();
+  };
+}
+
+function chatBadge(groupId) {
+  const badge = document.querySelector('.tab-badge');
+  const refresh = async () => {
+    const counts = await fetchUnreadCounts().catch(() => null);
+    if (!counts || !badge) return;
+    const n = counts[groupId] || 0;
+    badge.textContent = n > 99 ? '99+' : String(n);
+    badge.hidden = n === 0;
+    badge.setAttribute('aria-label', `안 읽은 메시지 ${n}개`);
+  };
+  refresh();
+  const stop = watchNewMessages((msg) => {
+    if (msg.sender_id !== state.session.user.id) refresh();
+  }, groupId);
+  const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+  document.addEventListener('visibilitychange', onVisible);
+  return () => {
+    stop();
+    document.removeEventListener('visibilitychange', onVisible);
+  };
 }
 
 // ------------------------------------------------------------------

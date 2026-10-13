@@ -12,6 +12,7 @@ import {
   fetchMyGroups, fetchMyInvitations, respondInvitation, createGroup, watchMyInvitations,
 } from '../groups.js';
 import { timeAgo } from '../format.js';
+import { fetchUnreadCounts, watchNewMessages } from '../chat.js';
 import { APP_VERSION } from '../version.js';
 
 function meButton() {
@@ -30,8 +31,11 @@ export async function renderHome() {
   async function load() {
     let groups;
     let invites;
+    let unread;
     try {
-      [groups, invites] = await Promise.all([fetchMyGroups(), fetchMyInvitations()]);
+      [groups, invites, unread] = await Promise.all([
+        fetchMyGroups(), fetchMyInvitations(), fetchUnreadCounts().catch(() => ({})),
+      ]);
     } catch (err) {
       if (!isStale(token)) content.replaceChildren(errorCard(friendlyError(err), load));
       return;
@@ -42,14 +46,14 @@ export async function renderHome() {
     if (state.autoOpen) {
       state.autoOpen = false;
       if (groups.length === 1 && invites.length === 0) {
-        go(`/group/${groups[0].id}/feed`, { replace: true });
+        go(`/group/${groups[0].id}/${unread[groups[0].id] > 0 ? 'chat' : 'feed'}`, { replace: true });
         return;
       }
     }
 
     content.replaceChildren(
       ...(invites.length > 0 ? [invitationsSection(invites, load)] : []),
-      groupsSection(groups),
+      groupsSection(groups, unread),
     );
   }
 
@@ -57,10 +61,19 @@ export async function renderHome() {
 
   // 초대가 새로 오면 바로 보여 주기 + 앱으로 돌아왔을 때 새로고침
   const stopWatching = watchMyInvitations(load);
+  // 가족이 채팅을 보내면 그룹 옆 숫자를 새로
+  let timer = null;
+  const stopMessages = watchNewMessages((msg) => {
+    if (msg.sender_id === state.session.user.id) return;
+    clearTimeout(timer);
+    timer = setTimeout(load, 500);
+  });
   const onVisible = () => { if (document.visibilityState === 'visible') load(); };
   document.addEventListener('visibilitychange', onVisible);
   return () => {
     stopWatching();
+    stopMessages();
+    clearTimeout(timer);
     document.removeEventListener('visibilitychange', onVisible);
   };
 }
@@ -117,7 +130,7 @@ function invitationCard(inv, reload) {
   );
 }
 
-function groupsSection(groups) {
+function groupsSection(groups, unread = {}) {
   const createBtn = el('a', { href: '#/groups/new', class: 'btn btn-block' }, '+ 새 가족 그룹 만들기');
 
   if (groups.length === 0) {
@@ -139,12 +152,15 @@ function groupsSection(groups) {
     el('h2', { class: 'section-title' }, '우리 가족 그룹'),
     el('ul', { class: 'group-list' },
       ...groups.map((g) => el('li', {},
-        el('a', { href: `#/group/${g.id}/feed`, class: 'group-item' },
+        // 안 읽은 채팅이 있으면 바로 채팅방으로
+        el('a', { href: `#/group/${g.id}/${unread[g.id] > 0 ? 'chat' : 'feed'}`, class: 'group-item' },
           el('div', { class: 'group-icon', 'aria-hidden': 'true' }, '👨‍👩‍👧‍👦'),
           el('div', { class: 'group-text' },
             el('p', { class: 'group-name' }, g.name),
             el('p', { class: 'muted small', style: 'margin:0' }, `가족 ${g.memberCount}명`),
           ),
+          unread[g.id] > 0 && el('span', { class: 'unread-badge', 'aria-label': `안 읽은 메시지 ${unread[g.id]}개` },
+            `💬 ${unread[g.id] > 99 ? '99+' : unread[g.id]}`),
           el('span', { class: 'chevron', 'aria-hidden': 'true' }, '›'),
         ),
       )),

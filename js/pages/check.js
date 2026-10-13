@@ -12,7 +12,28 @@ const CHECKS = [
   { id: 'server', title: '서버 연결 + 데이터베이스 설치', run: checkServerStep },
   { id: 'version', title: '데이터베이스 최신 버전', run: checkVersionStep },
   { id: 'security', title: '보안 규칙(RLS)', run: checkSecurityStep },
+  { id: 'realtime', title: '실시간 연결 (채팅)', run: checkRealtimeStep },
 ];
+
+// 실시간 서버에 연결되는지 (채팅이 새로고침 없이 오려면 필요)
+async function checkRealtimeStep() {
+  const guest = createGuestClient();
+  const status = await new Promise((resolve) => {
+    const timer = setTimeout(() => resolve('TIMED_OUT'), 10000);
+    const channel = guest.channel(`check-${Date.now()}`).subscribe((s) => {
+      if (s === 'SUBSCRIBED' || s === 'CHANNEL_ERROR' || s === 'TIMED_OUT') {
+        clearTimeout(timer);
+        guest.removeChannel(channel);
+        resolve(s);
+      }
+    });
+  });
+  if (status === 'SUBSCRIBED') return { status: 'ok', detail: '새 메시지를 새로고침 없이 바로 받을 수 있어요.' };
+  return {
+    status: 'fail',
+    detail: '실시간 서버에 연결하지 못했어요. 와이파이/데이터 연결을 확인하고 다시 확인해 주세요. (회사·학교 와이파이는 막혀 있을 수 있어요)',
+  };
+}
 
 async function checkVersionStep() {
   const { data, error } = await sb.rpc('talkfeed_schema_version');

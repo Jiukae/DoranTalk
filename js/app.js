@@ -2,7 +2,7 @@
 import { sb, checkConfig } from './supabase.js';
 import { state, loadProfile } from './state.js';
 import { route, setGuard, startRouter, go, currentPath } from './router.js';
-import { el, render, brandHeader, loadingScreen, toast } from './ui.js';
+import { el, render, brandHeader, loadingScreen, toast, trackKeyboard } from './ui.js';
 import { friendlyError } from './errors.js';
 import { renderCheck } from './pages/check.js';
 import { renderLogin, renderSignup, renderForgot, renderNewPassword } from './pages/auth.js';
@@ -95,6 +95,7 @@ function listenAuthChanges() {
 }
 
 async function start() {
+  trackKeyboard();
   // 설정 파일에 문제가 있으면 연결 점검 화면만 보여 줌
   if (!checkConfig().ok) {
     renderCheck();
