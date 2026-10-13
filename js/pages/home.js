@@ -27,7 +27,7 @@ function meButton() {
 export async function renderHome() {
   const token = navToken();
   const content = el('main', { class: 'page' }, loadingScreen());
-  render(appBar('TalkFeed', { right: meButton() }), content);
+  render(appBar('도란톡', { right: meButton() }), content);
 
   async function load() {
     let groups;

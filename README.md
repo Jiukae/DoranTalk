@@ -1,11 +1,11 @@
-# TalkFeed 🏡
+# 도란톡 (TalkFeed) 🏡
 
 가족끼리만 쓰는 소통 앱. 네이버 밴드 같은 **피드** + 카카오톡 같은 **채팅**.
 
 - 프론트엔드: HTML + CSS + 순수 JavaScript (빌드 과정 없음)
 - 백엔드: Supabase (로그인, 데이터베이스, 실시간 채팅, 사진 저장)
 - 배포: Netlify (정적 사이트) · PWA로 휴대폰 홈 화면에 추가 가능
-- 앱 주소: https://talkfeed.netlify.app
+- 앱 주소: https://dorantalk.com (연결 전: https://talkfeed.netlify.app)
 
 ## 진행 단계
 
@@ -17,6 +17,7 @@
 | 4 | 피드 (글, 사진, 댓글, 좋아요) | ✅ 완료 → [안내서](docs/step4-feed.md) |
 | 5 | 실시간 채팅 | ✅ 완료 → [안내서](docs/step5-chat.md) |
 | 6 | PWA + 배포 + 가족 접속 링크 | ✅ 완료 → [안내서](docs/step6-launch.md) · [가족 초대 문구](docs/family-invite.md) |
+| 7 | 앱 이름 "도란톡" + dorantalk.com 연결 + admin@dorantalk.com 메일 | 🔧 진행 중 → [안내서](docs/step7-domain.md) |
 
 ## 폴더 구조
 

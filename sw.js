@@ -1,9 +1,9 @@
-// TalkFeed 서비스 워커
+// 도란톡 서비스 워커
 // - 앱 화면(HTML·CSS·JS·아이콘)을 휴대폰에 저장해 두어, 인터넷이 약하거나 끊겨도 앱이 열려요.
 // - 인터넷이 되면 항상 서버의 최신 파일을 먼저 받아요 (네트워크 우선). 4초 넘게 걸리면 저장본을 보여 줘요.
 // - Supabase(글·채팅·사진) 요청은 건드리지 않아요. 가족 데이터는 휴대폰에 따로 저장하지 않아요.
 
-const VERSION = 'talkfeed-v6-2026-10-13';
+const VERSION = 'talkfeed-v7-dorantalk';
 const APP_SHELL = [
   '/',
   '/index.html',

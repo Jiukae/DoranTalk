@@ -121,7 +121,7 @@ export function installBanner() {
     let body;
     if (canPromptInstall()) {
       body = [
-        el('p', {}, '홈 화면에 TalkFeed 아이콘을 만들어 두면 앱처럼 바로 열 수 있어요.'),
+        el('p', {}, '홈 화면에 도란톡 아이콘을 만들어 두면 앱처럼 바로 열 수 있어요.'),
         el('div', { class: 'btn-row' },
           el('button', { class: 'btn', type: 'button', onclick: () => promptInstall() }, '홈 화면에 추가'),
           later),
