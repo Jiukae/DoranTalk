@@ -3,7 +3,9 @@
 // - 인터넷이 되면 항상 서버의 최신 파일을 먼저 받아요 (네트워크 우선). 4초 넘게 걸리면 저장본을 보여 줘요.
 // - Supabase(글·채팅·사진) 요청은 건드리지 않아요. 가족 데이터는 휴대폰에 따로 저장하지 않아요.
 
-const VERSION = 'talkfeed-v7-dorantalk';
+const VERSION = 'talkfeed-v8-font';
+// 글꼴은 앱이 업데이트돼도 다시 받지 않도록 따로 보관 (글꼴 파일을 바꿀 때만 이름을 올려요)
+const FONT_CACHE = 'talkfeed-fonts-v1';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -50,7 +52,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== VERSION && k !== FONT_CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
@@ -60,8 +62,22 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   // 우리 사이트 파일만 (Supabase 등 다른 주소는 그대로 통과)
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;
+  // 글꼴은 바뀌지 않으니 저장본 먼저 (처음 한 번만 내려받음)
+  if (url.pathname.startsWith('/fonts/')) {
+    event.respondWith(cacheFirst(req));
+    return;
+  }
   event.respondWith(networkFirst(event, req));
 });
+
+async function cacheFirst(req) {
+  const cache = await caches.open(FONT_CACHE);
+  const cached = await cache.match(req);
+  if (cached) return cached;
+  const res = await fetch(req);
+  if (res.ok) cache.put(req, res.clone());
+  return res;
+}
 
 async function networkFirst(event, req) {
   const cache = await caches.open(VERSION);

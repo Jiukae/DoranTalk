@@ -50,6 +50,7 @@ js/pages/help.js        사용 방법 화면 (#/help)
 js/format.js            "방금 전", "어제" 같은 날짜 표시
 js/pages/check.js       연결 점검 화면 (#/check)
 vendor/supabase.js      Supabase 공식 라이브러리 v2.117.1 (MIT 라이선스)
+fonts/                  글꼴: 네이버 나눔스퀘어 네오 (보통·굵게·아주 굵게, © NAVER Corp., fonts/LICENSE.txt)
 supabase/schema.sql     DB 전체 설계(테이블 + 보안 규칙 RLS + 사진 저장소) — 처음 설치할 때 SQL Editor에서 실행
 supabase/updates/       단계별 짧은 업데이트 파일 (이미 설치한 DB에 바뀐 부분만 적용)
 supabase/tests/         보안 규칙 자동 검사 (개발용, Supabase에 실행하지 않음)

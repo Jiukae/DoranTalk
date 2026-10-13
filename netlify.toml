@@ -48,6 +48,12 @@
     Content-Type = "application/manifest+json; charset=utf-8"
     Cache-Control = "no-cache"
 
+# 글꼴 파일은 바뀌지 않으니 1년 동안 저장
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
 # 아이콘은 오래 저장해도 돼요
 [[headers]]
   for = "/icons/*"

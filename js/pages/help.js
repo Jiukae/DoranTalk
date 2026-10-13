@@ -118,6 +118,7 @@ export function renderHelp() {
           el('li', {}, el('a', { href: '#/check' }, '연결 점검'), ' 화면에서 빨간 표시가 있는지 확인하고, 화면을 캡처해 관리자에게 보내 주세요'),
         ),
         el('p', { class: 'muted small' }, `앱 버전: ${APP_VERSION}`),
+        el('p', { class: 'muted small' }, '글꼴: 네이버 나눔스퀘어 네오 (© NAVER Corp.)'),
       ),
     ),
   );

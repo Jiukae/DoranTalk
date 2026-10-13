@@ -1,4 +1,31 @@
 /* =====================================================================
+   글꼴: 네이버 나눔스퀘어 네오 (네이버 나눔글꼴 라이선스, fonts/LICENSE.txt)
+   - 앱 안에 글꼴 파일을 넣어 두어 외부 사이트 없이 쓰고, 한 번 받으면 휴대폰에 저장돼요
+   - 글꼴을 받는 동안에는 기본 글꼴로 먼저 보여 줘요(font-display: swap)
+   ===================================================================== */
+@font-face {
+  font-family: 'NanumSquare Neo';
+  src: url('../fonts/NanumSquareNeo-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'NanumSquare Neo';
+  src: url('../fonts/NanumSquareNeo-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'NanumSquare Neo';
+  src: url('../fonts/NanumSquareNeo-ExtraBold.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* =====================================================================
    TalkFeed 디자인
    - 따뜻한 크림·주황 톤
    - 기본 글씨 18px (부모님도 읽기 쉽게)
@@ -28,7 +55,7 @@
   --tap: 56px;
   --max-width: 640px;
 
-  --font: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic",
+  --font: 'NanumSquare Neo', -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic",
     "Noto Sans KR", "Segoe UI", Roboto, sans-serif;
 }
 
