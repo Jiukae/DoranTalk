@@ -11,6 +11,9 @@ import { renderGroup } from './pages/group.js';
 import { renderHelp } from './pages/help.js';
 import { setupInstall } from './install.js';
 import { renderWrite, renderPostDetail } from './pages/feed.js';
+import { renderPrivacy, renderTerms, renderConsent } from './pages/legal.js';
+import { renderDeleteAccount } from './pages/account.js';
+import { hasConsented } from './legal.js';
 
 // 메일 링크(비밀번호 재설정·가입 인증)를 눌러 들어왔는지 확인
 const initialHash = location.hash;
@@ -21,7 +24,8 @@ const linkError = (() => {
 })();
 
 // 로그인이 필요한 화면은 닉네임 정보까지 준비된 뒤에 그립니다
-function needsProfile(renderPage) {
+// skipConsent: 약관 동의 화면·탈퇴 화면처럼, 동의하지 않아도 들어갈 수 있어야 하는 화면
+function needsProfile(renderPage, { skipConsent = false } = {}) {
   return async (params) => {
     if (!state.profile) {
       render(loadingScreen());
@@ -31,6 +35,11 @@ function needsProfile(renderPage) {
         return renderProfileError(friendlyError(err));
       }
       if (!state.profile) return renderProfileError('내 닉네임 정보를 찾을 수 없어요.');
+    }
+    // 최신 약관에 아직 동의하지 않았으면 동의 화면부터 (동의 후 원래 가려던 화면으로)
+    if (!skipConsent && !hasConsented(state.session?.user)) {
+      state.afterConsent = currentPath();
+      return go('/consent', { replace: true });
     }
     return renderPage(params);
   };
@@ -53,6 +62,10 @@ function renderProfileError(message) {
 
 route('/check', renderCheck, { access: 'any' });
 route('/help', renderHelp, { access: 'any' });
+route('/privacy', renderPrivacy, { access: 'any' });
+route('/terms', renderTerms, { access: 'any' });
+route('/consent', needsProfile(renderConsent, { skipConsent: true }));
+route('/me/delete', needsProfile(renderDeleteAccount, { skipConsent: true }));
 route('/login', renderLogin, { access: 'guest' });
 route('/signup', renderSignup, { access: 'guest' });
 route('/forgot', renderForgot, { access: 'guest' });

@@ -16,6 +16,7 @@ import { fetchUnreadCounts, watchNewMessages } from '../chat.js';
 import { APP_VERSION } from '../version.js';
 import { installBanner, inAppBrowserNotice } from '../install.js';
 import { THEMES, getTheme, setTheme } from '../theme.js';
+import { legalLinks } from './legal.js';
 
 function meButton() {
   return el('button', { class: 'btn btn-ghost btn-small', type: 'button', onclick: () => go('/me') },
@@ -298,10 +299,12 @@ export function renderMe() {
         el('h2', {}, '계정'),
         el('p', { class: 'muted' }, '이 기기에서는 로그아웃하기 전까지 계속 로그인되어 있어요.'),
         logout,
+        el('a', { href: '#/me/delete', class: 'btn btn-ghost btn-block btn-danger-text', style: 'margin-top:8px' }, '회원 탈퇴'),
       ),
       el('p', { class: 'muted small center' },
         el('a', { href: '#/help', class: 'link-strong' }, '📖 사용 방법'), ' · ',
         el('a', { href: '#/check', class: 'muted' }, '연결 점검'), ` · 앱 버전: ${APP_VERSION}`),
+      legalLinks(),
     ),
   );
 }

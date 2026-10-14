@@ -1116,3 +1116,80 @@ img.brand-logo { object-fit: cover; }
   font-weight: 800;
 }
 .theme-option.selected .theme-check { display: grid; }
+
+/* ---------- 약관 · 개인정보처리방침 ---------- */
+.legal h1 { font-size: 1.4rem; }
+.legal-article { margin-top: 22px; }
+.legal-article h2 { font-size: 1.1rem; margin-bottom: 8px; color: var(--accent-strong); }
+.legal-article p { margin-bottom: 8px; }
+.legal-date { margin-top: 24px; }
+.legal-table-wrap { margin: 8px 0 12px; }
+.legal-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.legal-table th, .legal-table td {
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.legal-table th { background: var(--surface-soft); font-weight: 800; }
+/* 휴대폰: 표를 옆으로 밀지 않아도 되게 한 줄씩 카드로 */
+@media (max-width: 600px) {
+  .legal-table thead { display: none; }
+  .legal-table, .legal-table tbody, .legal-table tr, .legal-table td { display: block; width: 100%; }
+  .legal-table tr {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+  .legal-table td { border: 0; padding: 2px 0; }
+  .legal-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--muted);
+  }
+  .legal-table td + td { margin-top: 6px; }
+}
+.legal-links { margin-top: 4px; }
+.legal-privacy-link { font-weight: 800; color: var(--text); }
+
+/* ---------- 동의 체크 ---------- */
+.consent-title { font-size: 1.1rem; margin: 20px 0 8px; }
+.consent {
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 14px;
+  margin-bottom: 16px;
+}
+.consent-row { border-top: 1px solid var(--border); padding: 6px 0; display: flex; flex-wrap: wrap; align-items: center; }
+.consent-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  flex: 1;
+  cursor: pointer;
+  font-weight: 600;
+}
+.consent-all { font-weight: 800; font-size: 1.05rem; }
+.consent-view { padding: 8px 4px 8px 12px; font-weight: 700; font-size: 0.95rem; }
+.consent-summary {
+  width: 100%;
+  margin: 0 0 6px;
+  padding: 10px 12px 10px 28px;
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.check-input {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.danger-list li::marker { color: var(--danger); }

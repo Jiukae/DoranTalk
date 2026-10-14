@@ -240,4 +240,60 @@ select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000004');
 select pg_temp.assert((select count(*) from public.profiles where nickname = '아빠') = 0, 'stranger cannot see author');
 reset role;
 
+-- ===== 버전 5: 회원 탈퇴 · 방장 넘기기 =====
+-- 딸을 그룹 멤버로 넣고, 엄마·딸이 각자 사진을 올림
+insert into public.group_members (group_id, user_id, role, joined_at)
+  values ((select v from pg_temp.ids where k='g'), 'aaaaaaaa-0000-0000-0000-000000000003', 'member', now());
+select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000001');
+insert into storage.objects (bucket_id, name) values ('family-photos', (select v from pg_temp.ids where k='g')::text || '/posts/mom1.jpg');
+reset role;
+select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000003');
+insert into storage.objects (bucket_id, name) values ('family-photos', (select v from pg_temp.ids where k='g')::text || '/chat/kid1.jpg');
+reset role;
+
+-- 내 사진 목록에는 내 것만
+select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000001');
+select pg_temp.assert((select count(*) from public.my_photo_paths()) = 1, 'my_photo_paths only mine');
+select pg_temp.assert((select bool_and(p like '%mom1.jpg') from public.my_photo_paths() p), 'my_photo_paths is mom photo');
+reset role;
+-- 외부인은 여전히 아무 사진도 못 봄 (내 것 보기 규칙이 남의 것을 보여 주지 않음)
+select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000004');
+select pg_temp.assert((select count(*) from storage.objects) = 0, 'stranger still sees no photos');
+select pg_temp.assert((select count(*) from public.my_photo_paths()) = 0, 'stranger has no photos');
+-- 외부인이 혼자 그룹을 만든 뒤 탈퇴 → 그 그룹은 통째로 삭제
+insert into pg_temp.ids values ('solo', public.create_group('혼자 그룹'));
+select public.delete_my_account();
+reset role;
+select pg_temp.assert((select count(*) from auth.users where id = 'aaaaaaaa-0000-0000-0000-000000000004') = 0, 'stranger account deleted');
+select pg_temp.assert((select count(*) from public.profiles where id = 'aaaaaaaa-0000-0000-0000-000000000004') = 0, 'stranger profile deleted');
+select pg_temp.assert((select count(*) from public.family_groups where id = (select v from pg_temp.ids where k='solo')) = 0, 'solo group deleted');
+
+-- 방장 엄마가 탈퇴 → 그룹은 남고, 딸이 방장이 됨. 엄마 글·채팅·멤버 기록은 삭제
+select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000001');
+select public.delete_my_account();
+reset role;
+select pg_temp.assert((select count(*) from auth.users where id = 'aaaaaaaa-0000-0000-0000-000000000001') = 0, 'mom account deleted');
+select pg_temp.assert((select count(*) from public.posts where author_id = 'aaaaaaaa-0000-0000-0000-000000000001') = 0, 'mom posts deleted');
+select pg_temp.assert((select count(*) from public.messages where sender_id = 'aaaaaaaa-0000-0000-0000-000000000001') = 0, 'mom messages deleted');
+select pg_temp.assert((select count(*) from public.family_groups where id = (select v from pg_temp.ids where k='g')) = 1, 'group kept');
+select pg_temp.assert((select role from public.group_members where user_id = 'aaaaaaaa-0000-0000-0000-000000000003') = 'owner', 'daughter promoted to owner');
+select pg_temp.assert((select created_by from public.family_groups where id = (select v from pg_temp.ids where k='g')) = 'aaaaaaaa-0000-0000-0000-000000000003', 'created_by moved to daughter');
+
+-- 방장 딸이 그냥 나가도 다음 가족(아빠)에게 넘어감
+insert into public.group_members (group_id, user_id, role, joined_at)
+  values ((select v from pg_temp.ids where k='g'), 'aaaaaaaa-0000-0000-0000-000000000002', 'member', now() + interval '1 minute');
+select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000003');
+delete from public.group_members where user_id = 'aaaaaaaa-0000-0000-0000-000000000003';
+reset role;
+select pg_temp.assert((select role from public.group_members where user_id = 'aaaaaaaa-0000-0000-0000-000000000002') = 'owner', 'dad promoted after owner left');
+select pg_temp.assert((select created_by from public.family_groups where id = (select v from pg_temp.ids where k='g')) = 'aaaaaaaa-0000-0000-0000-000000000002', 'created_by moved to dad');
+
+-- 로그인 안 한 사람은 탈퇴 함수를 못 씀
+set role anon;
+do $$ begin
+  perform public.delete_my_account();
+  raise exception 'TEST FAILED: anon delete_my_account';
+exception when insufficient_privilege then null; end $$;
+reset role;
+
 select 'ALL RLS TESTS PASSED' as result;

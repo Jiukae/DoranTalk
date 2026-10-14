@@ -19,6 +19,7 @@
 | 5 | 실시간 채팅 | ✅ 완료 → [안내서](docs/step5-chat.md) |
 | 6 | PWA + 배포 + 가족 접속 링크 | ✅ 완료 → [안내서](docs/step6-launch.md) · [가족 초대 문구](docs/family-invite.md) |
 | 7 | 앱 이름 "도란톡" + dorantalk.com 연결 + admin@dorantalk.com 메일 | ✅ 완료 → [안내서](docs/step7-domain.md) |
+| 8 | 개인정보처리방침 · 이용약관 · 가입 동의 · 회원 탈퇴 · 문의 메일 | 🔧 설정 필요 → [안내서](docs/step8-legal.md) |
 
 ## 폴더 구조
 
@@ -52,6 +53,9 @@ js/install.js           홈 화면 추가 안내, 카카오톡 안 브라우저 
 js/pages/help.js        사용 방법 화면 (#/help)
 js/format.js            "방금 전", "어제" 같은 날짜 표시
 js/pages/check.js       연결 점검 화면 (#/check)
+js/legal.js             약관 버전 · 보호책임자 · 문의 메일 + 동의 기록 확인
+js/pages/legal.js       개인정보처리방침(#/privacy) · 이용약관(#/terms) · 약관 동의 화면 · 동의 체크 칸
+js/pages/account.js     회원 탈퇴 (#/me/delete): 내 사진 파일 → 계정 순서로 삭제
 vendor/supabase.js      Supabase 공식 라이브러리 v2.117.1 (MIT 라이선스)
 fonts/                  글꼴: 네이버 나눔스퀘어 네오 (보통·굵게·아주 굵게, © NAVER Corp., fonts/LICENSE.txt)
 supabase/schema.sql     DB 전체 설계(테이블 + 보안 규칙 RLS + 사진 저장소) — 처음 설치할 때 SQL Editor에서 실행

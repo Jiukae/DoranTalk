@@ -7,6 +7,8 @@ import {
   el, render, brandHeader, field, passwordInput, messageBox, setBusy, toast,
 } from '../ui.js';
 import { inAppBrowserNotice } from '../install.js';
+import { consentChecklist, legalLinks } from './legal.js';
+import { consentRecord } from '../legal.js';
 
 export const NICKNAME_RULE = /^[가-힣a-zA-Z0-9_]{2,12}$/;
 export const NICKNAME_HINT = '2~12자, 한글·영어·숫자로 지어 주세요. 가족이 나를 초대할 때 이 이름으로 찾아요.';
@@ -126,6 +128,8 @@ export function renderSignup() {
     }, 500);
   });
 
+  const consent = consentChecklist();
+
   const form = el('form', {
     class: 'card', novalidate: true,
     onsubmit: async (e) => {
@@ -140,6 +144,7 @@ export function renderSignup() {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) return msg.show('이메일 주소를 정확히 입력해 주세요. (예: mom@naver.com)');
       if (password.length < 6) return msg.show('비밀번호는 6자 이상으로 정해 주세요.');
       if (password !== pw2.input.value) return msg.show('비밀번호 두 개가 서로 달라요. 다시 입력해 주세요.');
+      if (!consent.isComplete()) return msg.show('아래 필수 항목에 모두 동의해 주세요. (만 14세 미만은 가입할 수 없어요)');
 
       setBusy(submit, true, '가입하는 중…');
       try {
@@ -151,7 +156,7 @@ export function renderSignup() {
           email: emailValue,
           password,
           options: {
-            data: { nickname },
+            data: { nickname, ...consentRecord() },
             emailRedirectTo: location.origin + location.pathname,
           },
         });
@@ -184,6 +189,8 @@ export function renderSignup() {
     field('이메일', email, '로그인할 때 써요. 자주 쓰는 이메일을 넣어 주세요.'),
     field('비밀번호', pw, '6자 이상. 잊지 않게 따로 적어 두세요.'),
     field('비밀번호 확인', pw2),
+    el('h2', { class: 'consent-title' }, '약관 동의'),
+    consent,
     msg,
     submit,
   );
@@ -194,6 +201,7 @@ export function renderSignup() {
     form,
     el('p', { class: 'center' },
       '이미 가입하셨나요? ', el('a', { href: '#/login', class: 'link-strong' }, '로그인')),
+    legalLinks(),
   ));
 }
 
@@ -286,7 +294,10 @@ export function renderNewPassword() {
 }
 
 function footerLinks() {
-  return el('p', { class: 'center small muted', style: 'margin-top:8px' },
-    el('a', { href: '#/help', class: 'link-strong' }, '📖 사용 방법'), ' · ',
-    el('a', { href: '#/check', class: 'muted' }, '연결 점검'));
+  return el('div', {},
+    el('p', { class: 'center small muted', style: 'margin-top:8px' },
+      el('a', { href: '#/help', class: 'link-strong' }, '📖 사용 방법'), ' · ',
+      el('a', { href: '#/check', class: 'muted' }, '연결 점검')),
+    legalLinks(),
+  );
 }

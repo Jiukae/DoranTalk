@@ -5,7 +5,7 @@ import { el, render, brandHeader } from '../ui.js';
 import { APP_VERSION } from '../version.js';
 
 // 앱이 기대하는 schema.sql 버전. SQL 파일 맨 위 "버전 N" 과 같아야 해요.
-export const REQUIRED_SCHEMA_VERSION = 4;
+export const REQUIRED_SCHEMA_VERSION = 5;
 
 const CHECKS = [
   { id: 'config', title: '설정 파일', run: checkConfigStep },
@@ -39,7 +39,9 @@ async function checkVersionStep() {
   const { data, error } = await sb.rpc('talkfeed_schema_version');
   const outdated = (found) => ({
     status: 'fail',
-    detail: `데이터베이스가 예전 버전${found ? `(${found})` : ''}이에요. 최신 schema.sql(버전 ${REQUIRED_SCHEMA_VERSION})을 SQL Editor에서 다시 실행해 주세요.`,
+    detail: found === REQUIRED_SCHEMA_VERSION - 1
+      ? `데이터베이스가 예전 버전(${found})이에요. supabase/updates/v${found}_to_v${REQUIRED_SCHEMA_VERSION}.sql 을 SQL Editor에서 실행해 주세요.`
+      : `데이터베이스가 예전 버전${found ? `(${found})` : ''}이에요. 최신 schema.sql(버전 ${REQUIRED_SCHEMA_VERSION})을 SQL Editor에서 다시 실행해 주세요.`,
   });
   if (error && error.code === 'PGRST202') return outdated(null);
   if (error) return { status: 'fail', detail: explainError(error) };

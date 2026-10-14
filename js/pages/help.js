@@ -4,6 +4,8 @@ import { isLoggedIn } from '../state.js';
 import { go } from '../router.js';
 import { platform, isStandalone, canPromptInstall, promptInstall } from '../install.js';
 import { APP_VERSION } from '../version.js';
+import { CONTACT_EMAIL } from '../legal.js';
+import { legalLinks } from './legal.js';
 
 function section(icon, title, ...children) {
   return el('section', { class: 'card help' },
@@ -124,6 +126,8 @@ export function renderHelp() {
         ),
         el('p', { class: 'muted small' }, `앱 버전: ${APP_VERSION}`),
         el('p', { class: 'muted small' }, '글꼴: 네이버 나눔스퀘어 네오 (© NAVER Corp.)'),
+        el('p', { class: 'muted small' }, '문의: ', el('a', { href: `mailto:${CONTACT_EMAIL}` }, CONTACT_EMAIL)),
+        legalLinks(),
       ),
     ),
   );
