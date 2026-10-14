@@ -45,7 +45,7 @@
    | 타입 | 호스트 | 값/위치 | TTL |
    |---|---|---|---|
    | **A** | `@` | `75.2.60.5` | 기본값 |
-   | **CNAME** | `www` | `talkfeed.netlify.app.` | 기본값 |
+   | **CNAME** | `www` | `(내 Netlify 주소).` 예: `dorantalk.netlify.app.` | 기본값 |
 
    - 값은 **Netlify 화면(B-1의 3번)에 나온 값이 다르면 Netlify 값을 따르세요.**
    - CNAME 값 끝의 점(`.`)은 가비아 화면이 요구할 때만 붙이세요.
@@ -78,16 +78,19 @@
 1. **https://resend.com** → **Sign up** (Google이나 GitHub로 가입하면 편해요)
 2. 왼쪽 **Domains** → **Add Domain** → `dorantalk.com` 입력
    - 지역(Region)을 고르라면 **Tokyo (ap-northeast-1)** (한국에서 가까워요) → **Add**
-3. Resend가 **DNS 레코드 3~4개**(MX 1개, TXT 2~3개)를 보여 줘요. 이 화면은 열어 두세요.
+3. Resend가 **DNS 레코드 몇 개**를 보여 줘요. 이 화면은 열어 두세요.
+   - 종류는 시기에 따라 달라요. 우리가 설정할 때는 TXT `resend._domainkey`, CNAME `send`, CNAME `rsend` 였어요 (예전엔 MX·TXT 형식이었어요). **화면에 나온 그대로** 넣으면 돼요.
 
 ### D-2. 가비아에 메일용 DNS 넣기
 1. B-2처럼 가비아 **DNS 관리** → **레코드 추가**
 2. Resend 화면의 레코드를 **하나씩 그대로** 옮겨요
-   - **타입**: MX / TXT (Resend에 나온 대로)
+   - **타입**: Resend에 나온 대로 (TXT / CNAME / MX)
    - **호스트**: Resend의 Name 칸 앞부분만 (예: `send`, `resend._domainkey`, `_dmarc`)
      - 가비아가 뒤에 `.dorantalk.com` 을 알아서 붙여요
    - **값**: Resend의 Value 칸 전체를 복사해 붙여넣기 (TXT 값은 아주 길어요. 끝까지!)
-   - **MX 우선순위**: Resend에 나온 숫자(보통 `10`)
+   - **MX 우선순위**: MX가 있다면 Resend에 나온 숫자(보통 `10`)
+   - **TTL**: Resend에 "Auto"라고 나오면 가비아 기본값 그대로 (또는 `3600`)
+   - (추천) **DMARC**: TXT · 호스트 `_dmarc` · 값 `v=DMARC1; p=none;`  — 스팸함으로 빠질 가능성을 줄여요
 3. **저장** → Resend 화면에서 **Verify DNS Records** → 몇 분~몇 시간 뒤 **Verified** 가 되면 완료
 
 ### D-3. 메일 보내기용 열쇠(API Key) 만들기
