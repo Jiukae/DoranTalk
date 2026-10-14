@@ -3,7 +3,7 @@
 // - 인터넷이 되면 항상 서버의 최신 파일을 먼저 받아요 (네트워크 우선). 4초 넘게 걸리면 저장본을 보여 줘요.
 // - Supabase(글·채팅·사진) 요청은 건드리지 않아요. 가족 데이터는 휴대폰에 따로 저장하지 않아요.
 
-const VERSION = 'talkfeed-v8-font';
+const VERSION = 'talkfeed-v9-theme';
 // 글꼴은 앱이 업데이트돼도 다시 받지 않도록 따로 보관 (글꼴 파일을 바꿀 때만 이름을 올려요)
 const FONT_CACHE = 'talkfeed-fonts-v1';
 const APP_SHELL = [
@@ -27,6 +27,8 @@ const APP_SHELL = [
   '/js/lightbox.js',
   '/js/install.js',
   '/js/version.js',
+  '/js/theme.js',
+  '/js/theme-boot.js',
   '/js/pages/auth.js',
   '/js/pages/home.js',
   '/js/pages/group.js',

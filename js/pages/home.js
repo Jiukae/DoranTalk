@@ -15,6 +15,7 @@ import { timeAgo } from '../format.js';
 import { fetchUnreadCounts, watchNewMessages } from '../chat.js';
 import { APP_VERSION } from '../version.js';
 import { installBanner, inAppBrowserNotice } from '../install.js';
+import { THEMES, getTheme, setTheme } from '../theme.js';
 
 function meButton() {
   return el('button', { class: 'btn btn-ghost btn-small', type: 'button', onclick: () => go('/me') },
@@ -292,6 +293,7 @@ export function renderMe() {
         ),
       ),
       nickForm,
+      themePicker(),
       el('section', { class: 'card' },
         el('h2', {}, '계정'),
         el('p', { class: 'muted' }, '이 기기에서는 로그아웃하기 전까지 계속 로그인되어 있어요.'),
@@ -301,5 +303,52 @@ export function renderMe() {
         el('a', { href: '#/help', class: 'link-strong' }, '📖 사용 방법'), ' · ',
         el('a', { href: '#/check', class: 'muted' }, '연결 점검'), ` · 앱 버전: ${APP_VERSION}`),
     ),
+  );
+}
+
+// ------------------------------------------------------------------
+// 배경 테마 고르기 (내 정보 화면)
+// ------------------------------------------------------------------
+function themePicker() {
+  const buttons = [];
+  const paint = () => {
+    const current = getTheme();
+    buttons.forEach((btn) => {
+      const on = btn.dataset.theme === current;
+      btn.classList.toggle('selected', on);
+      btn.setAttribute('aria-checked', String(on));
+    });
+  };
+  for (const t of THEMES) {
+    const btn = el('button', {
+      class: 'theme-option', type: 'button', role: 'radio', 'data-theme': t.key,
+      'aria-label': `${t.label} 테마 (${t.desc})`,
+      onclick: () => {
+        setTheme(t.key);
+        paint();
+        toast(`${t.label} 테마로 바꿨어요.`);
+      },
+    },
+      // 작은 미리보기: 배경 + 흰 카드 + 강조색 버튼
+      el('span', { class: 'theme-swatch', 'aria-hidden': 'true' },
+        el('span', { class: 'theme-swatch-card' },
+          el('span', { class: 'theme-swatch-line' }),
+          el('span', { class: 'theme-swatch-btn' }),
+        ),
+      ),
+      el('span', { class: 'theme-name' }, t.label),
+      el('span', { class: 'theme-desc' }, t.desc),
+      el('span', { class: 'theme-check', 'aria-hidden': 'true' }, '✓'),
+    );
+    btn.style.setProperty('--swatch-bg', t.preview);
+    btn.style.setProperty('--swatch-accent', t.accent);
+    if (t.key === 'black') btn.classList.add('theme-dark');
+    buttons.push(btn);
+  }
+  paint();
+  return el('section', { class: 'card' },
+    el('h2', {}, '🎨 배경 테마'),
+    el('p', { class: 'muted' }, '마음에 드는 화면 색을 골라 보세요. 이 휴대폰에 기억돼요.'),
+    el('div', { class: 'theme-grid', role: 'radiogroup', 'aria-label': '배경 테마' }, ...buttons),
   );
 }

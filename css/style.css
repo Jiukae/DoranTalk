@@ -49,6 +49,28 @@
   --danger: #b3261e;
   --danger-soft: #fde7e5;
 
+  /* 테마마다 바뀌는 색 (아래 [data-theme] 에서 덮어씀) */
+  --bg-gradient: none;
+  --accent-text: #b04a16;      /* 글자로 쓰는 강조색 (링크, 선택된 탭) */
+  --accent-strong: #a3420f;    /* 연한 강조 배경 위의 글자 */
+  --on-primary: #ffffff;       /* 주황(기본색) 버튼 위 글자 */
+  --input-bg: #ffffff;
+  --focus-ring: #f2a679;
+  --secondary-hover: #fbd5bd;
+  --bar-bg: rgba(255, 248, 241, 0.92);
+  --bottom-bar-bg: rgba(255, 255, 255, 0.97);
+  --bar-shadow: 0 -2px 10px rgba(90, 50, 20, 0.06);
+  --toast-bg: rgba(58, 42, 32, 0.94);
+  --highlight-border: #f2b48f;
+  --highlight-bg: #fffaf6;
+  --warn-border: #f2c66d;
+  --bubble-mine: #ffd9b8;
+  --bubble-mine-border: #f7c49b;
+  --chip-bg: rgba(90, 50, 20, 0.08);
+  --unread: #8a4a00;
+  --like: #d0342c;
+  --pill-shadow: 0 4px 14px rgba(150, 70, 20, 0.3);
+
   --radius: 16px;
   --radius-sm: 12px;
   --shadow: 0 2px 10px rgba(90, 50, 20, 0.08);
@@ -57,6 +79,109 @@
 
   --font: 'NanumSquare Neo', -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic",
     "Noto Sans KR", "Segoe UI", Roboto, sans-serif;
+}
+
+/* =====================================================================
+   배경 테마: 화이트 · 블랙 · 베이지(주황→노랑) · 블루(파랑→보라)
+   <html data-theme="..."> 로 고르고, js/theme.js 가 휴대폰에 기억해요.
+   ===================================================================== */
+:root[data-theme='beige'] {
+  --bg: #fff1dd;
+  --bg-gradient: linear-gradient(165deg, #ffd6b3 0%, #ffe6b8 50%, #fff1bf 100%);
+  --muted: #6b5446;
+  --bar-bg: rgba(255, 246, 236, 0.9);
+}
+
+:root[data-theme='white'] {
+  --bg: #f4f4f6;
+  --surface: #ffffff;
+  --surface-soft: #f1f1f3;
+  --border: #e3e3e8;
+  --text: #1d1d1f;
+  --muted: #6e6e73;
+  --shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  --bar-bg: rgba(255, 255, 255, 0.92);
+  --bar-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  --toast-bg: rgba(29, 29, 31, 0.94);
+  --highlight-bg: #fff7f2;
+  --bubble-mine: #ffe2cc;
+  --chip-bg: rgba(0, 0, 0, 0.06);
+}
+
+:root[data-theme='black'] {
+  color-scheme: dark;
+  --bg: #121212;
+  --surface: #1d1d1f;
+  --surface-soft: #2a2a2e;
+  --border: #3a3a3f;
+  --text: #f2f2f4;
+  --muted: #a5a5ad;
+  --primary: #c9581f;
+  --primary-hover: #e06a2e;
+  --primary-soft: #3b2417;
+  --accent-text: #ff9a5c;
+  --accent-strong: #ffb07f;
+  --ok: #4cc38a;
+  --ok-soft: #15301f;
+  --warn: #ffb84d;
+  --warn-soft: #3a2c12;
+  --danger: #ff7a70;
+  --danger-soft: #3d1a17;
+  --shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  --input-bg: #26262a;
+  --focus-ring: #ff9a5c;
+  --secondary-hover: #4a2c1b;
+  --bar-bg: rgba(24, 24, 26, 0.92);
+  --bottom-bar-bg: rgba(29, 29, 31, 0.97);
+  --bar-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5);
+  --toast-bg: rgba(64, 64, 70, 0.96);
+  --highlight-border: #6b3b1f;
+  --highlight-bg: #2a1d15;
+  --warn-border: #6b5420;
+  --bubble-mine: #5a3219;
+  --bubble-mine-border: #7a4524;
+  --chip-bg: rgba(255, 255, 255, 0.1);
+  --unread: #ffb84d;
+  --like: #ff6b6b;
+  --pill-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme='blue'] {
+  --bg: #e6e4ff;
+  --bg-gradient: linear-gradient(165deg, #cfdcff 0%, #dcd8ff 50%, #ead6ff 100%);
+  --surface: #ffffff;
+  --surface-soft: #eef1ff;
+  --border: #d9dcf2;
+  --text: #23233a;
+  --muted: #555878;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-soft: #e0e7ff;
+  --accent-text: #4338ca;
+  --accent-strong: #3730a3;
+  --shadow: 0 2px 10px rgba(40, 40, 120, 0.08);
+  --focus-ring: #a5b4fc;
+  --secondary-hover: #c7d2fe;
+  --bar-bg: rgba(243, 244, 255, 0.9);
+  --bar-shadow: 0 -2px 10px rgba(40, 40, 120, 0.06);
+  --toast-bg: rgba(35, 35, 58, 0.94);
+  --highlight-border: #a5b4fc;
+  --highlight-bg: #f5f7ff;
+  --bubble-mine: #dde3ff;
+  --bubble-mine-border: #c3cdfb;
+  --chip-bg: rgba(40, 40, 120, 0.08);
+  --unread: #6d28d9;
+  --pill-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
+}
+
+/* 그라데이션 배경은 화면에 고정 (스크롤해도 그대로) */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--bg-gradient);
+  pointer-events: none;
 }
 
 * { box-sizing: border-box; }
@@ -91,7 +216,7 @@ h2 { font-size: 1.3rem; }
 h3 { font-size: 1.1rem; }
 p { margin: 0 0 0.8em; }
 
-a { color: var(--primary); }
+a { color: var(--accent-text); }
 
 /* ---------- 화면 틀 ---------- */
 .page {
@@ -142,7 +267,7 @@ a { color: var(--primary); }
   border: 0;
   border-radius: var(--radius-sm);
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   font: inherit;
   font-size: 1.1rem;
   font-weight: 700;
@@ -154,11 +279,11 @@ a { color: var(--primary); }
 .btn:active { transform: scale(0.98); }
 .btn:disabled { opacity: 0.55; cursor: default; transform: none; }
 .btn:focus-visible,
-.input:focus-visible { outline: 3px solid #f2a679; outline-offset: 2px; }
+.input:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .btn-block { display: flex; width: 100%; }
-.btn-secondary { background: var(--primary-soft); color: var(--primary-hover); }
-.btn-secondary:hover { background: #fbd5bd; }
-.btn-ghost { background: transparent; color: var(--primary); }
+.btn-secondary { background: var(--primary-soft); color: var(--accent-strong); }
+.btn-secondary:hover { background: var(--secondary-hover); }
+.btn-ghost { background: transparent; color: var(--accent-text); }
 .btn-ghost:hover { background: var(--primary-soft); }
 .btn-danger { background: var(--danger); }
 
@@ -171,7 +296,7 @@ a { color: var(--primary); }
   padding: 12px 16px;
   border: 2px solid var(--border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--input-bg);
   color: var(--text);
   font: inherit;
   font-size: 1.05rem; /* 16px 이상이어야 아이폰에서 화면이 확대되지 않음 */
@@ -224,7 +349,7 @@ a { color: var(--primary); }
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(255, 248, 241, 0.96);
+  background: var(--bar-bg);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
@@ -270,7 +395,7 @@ a { color: var(--primary); }
   border: 0;
   border-radius: 10px;
   background: var(--surface-soft);
-  color: var(--primary-hover);
+  color: var(--accent-strong);
   font: inherit;
   font-size: 0.95rem;
   font-weight: 700;
@@ -304,7 +429,7 @@ a { color: var(--primary); }
   height: 44px;
   border-radius: 50%;
   background: var(--primary-soft);
-  color: var(--primary-hover);
+  color: var(--accent-strong);
   display: grid;
   place-items: center;
   font-weight: 800;
@@ -345,7 +470,7 @@ a { color: var(--primary); }
   width: max-content;
   max-width: calc(100% - 32px);
   text-align: center;
-  background: rgba(58, 42, 32, 0.94);
+  background: var(--toast-bg);
   color: #fff;
   padding: 14px 20px;
   border-radius: var(--radius-sm);
@@ -370,8 +495,8 @@ a { color: var(--primary); }
 }
 
 .invite-card {
-  border: 2px solid #f2b48f;
-  background: #fffaf6;
+  border: 2px solid var(--highlight-border);
+  background: var(--highlight-bg);
 }
 .invite-from { color: var(--muted); margin: 0 0 4px; font-size: 0.95rem; }
 .invite-group { font-size: 1.35rem; font-weight: 800; margin: 0 0 6px; }
@@ -426,7 +551,7 @@ a { color: var(--primary); }
   margin: 12px 0 16px;
   text-align: center;
 }
-.my-nick-value { font-size: 1.5rem; font-weight: 800; color: var(--primary-hover); margin: 4px 0 0; }
+.my-nick-value { font-size: 1.5rem; font-weight: 800; color: var(--accent-strong); margin: 4px 0 0; }
 
 /* 아래쪽 탭 (소식 · 채팅 · 가족) */
 .page-with-tabs { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
@@ -436,10 +561,10 @@ a { color: var(--primary); }
   right: 0;
   bottom: 0;
   z-index: 60;
-  background: rgba(255, 255, 255, 0.97);
+  background: var(--bottom-bar-bg);
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom);
-  box-shadow: 0 -2px 10px rgba(90, 50, 20, 0.06);
+  box-shadow: var(--bar-shadow);
 }
 .tabbar-inner {
   max-width: var(--max-width);
@@ -461,7 +586,7 @@ a { color: var(--primary); }
   position: relative;
 }
 .tab-icon { font-size: 1.5rem; line-height: 1.1; filter: grayscale(0.6); opacity: 0.75; }
-.tab.active { color: var(--primary); }
+.tab.active { color: var(--accent-text); }
 .tab.active .tab-icon { filter: none; opacity: 1; }
 .tab.active::before {
   content: '';
@@ -496,7 +621,7 @@ a { color: var(--primary); }
   background: var(--surface-soft);
   color: var(--muted);
 }
-.badge-owner { background: var(--primary-soft); color: var(--primary-hover); }
+.badge-owner { background: var(--primary-soft); color: var(--accent-strong); }
 
 .btn-danger-text { color: var(--danger); }
 .btn-danger-text:hover { background: var(--danger-soft); }
@@ -544,10 +669,10 @@ body:has(.tabbar) .toast { bottom: calc(88px + env(safe-area-inset-bottom)); }
   border: 0;
   border-radius: 999px;
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   font: inherit;
   font-weight: 700;
-  box-shadow: 0 4px 14px rgba(150, 70, 20, 0.3);
+  box-shadow: var(--pill-shadow);
   cursor: pointer;
 }
 .new-pill[hidden] { display: none; }
@@ -651,7 +776,7 @@ body:has(.tabbar) .toast { bottom: calc(88px + env(safe-area-inset-bottom)); }
   cursor: pointer;
 }
 .action:hover { background: var(--surface-soft); }
-.action.liked { color: #d0342c; }
+.action.liked { color: var(--like); }
 .like-icon { font-size: 1.3rem; }
 .likers { margin: 0; padding: 0 0 10px; color: var(--muted); font-size: 0.95rem; }
 .likers:empty { display: none; }
@@ -689,10 +814,10 @@ body:has(.tabbar) .toast { bottom: calc(88px + env(safe-area-inset-bottom)); }
   right: 0;
   bottom: 0;
   z-index: 60;
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--bottom-bar-bg);
   border-top: 1px solid var(--border);
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
-  box-shadow: 0 -2px 10px rgba(90, 50, 20, 0.06);
+  box-shadow: var(--bar-shadow);
 }
 .composer-inner {
   max-width: var(--max-width);
@@ -816,7 +941,7 @@ body.typing .page-chat { padding-bottom: calc(100px + env(safe-area-inset-bottom
   display: inline-block;
   padding: 4px 14px;
   border-radius: 999px;
-  background: rgba(90, 50, 20, 0.08);
+  background: var(--chip-bg);
   color: var(--muted);
   font-size: 0.85rem;
   font-weight: 600;
@@ -845,8 +970,8 @@ body.typing .page-chat { padding-bottom: calc(100px + env(safe-area-inset-bottom
 }
 .chat-row.theirs .chat-bubble { border-top-left-radius: 6px; }
 .chat-row.mine .chat-bubble {
-  background: #ffd9b8;
-  border-color: #f7c49b;
+  background: var(--bubble-mine);
+  border-color: var(--bubble-mine-border);
   border-top-right-radius: 6px;
 }
 .chat-row.continued .chat-bubble { border-radius: 18px; }
@@ -876,7 +1001,7 @@ body.typing .page-chat { padding-bottom: calc(100px + env(safe-area-inset-bottom
   padding-bottom: 2px;
 }
 .chat-row.mine .chat-meta { align-items: flex-end; }
-.chat-unread { color: #d98200; font-weight: 800; font-size: 0.85rem; }
+.chat-unread { color: var(--unread); font-weight: 800; font-size: 0.85rem; }
 .chat-unread:empty { display: none; }
 .chat-status { color: var(--muted); display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .chat-failed { color: var(--danger); font-weight: 700; }
@@ -918,11 +1043,11 @@ img.brand-logo { object-fit: cover; }
 }
 .notice p { margin: 0 0 12px; }
 .notice-title { font-weight: 800; font-size: 1.1rem; }
-.notice-warn { border-color: #f2c66d; background: var(--warn-soft); }
-.notice-install { border-color: #f2b48f; background: #fffaf6; }
+.notice-warn { border-color: var(--warn-border); background: var(--warn-soft); }
+.notice-install { border-color: var(--highlight-border); background: var(--highlight-bg); }
 
 .help h2 { margin-bottom: 12px; }
-.help h3 { margin: 18px 0 8px; font-size: 1.05rem; color: var(--primary-hover); }
+.help h3 { margin: 18px 0 8px; font-size: 1.05rem; color: var(--accent-strong); }
 .help h3:first-of-type { margin-top: 8px; }
 .steps { margin: 0 0 8px; padding-left: 1.4em; }
 .steps li { margin-bottom: 8px; padding-left: 4px; }
@@ -931,3 +1056,63 @@ img.brand-logo { object-fit: cover; }
 
 .share-hint { margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--border); }
 .share-hint p { margin-bottom: 10px; }
+
+/* ---------- 배경 테마 고르기 ---------- */
+.theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.theme-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 10px 12px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-height: var(--tap);
+}
+.theme-option.selected { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary) inset; }
+.theme-swatch {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 10px;
+  background: var(--swatch-bg);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  margin-bottom: 8px;
+}
+.theme-swatch-card {
+  width: 62%;
+  padding: 8px;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.theme-dark .theme-swatch-card { background: #1d1d1f; box-shadow: none; border: 1px solid #3a3a3f; }
+.theme-swatch-line { height: 6px; width: 80%; border-radius: 3px; background: rgba(0, 0, 0, 0.15); }
+.theme-dark .theme-swatch-line { background: rgba(255, 255, 255, 0.3); }
+.theme-swatch-btn { height: 10px; width: 50%; border-radius: 4px; background: var(--swatch-accent); }
+.theme-name { font-weight: 800; font-size: 1.05rem; }
+.theme-desc { color: var(--muted); font-size: 0.85rem; }
+.theme-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: none;
+  place-items: center;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 800;
+}
+.theme-option.selected .theme-check { display: grid; }

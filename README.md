@@ -45,6 +45,8 @@ js/lightbox.js          사진 크게 보기
 js/pages/chat.js        채팅방: 실시간 메시지, 사진, 안 읽은 가족 수, 놓친 메시지 따라잡기
 js/chat.js              메시지·읽음 표시·안 읽은 수 서버 요청과 실시간 연결
 js/version.js           앱 버전 표시
+js/theme.js             배경 테마(화이트·블랙·베이지·블루) 고르기와 기억
+js/theme-boot.js        저장된 테마를 화면 그리기 전에 먼저 적용(깜빡임 방지)
 js/install.js           홈 화면 추가 안내, 카카오톡 안 브라우저 안내, 서비스 워커 등록
 js/pages/help.js        사용 방법 화면 (#/help)
 js/format.js            "방금 전", "어제" 같은 날짜 표시
