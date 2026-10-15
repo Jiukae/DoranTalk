@@ -19,7 +19,7 @@
 | 5 | 실시간 채팅 | ✅ 완료 → [안내서](docs/step5-chat.md) |
 | 6 | PWA + 배포 + 가족 접속 링크 | ✅ 완료 → [안내서](docs/step6-launch.md) · [가족 초대 문구](docs/family-invite.md) |
 | 7 | 앱 이름 "도란톡" + dorantalk.com 연결 + admin@dorantalk.com 메일 | ✅ 완료 → [안내서](docs/step7-domain.md) |
-| 8 | 개인정보처리방침 · 이용약관 · 가입 동의 · 회원 탈퇴 · 문의 메일 | 🔧 설정 필요 → [안내서](docs/step8-legal.md) |
+| 8 | 개인정보처리방침 · 이용약관 · 가입 동의 · 회원 탈퇴 · 문의 메일 | ✅ 완료 → [안내서](docs/step8-legal.md) |
 
 ## 폴더 구조
 
