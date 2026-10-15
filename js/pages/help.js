@@ -1,5 +1,5 @@
 // 사용 방법 화면 (#/help): 홈 화면 추가 · 처음 시작 · 소식 · 채팅 · 비밀번호 · 문제 해결
-import { el, render, appBar, backButton, toast } from '../ui.js';
+import { el, render, appBar, backButton, toast, icon, iconTile } from '../ui.js';
 import { isLoggedIn } from '../state.js';
 import { go } from '../router.js';
 import { platform, isStandalone, canPromptInstall, promptInstall } from '../install.js';
@@ -7,9 +7,9 @@ import { APP_VERSION } from '../version.js';
 import { CONTACT_EMAIL } from '../legal.js';
 import { legalLinks } from './legal.js';
 
-function section(icon, title, ...children) {
+function section(iconName, title, ...children) {
   return el('section', { class: 'card help' },
-    el('h2', {}, el('span', { 'aria-hidden': 'true' }, `${icon} `), title),
+    el('h2', {}, iconTile(iconName), title),
     ...children);
 }
 
@@ -31,7 +31,7 @@ function installSection() {
     blocks.push(el('button', {
       class: 'btn btn-block', type: 'button',
       onclick: async () => { if (await promptInstall()) toast('홈 화면에 추가했어요!'); },
-    }, '📱 지금 홈 화면에 추가하기'));
+    }, icon('download', { size: 22 }), '지금 홈 화면에 추가하기'));
   }
 
   const iphone = [
@@ -67,7 +67,7 @@ function installSection() {
   if (p === 'kakao' || p === 'inapp') order.unshift(kakao);
   else order.push(kakao);
 
-  return section('📱', '홈 화면에 앱으로 추가하기',
+  return section('phone', '홈 화면에 앱으로 추가하기',
     el('p', {}, '한 번 추가해 두면 다른 앱처럼 아이콘을 눌러 바로 열 수 있고, 로그인도 계속 유지돼요.'),
     ...blocks,
     ...order.flat(),
@@ -81,44 +81,44 @@ export function renderHelp() {
     el('main', { class: 'page' },
       installSection(),
 
-      section('👋', '처음 시작하기',
+      section('sparkles', '처음 시작하기',
         steps(
           [b('회원가입'), ': 이메일, 비밀번호, ', b('닉네임'), '(가족이 나를 찾는 이름)을 정해요'],
           ['가족에게 내 ', b('닉네임'), ' 을 알려 줘요'],
-          ['가족이 초대하면 홈 화면에 ', b('📩 받은 초대'), ' 가 떠요 → ', b('수락하기')],
+          ['가족이 초대하면 홈 화면에 ', b('받은 초대'), ' 가 떠요 → ', b('수락하기')],
         ),
         el('p', { class: 'muted' }, '내가 그룹을 만들 수도 있어요: 홈 → "+ 새 가족 그룹 만들기" → 아래 "가족" 탭에서 가족의 닉네임으로 초대'),
       ),
 
-      section('📰', '소식 (글과 사진)',
+      section('feed', '소식 (글과 사진)',
         el('ul', { class: 'bullets' },
-          el('li', {}, '맨 위 ', b('"눌러서 소식 쓰기"'), ' → 글 쓰기, ', b('📷 사진 추가'), '(10장까지) → ', b('올리기')),
-          el('li', {}, b('🤍 하트'), ' 를 누르면 ❤️ 로 바뀌어요. 다시 누르면 취소'),
-          el('li', {}, b('💬 댓글 쓰기'), ' 를 누르면 글 화면 아래에 댓글을 쓸 수 있어요'),
-          el('li', {}, '내 글 오른쪽 위 ', b('⋯'), ' → 수정 / 삭제. 내 댓글은 아래 "수정 / 삭제"'),
+          el('li', {}, '맨 위 ', b('"소식을 남겨 보세요"'), ' 칸 → 글 쓰기, ', b('사진 추가'), '(10장까지) → ', b('올리기')),
+          el('li', {}, b('하트'), ' 를 누르면 빨간 하트로 바뀌어요. 다시 누르면 취소'),
+          el('li', {}, b('댓글 쓰기'), ' 를 누르면 글 화면 아래에 댓글을 쓸 수 있어요'),
+          el('li', {}, '내 글 오른쪽 위 ', b('점 세 개(⋯)'), ' → 아래에서 올라오는 메뉴에서 수정 / 삭제. 내 댓글은 아래 "수정 / 삭제"'),
           el('li', {}, '사진을 누르면 크게 보여요. 옆으로 밀면 다음 사진'),
         ),
       ),
 
-      section('💬', '채팅',
+      section('chat', '채팅',
         el('ul', { class: 'bullets' },
-          el('li', {}, '아래 ', b('채팅'), ' 탭 → 글자를 쓰고 ', b('보내기'), '. 왼쪽 ', b('📷'), ' 로 사진도 보낼 수 있어요'),
+          el('li', {}, '아래 ', b('채팅'), ' 탭 → 글자를 쓰고 ', b('보내기'), '. 왼쪽 ', b('카메라 버튼'), ' 으로 사진도 보낼 수 있어요'),
           el('li', {}, '내 메시지 옆 ', el('strong', { class: 'chat-unread' }, '1'), ' 같은 숫자는 ', b('아직 안 읽은 가족 수'), '예요. 모두 읽으면 사라져요'),
           el('li', {}, '빨간 숫자(채팅 탭, 홈 화면)는 ', b('내가 아직 안 읽은 메시지 수'), '예요'),
         ),
       ),
 
-      section('🎨', '화면 색 바꾸기',
+      section('palette', '화면 색 바꾸기',
         el('p', {}, '오른쪽 위 ', b('내 정보'), ' → ', b('배경 테마'), ' 에서 화이트 · 블랙 · 베이지 · 블루 중에 골라요. 누르면 바로 바뀌어요.'),
         el('p', { class: 'muted' }, '밤에 눈이 부시면 "블랙"을 써 보세요.'),
       ),
 
-      section('🔑', '비밀번호를 잊었을 때',
+      section('key', '비밀번호를 잊었을 때',
         el('p', {}, '로그인 화면의 ', b('"비밀번호를 잊으셨나요?"'), ' → 가입한 이메일 입력 → 메일의 버튼을 누르면 새 비밀번호를 정할 수 있어요.'),
         el('p', { class: 'muted' }, '메일이 안 오면 스팸함을 확인하고, 그래도 없으면 가족 중 앱 관리자에게 알려 주세요.'),
       ),
 
-      section('🛠', '잘 안 될 때',
+      section('wrench', '잘 안 될 때',
         el('ul', { class: 'bullets' },
           el('li', {}, '앱을 ', b('완전히 닫았다가'), ' 다시 열어 보세요'),
           el('li', {}, '와이파이나 데이터가 켜져 있는지 확인해 주세요'),

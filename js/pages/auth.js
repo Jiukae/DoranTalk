@@ -4,7 +4,7 @@ import { state, loadProfile } from '../state.js';
 import { go } from '../router.js';
 import { friendlyError } from '../errors.js';
 import {
-  el, render, brandHeader, field, passwordInput, messageBox, setBusy, toast,
+  el, render, brandHeader, brandHero, field, passwordInput, messageBox, setBusy, toast, icon,
 } from '../ui.js';
 import { inAppBrowserNotice } from '../install.js';
 import { consentChecklist, legalLinks } from './legal.js';
@@ -66,7 +66,7 @@ export function renderLogin() {
       // 로그인 성공 → app.js 의 onAuthStateChange 가 홈으로 보냅니다
     },
   },
-    el('h1', {}, '로그인'),
+    el('h2', {}, '로그인'),
     field('이메일', email),
     field('비밀번호', pw),
     msg,
@@ -76,12 +76,12 @@ export function renderLogin() {
   );
 
   render(el('main', { class: 'page' },
-    brandHeader(),
+    brandHero('도란톡', '가족끼리 나누는 따뜻한 소식과 채팅'),
     inAppBrowserNotice(),
     form,
     el('section', { class: 'card center' },
       el('p', { class: 'muted', style: 'margin-bottom:12px' }, '처음 오셨나요?'),
-      el('a', { href: '#/signup', class: 'btn btn-secondary btn-block' }, '회원가입 하기'),
+      el('a', { href: '#/signup', class: 'btn btn-tonal btn-block' }, '회원가입 하기'),
     ),
     footerLinks(),
   ));
@@ -209,7 +209,7 @@ function renderCheckEmail(email) {
   render(el('main', { class: 'page' },
     brandHeader(),
     el('section', { class: 'card center stack' },
-      el('div', { class: 'big-emoji', 'aria-hidden': 'true' }, '📮'),
+      el('div', { class: 'empty-icon', 'aria-hidden': 'true' }, icon('mail', { size: 34 })),
       el('h1', {}, '메일함을 확인해 주세요'),
       el('p', {}, el('strong', {}, email), ' 로 인증 메일을 보냈어요.'),
       el('p', { class: 'muted' }, '메일 안의 링크를 누르면 가입이 끝나고 자동으로 로그인돼요. 메일이 안 보이면 스팸함도 확인해 주세요.'),
@@ -253,7 +253,7 @@ export function renderForgot() {
   render(el('main', { class: 'page' },
     brandHeader(),
     form,
-    el('p', { class: 'center' }, el('a', { href: '#/login', class: 'link-strong' }, '‹ 로그인으로 돌아가기')),
+    el('p', { class: 'center' }, el('a', { href: '#/login', class: 'link-strong' }, '로그인으로 돌아가기')),
   ));
 }
 
@@ -296,7 +296,7 @@ export function renderNewPassword() {
 function footerLinks() {
   return el('div', {},
     el('p', { class: 'center small muted', style: 'margin-top:8px' },
-      el('a', { href: '#/help', class: 'link-strong' }, '📖 사용 방법'), ' · ',
+      el('a', { href: '#/help', class: 'link-strong' }, '사용 방법'), ' · ',
       el('a', { href: '#/check', class: 'muted' }, '연결 점검')),
     legalLinks(),
   );

@@ -6,7 +6,7 @@ import { go, navToken, isStale } from '../router.js';
 import { friendlyError } from '../errors.js';
 import {
   el, render, appBar, backButton, field, messageBox, setBusy, toast, avatar, emptyState, errorCard,
-  loadingScreen, shareAppLink,
+  shareAppLink, icon, iconTile, confirmDialog, skeletonPosts,
 } from '../ui.js';
 import {
   fetchGroup, fetchMembers, fetchPendingInvites, inviteByNickname, cancelInvitation, leaveGroup,
@@ -19,9 +19,9 @@ import { renderChatTab } from './chat.js';
 import { fetchUnreadCounts, watchNewMessages } from '../chat.js';
 
 const TABS = [
-  { key: 'feed', label: '소식', icon: '📰' },
-  { key: 'chat', label: '채팅', icon: '💬' },
-  { key: 'members', label: '가족', icon: '👨‍👩‍👧' },
+  { key: 'feed', label: '소식', icon: 'feed' },
+  { key: 'chat', label: '채팅', icon: 'chat' },
+  { key: 'members', label: '가족', icon: 'family' },
 ];
 
 function tabBar(groupId, active) {
@@ -39,7 +39,7 @@ function tabBar(groupId, active) {
           go(`/group/${groupId}/${t.key}`);
         },
       },
-        el('span', { class: 'tab-icon', 'aria-hidden': 'true' }, t.icon),
+        icon(t.icon, { size: 27 }),
         el('span', { class: 'tab-label' }, t.label),
         t.key === 'chat' && el('span', { class: 'tab-badge', hidden: true }),
       )),
@@ -51,7 +51,7 @@ export async function renderGroup({ id, tab }) {
   if (!TABS.some((t) => t.key === tab)) return go(`/group/${id}/feed`, { replace: true });
 
   const token = navToken();
-  render(appBar('', { left: backButton(() => go('/home'), '목록') }), loadingScreen());
+  render(appBar('', { left: backButton(() => go('/home'), '목록') }), el('main', { class: 'page' }, skeletonPosts(2)));
 
   let group;
   try {
@@ -72,7 +72,7 @@ export async function renderGroup({ id, tab }) {
       appBar('', { left: backButton(() => go('/home'), '목록') }),
       el('main', { class: 'page' },
         el('section', { class: 'card' },
-          emptyState('🔒', '이 그룹을 볼 수 없어요', '그룹 멤버만 볼 수 있어요. 초대를 받았다면 홈에서 먼저 수락해 주세요.'),
+          emptyState('lock', '이 그룹을 볼 수 없어요', '그룹 멤버만 볼 수 있어요. 초대를 받았다면 홈에서 먼저 수락해 주세요.'),
           el('a', { href: '#/home', class: 'btn btn-block' }, '홈으로'),
         ),
       ),
@@ -182,13 +182,17 @@ function inviteForm(group, onInvited) {
       }
     },
   },
-    el('h2', {}, '가족 초대하기'),
+    el('div', { class: 'card-head' },
+      iconTile('userPlus'),
+      el('div', {}, el('h2', {}, '가족 초대하기'), el('p', { class: 'muted' }, '닉네임으로 초대해요')),
+    ),
     field('초대할 가족의 닉네임', nick, '가족이 도란톡에 가입할 때 정한 닉네임을 정확히 입력해 주세요.'),
     msg,
     submit,
     el('div', { class: 'share-hint' },
       el('p', { class: 'muted small' }, '아직 가입하지 않은 가족이 있나요? 링크를 보내 가입을 부탁해 보세요.'),
-      el('button', { class: 'btn btn-secondary btn-block', type: 'button', onclick: shareAppLink }, '📤 가족에게 도란톡 링크 보내기'),
+      el('button', { class: 'btn btn-secondary btn-block', type: 'button', onclick: shareAppLink },
+        icon('share', { size: 22 }), '가족에게 도란톡 링크 보내기'),
     ),
   );
 }
@@ -200,7 +204,7 @@ function pendingCard(pending, refresh) {
       ...pending.map((p) => {
         const cancel = el('button', { class: 'btn btn-ghost btn-small', type: 'button' }, '취소');
         cancel.addEventListener('click', async () => {
-          if (!confirm(`${p.inviteeNickname}님에게 보낸 초대를 취소할까요?`)) return;
+          if (!(await confirmDialog({ title: '초대를 취소할까요?', message: `${p.inviteeNickname}님에게 보낸 초대가 사라져요.`, confirmText: '초대 취소' }))) return;
           setBusy(cancel, true, '');
           try {
             await cancelInvitation(p.id);
@@ -273,7 +277,12 @@ function renameForm(group) {
 function leaveSection(group) {
   const leave = el('button', { class: 'btn btn-ghost btn-block btn-danger-text', type: 'button' }, '이 그룹에서 나가기');
   leave.addEventListener('click', async () => {
-    if (!confirm(`'${group.name}' 그룹에서 나갈까요?\n나가면 이 그룹의 글과 채팅을 볼 수 없고, 다시 들어오려면 가족에게 초대받아야 해요.`)) return;
+    const ok = await confirmDialog({
+      title: `'${group.name}' 그룹에서 나갈까요?`,
+      message: '나가면 이 그룹의 글과 채팅을 볼 수 없고, 다시 들어오려면 가족에게 초대받아야 해요.',
+      confirmText: '나가기', danger: true,
+    });
+    if (!ok) return;
     setBusy(leave, true, '나가는 중…');
     try {
       await leaveGroup(group.id);

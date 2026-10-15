@@ -4,6 +4,7 @@ import { go, navToken, isStale } from '../router.js';
 import { friendlyError } from '../errors.js';
 import {
   el, render, appBar, backButton, messageBox, setBusy, toast, avatar, emptyState, errorCard, loadingScreen,
+  icon, iconTile, confirmDialog, actionSheet, skeletonPosts,
 } from '../ui.js';
 import { timeAgo } from '../format.js';
 import { fetchGroup } from '../groups.js';
@@ -48,11 +49,11 @@ function photoGrid(paths, urls, { stacked = false } = {}) {
 }
 
 function likeButton(post, onChange = () => {}) {
-  const icon = el('span', { class: 'like-icon', 'aria-hidden': 'true' });
+  const heart = el('span', { class: 'like-icon', 'aria-hidden': 'true' });
   const label = el('span', {});
-  const btn = el('button', { class: 'action', type: 'button' }, icon, label);
+  const btn = el('button', { class: 'action', type: 'button' }, heart, label);
   const paint = () => {
-    icon.textContent = post.likedByMe ? '❤️' : '🤍';
+    heart.replaceChildren(icon('heart', { size: 24, filled: post.likedByMe }));
     label.textContent = post.likeCount ? `하트 ${post.likeCount}` : '하트';
     btn.classList.toggle('liked', post.likedByMe);
     btn.setAttribute('aria-pressed', String(post.likedByMe));
@@ -79,24 +80,27 @@ function likeButton(post, onChange = () => {}) {
   return btn;
 }
 
-// 내 글의 "⋯" 메뉴 (수정하기 / 삭제하기)
+// 내 글의 "⋯" 메뉴: 아래에서 올라오는 메뉴(수정하기 / 삭제하기)
 function ownerMenu(onEdit, onDelete, what = '글') {
-  const panel = el('div', { class: 'owner-menu', hidden: true },
-    el('button', { class: 'btn btn-secondary', type: 'button', onclick: onEdit }, `✏️ ${what} 수정`),
-    el('button', { class: 'btn btn-secondary btn-danger-text', type: 'button', onclick: onDelete }, `🗑 ${what} 삭제`),
-  );
   const toggle = el('button', {
-    class: 'more-btn', type: 'button', 'aria-label': `내 ${what} 수정·삭제 메뉴`, 'aria-expanded': 'false',
-    onclick: () => {
-      panel.hidden = !panel.hidden;
-      toggle.setAttribute('aria-expanded', String(!panel.hidden));
-    },
-  }, '⋯');
-  return { toggle, panel };
+    class: 'more-btn', type: 'button', 'aria-label': `내 ${what} 수정·삭제 메뉴`, 'aria-haspopup': 'dialog',
+    onclick: () => actionSheet({
+      title: `내 ${what}`,
+      actions: [
+        { label: `${what} 수정`, icon: 'edit', onSelect: onEdit },
+        { label: `${what} 삭제`, icon: 'trash', danger: true, onSelect: onDelete },
+      ],
+    }),
+  }, icon('more', { size: 26 }));
+  return { toggle };
 }
 
 async function confirmDeletePost(post) {
-  if (!confirm('이 글을 삭제할까요?\n사진과 댓글도 함께 지워지고, 되돌릴 수 없어요.')) return false;
+  const ok = await confirmDialog({
+    title: '이 글을 삭제할까요?', message: '사진과 댓글도 함께 지워지고, 되돌릴 수 없어요.',
+    confirmText: '삭제', danger: true,
+  });
+  if (!ok) return false;
   try {
     await deletePost(post);
     toast('글을 삭제했어요.');
@@ -124,9 +128,10 @@ function postHeader(post, menu) {
 export async function renderFeedTab(main, group, token) {
   const list = el('div', { class: 'post-list' });
   const moreBtn = el('button', { class: 'btn btn-secondary btn-block', type: 'button', hidden: true }, '이전 소식 더 보기');
-  const newPill = el('button', { class: 'new-pill', type: 'button', hidden: true }, '⬆ 새 소식이 있어요 · 눌러서 보기');
+  const newPill = el('button', { class: 'new-pill', type: 'button', hidden: true }, icon('arrowUp', { size: 20 }), '새 소식이 있어요');
   let oldest = null;
 
+  list.append(skeletonPosts(2));
   main.append(composePrompt(group.id), newPill, list, moreBtn);
 
   async function loadPage(reset) {
@@ -153,7 +158,7 @@ export async function renderFeedTab(main, group, token) {
 
     if (reset && posts.length === 0) {
       list.replaceChildren(el('section', { class: 'card' },
-        emptyState('🌱', '아직 소식이 없어요', '위의 칸을 눌러 가족에게 첫 소식을 전해 보세요!')));
+        emptyState('sparkles', '아직 소식이 없어요', '위의 칸을 눌러 가족에게 첫 소식을 전해 보세요!')));
     }
   }
 
@@ -188,8 +193,8 @@ export async function renderFeedTab(main, group, token) {
 function composePrompt(groupId) {
   return el('a', { href: `#/group/${groupId}/write`, class: 'card compose-prompt' },
     avatar(state.profile?.nickname),
-    el('span', { class: 'compose-fake-input' }, '눌러서 소식 쓰기'),
-    el('span', { class: 'compose-photo', 'aria-hidden': 'true' }, '📷'),
+    el('span', { class: 'compose-fake-input' }, '소식을 남겨 보세요'),
+    el('span', { class: 'compose-photo' }, iconTile('image')),
   );
 }
 
@@ -210,14 +215,13 @@ function feedCard(post, urls, groupId) {
 
   card.append(
     postHeader(post, menu),
-    menu?.panel || '',
     text || '',
     long ? el('a', { href: detailHref, class: 'read-more' }, '…더 보기') : '',
     photoGrid(post.image_paths, urls) || '',
     el('footer', { class: 'post-actions' },
       likeButton(post),
       el('a', { href: detailHref, class: 'action' },
-        el('span', { 'aria-hidden': 'true' }, '💬'),
+        icon('comment', { size: 23 }),
         post.commentCount ? `댓글 ${post.commentCount}` : '댓글 쓰기'),
     ),
   );
@@ -247,7 +251,7 @@ export async function renderWrite({ id: groupId, postId }) {
   if (!group || (editing && (!post || !post.isMine))) {
     render(appBar('', { left: backButton(() => go('/home'), '목록') }),
       el('main', { class: 'page' }, el('section', { class: 'card' },
-        emptyState('🔒', editing ? '이 글은 수정할 수 없어요' : '이 그룹에 글을 쓸 수 없어요',
+        emptyState('lock', editing ? '이 글은 수정할 수 없어요' : '이 그룹에 글을 쓸 수 없어요',
           editing ? '내가 쓴 글만 수정할 수 있어요.' : '그룹 멤버만 글을 쓸 수 있어요.'))));
     return;
   }
@@ -265,7 +269,7 @@ export async function renderWrite({ id: groupId, postId }) {
   });
   textarea.value = post?.content || '';
   const thumbs = el('div', { class: 'thumbs' });
-  const addBtn = el('button', { class: 'btn btn-secondary btn-block', type: 'button' });
+  const addBtn = el('button', { class: 'btn btn-block add-photo', type: 'button' });
   const msg = messageBox();
   const submit = el('button', { class: 'btn btn-block', type: 'submit' }, editing ? '수정 완료' : '올리기');
   let dirty = false;
@@ -282,9 +286,9 @@ export async function renderWrite({ id: groupId, postId }) {
           dirty = true;
           paintThumbs();
         },
-      }, '✕'),
+      }, icon('close', { size: 18 })),
     )));
-    addBtn.textContent = `📷 사진 추가 (${photos.length}/${MAX_IMAGES})`;
+    addBtn.replaceChildren(icon('camera', { size: 22 }), `사진 추가 (${photos.length}/${MAX_IMAGES})`);
     addBtn.disabled = photos.length >= MAX_IMAGES;
   };
 
@@ -308,13 +312,13 @@ export async function renderWrite({ id: groupId, postId }) {
   });
 
   const backToFeed = () => go(editing ? `/group/${groupId}/post/${postId}` : `/group/${groupId}/feed`);
-  const cancel = () => {
-    if (dirty && !confirm('작성 중인 내용이 사라져요. 나갈까요?')) return;
+  const cancel = async () => {
+    if (dirty && !(await confirmDialog({ title: '쓰던 글을 버릴까요?', message: '작성 중인 내용이 사라져요.', confirmText: '나가기', cancelText: '계속 쓰기' }))) return;
     backToFeed();
   };
 
   const form = el('form', {
-    class: 'card', novalidate: true,
+    class: 'card write-card', novalidate: true,
     onsubmit: async (e) => {
       e.preventDefault();
       msg.clear();
@@ -354,6 +358,10 @@ export async function renderWrite({ id: groupId, postId }) {
       }
     },
   },
+    el('div', { class: 'write-head' },
+      avatar(state.profile?.nickname),
+      el('p', {}, state.profile?.nickname || ''),
+    ),
     textarea,
     thumbs,
     addBtn,
@@ -396,7 +404,7 @@ export async function renderPostDetail({ id: groupId, postId }) {
     if (!post) {
       render(appBar('글 보기', { left: back }),
         el('main', { class: 'page' }, el('section', { class: 'card' },
-          emptyState('🔍', '글을 찾을 수 없어요', '지워진 글이거나, 볼 수 없는 그룹의 글이에요.'),
+          emptyState('search', '글을 찾을 수 없어요', '지워진 글이거나, 볼 수 없는 그룹의 글이에요.'),
           el('a', { href: `#/group/${groupId}/feed`, class: 'btn btn-block' }, '소식으로'))));
       return null;
     }
@@ -412,7 +420,6 @@ export async function renderPostDetail({ id: groupId, postId }) {
     }
     postBox.replaceChildren(el('article', { class: 'card post' },
       postHeader(post, menu),
-      menu?.panel || '',
       post.content ? el('p', { class: 'post-text' }, post.content) : '',
       photoGrid(post.image_paths, urls, { stacked: true }) || '',
       el('footer', { class: 'post-actions' }, likeButton(post, refreshLikers)),
@@ -425,7 +432,9 @@ export async function renderPostDetail({ id: groupId, postId }) {
   async function refreshLikers() {
     const names = await fetchLikers(postId).catch(() => []);
     if (isStale(token)) return;
-    likersLine.textContent = names.length ? `❤️ ${names.join(', ')}님이 좋아해요` : '';
+    likersLine.replaceChildren(...(names.length
+      ? [icon('heart', { size: 18, filled: true }), `${names.join(', ')}님이 좋아해요`]
+      : []));
   }
 
   async function refreshComments(scrollToEnd = false) {
@@ -472,7 +481,7 @@ function commentItem(c, refresh) {
         el('button', {
           class: 'link-btn danger', type: 'button',
           onclick: async () => {
-            if (!confirm('이 댓글을 삭제할까요?')) return;
+            if (!(await confirmDialog({ title: '이 댓글을 삭제할까요?', confirmText: '삭제', danger: true }))) return;
             try {
               await deleteComment(c.id);
               toast('댓글을 삭제했어요.');

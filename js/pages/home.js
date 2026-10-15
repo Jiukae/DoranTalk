@@ -5,7 +5,7 @@ import { go, navToken, isStale } from '../router.js';
 import { friendlyError } from '../errors.js';
 import {
   el, render, appBar, backButton, field, messageBox, setBusy, toast, avatar, emptyState, errorCard,
-  loadingScreen,
+  icon, iconTile, brandMark, listRow, skeletonRows, colorIndex, confirmDialog,
 } from '../ui.js';
 import { nicknameFormatError, checkNicknameAvailable, NICKNAME_HINT } from './auth.js';
 import {
@@ -16,11 +16,16 @@ import { fetchUnreadCounts, watchNewMessages } from '../chat.js';
 import { APP_VERSION } from '../version.js';
 import { installBanner, inAppBrowserNotice } from '../install.js';
 import { THEMES, getTheme, setTheme } from '../theme.js';
-import { legalLinks } from './legal.js';
+import { CONTACT_EMAIL } from '../legal.js';
 
 function meButton() {
-  return el('button', { class: 'btn btn-ghost btn-small', type: 'button', onclick: () => go('/me') },
+  return el('button', { class: 'btn btn-ghost btn-small me-btn', type: 'button', onclick: () => go('/me') },
     avatar(state.profile?.nickname, 'avatar-sm'), '내 정보');
+}
+
+// 그룹 이름 첫 글자가 들어간 둥근 네모 (그룹마다 다른 색)
+export function groupIcon(name) {
+  return el('div', { class: `group-icon av-${colorIndex(name)}`, 'aria-hidden': 'true' }, (name || '?').slice(0, 1));
 }
 
 // ------------------------------------------------------------------
@@ -28,8 +33,8 @@ function meButton() {
 // ------------------------------------------------------------------
 export async function renderHome() {
   const token = navToken();
-  const content = el('main', { class: 'page' }, loadingScreen());
-  render(appBar('도란톡', { right: meButton() }), content);
+  const content = el('main', { class: 'page' }, skeletonRows(2));
+  render(appBar('', { left: brandMark(), right: meButton() }), content);
 
   async function load() {
     let groups;
@@ -84,7 +89,7 @@ export async function renderHome() {
 
 function invitationsSection(invites, reload) {
   return el('section', { class: 'invites' },
-    el('h2', { class: 'section-title' }, `📩 받은 초대 ${invites.length}개`),
+    el('h2', { class: 'section-title' }, '받은 초대 ', el('span', { class: 'count' }, String(invites.length))),
     ...invites.map((inv) => invitationCard(inv, reload)),
   );
 }
@@ -110,7 +115,10 @@ function invitationCard(inv, reload) {
   });
 
   decline.addEventListener('click', async () => {
-    if (!confirm(`'${inv.group_name}' 그룹 초대를 거절할까요?`)) return;
+    const ok = await confirmDialog({
+      title: '초대를 거절할까요?', message: `'${inv.group_name}' 그룹에 들어가지 않아요.`, confirmText: '거절하기',
+    });
+    if (!ok) return;
     msg.clear();
     setBusy(decline, true, '거절하는 중…');
     accept.disabled = true;
@@ -126,22 +134,28 @@ function invitationCard(inv, reload) {
   });
 
   return el('article', { class: 'card invite-card' },
-    el('p', { class: 'invite-from' }, `${inv.inviter_nickname || '가족'}님이 초대했어요 · ${timeAgo(inv.created_at)}`),
-    el('p', { class: 'invite-group' }, inv.group_name),
-    el('p', { class: 'muted small', style: 'margin:0 0 14px' }, '수락하면 이 그룹의 글과 채팅을 함께 볼 수 있어요.'),
+    el('div', { class: 'invite-head' },
+      groupIcon(inv.group_name),
+      el('div', {},
+        el('p', { class: 'invite-from' }, `${inv.inviter_nickname || '가족'}님이 초대했어요 · ${timeAgo(inv.created_at)}`),
+        el('p', { class: 'invite-group' }, inv.group_name),
+      ),
+    ),
+    el('p', { class: 'muted small', style: 'margin:0 0 16px' }, '수락하면 이 그룹의 글과 채팅을 함께 볼 수 있어요.'),
     msg,
     el('div', { class: 'btn-row' }, accept, decline),
   );
 }
 
 function groupsSection(groups, unread = {}) {
-  const createBtn = el('a', { href: '#/groups/new', class: 'btn btn-block' }, '+ 새 가족 그룹 만들기');
+  const createBtn = el('a', { href: '#/groups/new', class: `btn btn-block ${groups.length ? 'btn-tonal' : ''}` },
+    icon('plus'), '새 가족 그룹 만들기');
 
   if (groups.length === 0) {
     return el('section', {},
       el('h2', { class: 'section-title' }, '우리 가족 그룹'),
       el('div', { class: 'card' },
-        emptyState('🏡', '아직 가족 그룹이 없어요',
+        emptyState('home', '아직 가족 그룹이 없어요',
           '가족 그룹을 새로 만들거나, 가족에게 초대를 받아 보세요.'),
         el('div', { class: 'my-nick' },
           el('p', { class: 'muted small', style: 'margin:0' }, '가족에게 이 닉네임을 알려 주면 초대받을 수 있어요'),
@@ -158,14 +172,14 @@ function groupsSection(groups, unread = {}) {
       ...groups.map((g) => el('li', {},
         // 안 읽은 채팅이 있으면 바로 채팅방으로
         el('a', { href: `#/group/${g.id}/${unread[g.id] > 0 ? 'chat' : 'feed'}`, class: 'group-item' },
-          el('div', { class: 'group-icon', 'aria-hidden': 'true' }, '👨‍👩‍👧‍👦'),
+          groupIcon(g.name),
           el('div', { class: 'group-text' },
             el('p', { class: 'group-name' }, g.name),
-            el('p', { class: 'muted small', style: 'margin:0' }, `가족 ${g.memberCount}명`),
+            el('p', { class: 'group-sub' }, unread[g.id] > 0 ? `새 채팅 ${unread[g.id]}개 · 가족 ${g.memberCount}명` : `가족 ${g.memberCount}명`),
           ),
           unread[g.id] > 0 && el('span', { class: 'unread-badge', 'aria-label': `안 읽은 메시지 ${unread[g.id]}개` },
-            `💬 ${unread[g.id] > 99 ? '99+' : unread[g.id]}`),
-          el('span', { class: 'chevron', 'aria-hidden': 'true' }, '›'),
+            unread[g.id] > 99 ? '99+' : String(unread[g.id])),
+          icon('chevronRight', { size: 22, className: 'chevron' }),
         ),
       )),
     ),
@@ -257,6 +271,7 @@ export function renderMe() {
         state.profile = data;
         headerName.textContent = data.nickname;
         headerAvatar.textContent = data.nickname.slice(0, 1);
+        headerAvatar.className = `avatar avatar-lg av-${colorIndex(data.nickname)}`;
         msg.show('닉네임을 바꿨어요. 이제 가족들은 새 닉네임으로 나를 찾을 수 있어요.', 'success');
       } catch (err) {
         msg.show(friendlyError(err));
@@ -265,7 +280,7 @@ export function renderMe() {
       }
     },
   },
-    el('h2', {}, '닉네임'),
+    el('h2', {}, '닉네임 바꾸기'),
     field('내 닉네임', nick, NICKNAME_HINT),
     msg,
     save,
@@ -274,37 +289,42 @@ export function renderMe() {
   const logout = el('button', {
     class: 'btn btn-secondary btn-block', type: 'button',
     onclick: async () => {
-      if (!confirm('로그아웃할까요?')) return;
+      if (!(await confirmDialog({ title: '로그아웃할까요?', message: '다시 들어올 때 이메일과 비밀번호가 필요해요.', confirmText: '로그아웃' }))) return;
       setBusy(logout, true, '로그아웃하는 중…');
       const { error } = await sb.auth.signOut();
       setBusy(logout, false);
       if (error) return toast(friendlyError(error));
       // 로그아웃되면 app.js 가 로그인 화면으로 보냅니다
     },
-  }, '로그아웃');
+  }, icon('logout', { size: 22 }), '로그아웃');
 
   render(
     appBar('내 정보', { left: backButton(() => go('/home')) }),
     el('main', { class: 'page' },
-      el('section', { class: 'card welcome' },
+      el('section', { class: 'card profile-card' },
         headerAvatar,
-        el('div', {},
+        el('div', { style: 'min-width:0' },
           headerName,
-          el('p', { class: 'muted', style: 'margin:0' }, state.session?.user?.email || ''),
+          el('p', { class: 'muted' }, state.session?.user?.email || ''),
         ),
       ),
       nickForm,
       themePicker(),
+      el('h2', { class: 'section-title' }, '도움말 · 안내'),
+      el('section', { class: 'card list-card' },
+        listRow({ icon: 'help', label: '사용 방법', sub: '홈 화면에 추가, 글 쓰기, 채팅', href: '#/help', tone: 'blue' }),
+        listRow({ icon: 'activity', label: '연결 점검', sub: '잘 안 될 때 확인해 보세요', href: '#/check', tone: 'green' }),
+        listRow({ icon: 'mail', label: '문의하기', sub: CONTACT_EMAIL, href: `mailto:${CONTACT_EMAIL}`, tone: 'violet' }),
+        listRow({ icon: 'document', label: '이용약관', href: '#/terms', tone: 'gray' }),
+        listRow({ icon: 'shield', label: '개인정보처리방침', href: '#/privacy', tone: 'gray' }),
+      ),
+      el('h2', { class: 'section-title' }, '계정'),
       el('section', { class: 'card' },
-        el('h2', {}, '계정'),
         el('p', { class: 'muted' }, '이 기기에서는 로그아웃하기 전까지 계속 로그인되어 있어요.'),
         logout,
         el('a', { href: '#/me/delete', class: 'btn btn-ghost btn-block btn-danger-text', style: 'margin-top:8px' }, '회원 탈퇴'),
       ),
-      el('p', { class: 'muted small center' },
-        el('a', { href: '#/help', class: 'link-strong' }, '📖 사용 방법'), ' · ',
-        el('a', { href: '#/check', class: 'muted' }, '연결 점검'), ` · 앱 버전: ${APP_VERSION}`),
-      legalLinks(),
+      el('p', { class: 'app-version' }, `앱 버전: ${APP_VERSION}`),
     ),
   );
 }
@@ -341,7 +361,7 @@ function themePicker() {
       ),
       el('span', { class: 'theme-name' }, t.label),
       el('span', { class: 'theme-desc' }, t.desc),
-      el('span', { class: 'theme-check', 'aria-hidden': 'true' }, '✓'),
+      el('span', { class: 'theme-check', 'aria-hidden': 'true' }, icon('check', { size: 18 })),
     );
     btn.style.setProperty('--swatch-bg', t.preview);
     btn.style.setProperty('--swatch-accent', t.accent);
@@ -350,8 +370,10 @@ function themePicker() {
   }
   paint();
   return el('section', { class: 'card' },
-    el('h2', {}, '🎨 배경 테마'),
-    el('p', { class: 'muted' }, '마음에 드는 화면 색을 골라 보세요. 이 휴대폰에 기억돼요.'),
+    el('div', { class: 'card-head' },
+      iconTile('palette'),
+      el('div', {}, el('h2', {}, '배경 테마'), el('p', { class: 'muted' }, '이 휴대폰에 기억돼요')),
+    ),
     el('div', { class: 'theme-grid', role: 'radiogroup', 'aria-label': '배경 테마' }, ...buttons),
   );
 }

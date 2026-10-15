@@ -3,7 +3,7 @@
 // - 안드로이드 크롬/컴퓨터: "홈 화면에 추가" 버튼을 앱 안에서 바로 띄울 수 있음
 // - 아이폰: 버튼을 띄울 수 없어서 방법을 안내
 // - 카카오톡·네이버 앱 안에서 열린 경우: 기본 브라우저로 열도록 안내
-import { el } from './ui.js';
+import { el, iconTile } from './ui.js';
 
 let deferredPrompt = null;
 const listeners = new Set();
@@ -137,7 +137,9 @@ export function installBanner() {
         el('div', { class: 'btn-row' }, el('a', { href: '#/help', class: 'btn btn-secondary' }, '자세히 보기'), later),
       ];
     }
-    box.replaceChildren(el('p', { class: 'notice-title' }, '📱 휴대폰 홈 화면에 추가하기'), ...body);
+    box.replaceChildren(
+      el('div', { class: 'notice-head' }, iconTile('download'), el('p', { class: 'notice-title' }, '휴대폰 홈 화면에 추가하기')),
+      ...body);
   };
   paint();
   stop = onInstallChange(paint);

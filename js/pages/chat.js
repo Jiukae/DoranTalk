@@ -4,7 +4,7 @@
 import { state } from '../state.js';
 import { isStale } from '../router.js';
 import { friendlyError } from '../errors.js';
-import { el, avatar, toast, setBusy, errorCard, emptyState } from '../ui.js';
+import { el, avatar, toast, setBusy, errorCard, emptyState, icon } from '../ui.js';
 import { timeOnly } from '../format.js';
 import { fetchMembers } from '../groups.js';
 import { signedUrls, pickImages } from '../images.js';
@@ -33,7 +33,7 @@ export async function renderChatTab(main, group, token) {
   main.classList.add('page-chat');
   const moreBtn = el('button', { class: 'btn btn-ghost btn-block', type: 'button', hidden: true }, '이전 대화 더 보기');
   const list = el('div', { class: 'chat-list', role: 'log', 'aria-live': 'polite', 'aria-label': '채팅 메시지' });
-  const newPill = el('button', { class: 'new-pill chat-new-pill', type: 'button', hidden: true }, '⬇ 새 메시지');
+  const newPill = el('button', { class: 'new-pill chat-new-pill', type: 'button', hidden: true }, icon('arrowDown', { size: 20 }), '새 메시지');
   main.append(moreBtn, list);
   const composer = buildComposer();
   document.body.append(composer.root, newPill);
@@ -135,7 +135,7 @@ export async function renderChatTab(main, group, token) {
     moreBtn.hidden = !hasOlder;
     if (!messages.length) {
       list.replaceChildren(el('div', { class: 'card chat-empty' },
-        emptyState('💬', '가족 채팅방이에요', '아래 칸에 첫 인사를 남겨 보세요!')));
+        emptyState('chat', '가족 채팅방이에요', '아래 칸에 첫 인사를 남겨 보세요!')));
     }
     updateUnread();
   }
@@ -262,7 +262,7 @@ export async function renderChatTab(main, group, token) {
       class: 'input textarea composer-input', rows: 1, maxlength: MAX_MESSAGE_LENGTH,
       placeholder: '메시지 입력', 'aria-label': '메시지 입력', enterkeyhint: 'send',
     });
-    const photoBtn = el('button', { class: 'composer-photo', type: 'button', 'aria-label': '사진 보내기' }, '📷');
+    const photoBtn = el('button', { class: 'composer-photo', type: 'button', 'aria-label': '사진 보내기' }, icon('camera', { size: 24 }));
     const send = el('button', { class: 'btn composer-send', type: 'button' }, '보내기');
     const api = { pending: 0 };
 

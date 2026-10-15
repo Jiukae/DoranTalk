@@ -35,7 +35,8 @@ js/app.js               앱 시작: 로그인 상태 확인, 화면 연결
 js/router.js            주소(#/login, #/home …)에 따라 화면 바꾸기
 js/state.js             로그인 정보와 내 닉네임 보관
 js/errors.js            서버 오류를 쉬운 한국어로 바꾸기
-js/ui.js                화면 그리기 도우미 (사용자 글은 항상 텍스트로만 표시)
+js/ui.js                화면 그리기 도우미: 확인 창, 아래 메뉴, 불러오는 중 틀, 프로필 색 (사용자 글은 항상 텍스트로만 표시)
+js/icons.js             선 아이콘 모음 (Lucide 모양, icons/LICENSE-lucide.txt)
 js/pages/auth.js        로그인 · 회원가입 · 비밀번호 찾기/재설정
 js/pages/home.js        홈(받은 초대, 그룹 목록) · 그룹 만들기 · 내 정보
 js/pages/group.js       그룹 화면(소식·채팅·가족 탭), 초대·멤버·나가기

@@ -3,10 +3,10 @@
 const KEY = 'talkfeed.theme';
 
 export const THEMES = [
-  { key: 'white', label: '화이트', desc: '깔끔한 흰색', preview: '#f4f4f6', accent: '#c9581f', status: '#ffffff' },
-  { key: 'black', label: '블랙', desc: '눈이 편한 어두운 화면', preview: '#121212', accent: '#ff9a5c', status: '#121212' },
-  { key: 'beige', label: '베이지', desc: '주황 → 노랑', preview: 'linear-gradient(165deg, #ffd6b3 0%, #ffe6b8 50%, #fff1bf 100%)', accent: '#c9581f', status: '#ffd6b3' },
-  { key: 'blue', label: '블루', desc: '파랑 → 보라', preview: 'linear-gradient(165deg, #cfdcff 0%, #dcd8ff 50%, #ead6ff 100%)', accent: '#4f46e5', status: '#cfdcff' },
+  { key: 'white', label: '화이트', desc: '깔끔한 흰색', preview: '#f2f4f6', accent: '#e35d1b', status: '#f2f4f6' },
+  { key: 'black', label: '블랙', desc: '눈이 편한 어두운 화면', preview: '#0f0f11', accent: '#e35d1b', status: '#0f0f11' },
+  { key: 'beige', label: '베이지', desc: '주황 → 노랑', preview: 'linear-gradient(170deg, #ffd6b3 0%, #ffe6b8 45%, #fff3d6 100%)', accent: '#e35d1b', status: '#ffd6b3' },
+  { key: 'blue', label: '블루', desc: '파랑 → 보라', preview: 'linear-gradient(170deg, #cfdcff 0%, #dcd8ff 45%, #efe2ff 100%)', accent: '#4f46e5', status: '#cfdcff' },
 ];
 export const DEFAULT_THEME = 'beige';
 

@@ -4,7 +4,7 @@ import { sb } from '../supabase.js';
 import { state } from '../state.js';
 import { go } from '../router.js';
 import { friendlyError } from '../errors.js';
-import { el, render, appBar, backButton, messageBox, setBusy, toast } from '../ui.js';
+import { el, render, appBar, backButton, messageBox, setBusy, toast, confirmDialog } from '../ui.js';
 import { BUCKET } from '../images.js';
 import { CONTACT_EMAIL } from '../legal.js';
 
@@ -31,7 +31,11 @@ export function renderDeleteAccount() {
       e.preventDefault();
       msg.clear();
       if (!confirmBox.checked) return msg.show('위 내용을 확인했다는 칸에 체크해 주세요.');
-      if (!confirm('정말 탈퇴할까요?\n모든 글·사진·채팅이 지워지고 되돌릴 수 없어요.')) return;
+      const ok = await confirmDialog({
+        title: '정말 탈퇴할까요?', message: '모든 글·사진·채팅이 지워지고 되돌릴 수 없어요.',
+        confirmText: '탈퇴하기', danger: true,
+      });
+      if (!ok) return;
 
       setBusy(submit, true, '사진 지우는 중…');
       try {
