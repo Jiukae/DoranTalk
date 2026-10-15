@@ -4,6 +4,7 @@
 // - 아이폰: 버튼을 띄울 수 없어서 방법을 안내
 // - 카카오톡·네이버 앱 안에서 열린 경우: 기본 브라우저로 열도록 안내
 import { el, iconTile } from './ui.js';
+import { reloadOnNextNavigation } from './router.js';
 
 let deferredPrompt = null;
 const listeners = new Set();
@@ -21,8 +22,20 @@ export function setupInstall() {
   });
   const secure = location.protocol === 'https:' || location.hostname === 'localhost';
   if ('serviceWorker' in navigator && secure) {
+    // 이미 예전 버전이 있던 기기에서 새 버전이 자리를 잡으면 → 다음 화면 이동 때 새로 불러오기
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController) reloadOnNextNavigation();
+    });
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js').catch((err) => console.warn('서비스 워커 등록 실패', err));
+    });
+    // 앱으로 돌아올 때마다 새 버전이 있는지 확인 (1분에 한 번까지)
+    let lastCheck = Date.now();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible' || Date.now() - lastCheck < 60 * 1000) return;
+      lastCheck = Date.now();
+      navigator.serviceWorker.getRegistration().then((reg) => reg?.update()).catch(() => {});
     });
   }
 }

@@ -5,6 +5,12 @@ const routes = [];
 let guard = () => null;
 let cleanup = null;
 let navCount = 0;
+let reloadOnNext = false;
+
+// 새 버전 앱이 준비되면, 다음에 화면을 옮길 때 새로 불러와요 (쓰던 글이 날아가지 않게 "옮길 때"만)
+export function reloadOnNextNavigation() {
+  reloadOnNext = true;
+}
 
 // 화면이 데이터를 불러오는 사이에 사용자가 다른 화면으로 갔는지 확인할 때 사용
 // const token = navToken();  …await…  if (isStale(token)) return;
@@ -60,10 +66,24 @@ function match(path) {
   return null;
 }
 
-export async function handleRoute() {
+export async function handleRoute(event) {
   const path = currentPath();
+  if (reloadOnNext && event?.type === 'hashchange') {
+    location.reload();
+    return undefined;
+  }
   const found = match(path);
-  if (!found) return go('/home', { replace: true });
+  if (!found) {
+    // 예전 앱이 아직 모르는 새 화면일 수 있어요 → 한 번만 새로 불러와서 다시 찾아봐요
+    let tried = null;
+    try { tried = sessionStorage.getItem('talkfeed.reloadedFor'); } catch { /* 무시 */ }
+    if (path && tried !== path) {
+      try { sessionStorage.setItem('talkfeed.reloadedFor', path); } catch { /* 무시 */ }
+      location.reload();
+      return undefined;
+    }
+    return go('/home', { replace: true });
+  }
 
   const redirect = guard(path, found.access);
   if (redirect && redirect !== path) return go(redirect, { replace: true });
