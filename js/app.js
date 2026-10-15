@@ -14,6 +14,8 @@ import { renderWrite, renderPostDetail } from './pages/feed.js';
 import { renderPrivacy, renderTerms, renderConsent } from './pages/legal.js';
 import { renderDeleteAccount } from './pages/account.js';
 import { hasConsented } from './legal.js';
+import { renderPushSetup } from './pages/pushsetup.js';
+import { refreshPush, listenNotificationClicks, forgetThisDevice } from './push.js';
 
 // 메일 링크(비밀번호 재설정·가입 인증)를 눌러 들어왔는지 확인
 const initialHash = location.hash;
@@ -54,7 +56,7 @@ function renderProfileError(message) {
       el('button', { class: 'btn btn-block', type: 'button', onclick: () => location.reload() }, '다시 시도'),
       el('button', {
         class: 'btn btn-secondary btn-block', type: 'button',
-        onclick: () => sb.auth.signOut(),
+        onclick: async () => { await forgetThisDevice(); sb.auth.signOut(); },
       }, '로그아웃'),
     ),
   ));
@@ -64,6 +66,7 @@ route('/check', renderCheck, { access: 'any' });
 route('/help', renderHelp, { access: 'any' });
 route('/privacy', renderPrivacy, { access: 'any' });
 route('/terms', renderTerms, { access: 'any' });
+route('/push-setup', renderPushSetup, { access: 'any' });
 route('/consent', needsProfile(renderConsent, { skipConsent: true }));
 route('/me/delete', needsProfile(renderDeleteAccount, { skipConsent: true }));
 route('/login', renderLogin, { access: 'guest' });
@@ -104,6 +107,7 @@ function listenAuthChanges() {
       } else if (event === 'SIGNED_IN' && !wasLoggedIn) {
         state.profile = null;
         state.autoOpen = true;
+        refreshPush();
         go(state.recovery ? '/new-password' : '/home', { replace: true });
       }
     }, 0);
@@ -112,6 +116,21 @@ function listenAuthChanges() {
 
 // "홈 화면에 추가" 신호는 앱이 열리자마자 올 수 있어서 가장 먼저 준비
 setupInstall();
+
+// 알림을 눌렀을 때 이미 열려 있는 앱이면 그 화면으로 이동
+listenNotificationClicks((url) => {
+  const target = new URL(url, location.href);
+  if (target.origin === location.origin && target.hash) location.hash = target.hash;
+});
+
+// 지금 보고 있는 화면을 서비스 워커에 알려 줘요 (그 채팅방을 보고 있으면 알림을 띄우지 않으려고)
+function tellScreen() {
+  const visible = document.visibilityState === 'visible';
+  navigator.serviceWorker?.controller?.postMessage({ type: 'screen', url: visible ? location.href : '' });
+}
+window.addEventListener('hashchange', tellScreen);
+document.addEventListener('visibilitychange', tellScreen);
+navigator.serviceWorker?.addEventListener('controllerchange', tellScreen);
 
 async function start() {
   trackKeyboard();
@@ -144,6 +163,8 @@ async function start() {
     history.replaceState(null, '', state.session ? '#/home' : '#/login');
   }
   await startRouter();
+  tellScreen();
+  if (state.session) refreshPush();
 }
 
 start();

@@ -17,6 +17,11 @@ import { APP_VERSION } from '../version.js';
 import { installBanner, inAppBrowserNotice } from '../install.js';
 import { THEMES, getTheme, setTheme } from '../theme.js';
 import { CONTACT_EMAIL } from '../legal.js';
+import {
+  pushStatus, pushServerInfo, isPushOn, enablePush, disablePush, sendTestPush, setAppBadge,
+  shouldPromptPush, dismissPushPrompt, forgetThisDevice,
+} from '../push.js';
+import { platform } from '../install.js';
 
 function meButton() {
   return el('button', { class: 'btn btn-ghost btn-small me-btn', type: 'button', onclick: () => go('/me') },
@@ -59,11 +64,20 @@ export async function renderHome() {
       }
     }
 
+    setAppBadge(Object.values(unread).reduce((a, b) => a + b, 0));
     content.replaceChildren(
       ...[inAppBrowserNotice() || installBanner()].filter(Boolean),
       ...(invites.length > 0 ? [invitationsSection(invites, load)] : []),
       groupsSection(groups, unread),
     );
+    // 가족 그룹이 있고 아직 알림을 묻지 않았다면 "알림 켜기" 안내 (알림 서버가 준비된 경우만)
+    if (groups.length > 0 && shouldPromptPush()) {
+      pushServerInfo().then((info) => {
+        if (info.ready && !isStale(token) && shouldPromptPush() && content.isConnected && !content.querySelector('.push-prompt')) {
+          content.prepend(pushPrompt());
+        }
+      });
+    }
   }
 
   await load();
@@ -85,6 +99,42 @@ export async function renderHome() {
     clearTimeout(timer);
     document.removeEventListener('visibilitychange', onVisible);
   };
+}
+
+// 홈 맨 위의 "알림 켜기" 안내
+function pushPrompt() {
+  const box = el('div', { class: 'notice notice-install push-prompt' });
+  const on = el('button', { class: 'btn', type: 'button' }, '알림 켜기');
+  const later = el('button', {
+    class: 'btn btn-ghost btn-small', type: 'button',
+    onclick: () => { dismissPushPrompt(); box.remove(); },
+  }, '나중에');
+  on.addEventListener('click', async () => {
+    setBusy(on, true, '켜는 중…');
+    try {
+      await enablePush();
+      box.remove();
+      toast('알림을 켰어요! 가족이 채팅을 보내면 알려 드릴게요. 🔔', 3500);
+    } catch (err) {
+      setBusy(on, false);
+      dismissPushPrompt();
+      toast(pushErrorText(err), 5000);
+      if (err.code === 'denied') box.remove();
+    }
+  });
+  box.append(
+    el('div', { class: 'notice-head' }, iconTile('bell'), el('p', { class: 'notice-title' }, '새 채팅이 오면 알려 드릴까요?')),
+    el('p', {}, '앱을 닫아 두어도 카카오톡처럼 휴대폰에 알림이 와요.'),
+    el('div', { class: 'btn-row' }, on, later),
+  );
+  return box;
+}
+
+function pushErrorText(err) {
+  if (err?.code === 'denied' || err?.message === 'denied') return '알림이 막혀 있어요. 내 정보 → 알림에서 허용하는 방법을 확인해 주세요.';
+  if (err?.code === 'default' || err?.message === 'dismissed') return '알림을 켜려면 휴대폰이 묻는 창에서 "허용"을 눌러 주세요.';
+  if (err?.message === 'server-not-ready') return '알림 서버가 아직 준비되지 않았어요.';
+  return friendlyError(err);
 }
 
 function invitationsSection(invites, reload) {
@@ -291,6 +341,7 @@ export function renderMe() {
     onclick: async () => {
       if (!(await confirmDialog({ title: '로그아웃할까요?', message: '다시 들어올 때 이메일과 비밀번호가 필요해요.', confirmText: '로그아웃' }))) return;
       setBusy(logout, true, '로그아웃하는 중…');
+      await forgetThisDevice();
       const { error } = await sb.auth.signOut();
       setBusy(logout, false);
       if (error) return toast(friendlyError(error));
@@ -308,6 +359,7 @@ export function renderMe() {
           el('p', { class: 'muted' }, state.session?.user?.email || ''),
         ),
       ),
+      pushCard(),
       nickForm,
       themePicker(),
       el('h2', { class: 'section-title' }, '도움말 · 안내'),
@@ -327,6 +379,98 @@ export function renderMe() {
       el('p', { class: 'app-version' }, `앱 버전: ${APP_VERSION}`),
     ),
   );
+}
+
+// ------------------------------------------------------------------
+// 알림 켜기 · 끄기 (내 정보 화면)
+// ------------------------------------------------------------------
+function deniedHelp() {
+  const p = platform();
+  const steps = p === 'ios'
+    ? '아이폰 설정 → 알림 → 도란톡 → "알림 허용"을 켜 주세요.'
+    : p === 'android'
+      ? '크롬 주소창 왼쪽 아이콘(또는 ⋮ → 설정) → 사이트 설정 → 알림 → dorantalk.com 을 "허용"으로 바꿔 주세요. 홈 화면 앱이라면: 휴대폰 설정 → 애플리케이션 → 도란톡 → 알림 켜기.'
+      : '주소창 왼쪽 자물쇠(또는 설정) 아이콘 → 알림 → "허용"으로 바꿔 주세요.';
+  return [
+    el('p', { class: 'form-msg error' }, '이 기기에서 알림이 막혀 있어요.'),
+    el('p', { class: 'muted' }, steps, ' 그다음 이 화면을 새로고침해 주세요.'),
+  ];
+}
+
+function pushCard() {
+  const box = el('section', { class: 'card push-card' });
+  const head = el('div', { class: 'card-head' },
+    iconTile('bell'),
+    el('div', {}, el('h2', {}, '알림'), el('p', { class: 'muted' }, '채팅 · 새 소식 · 댓글 · 초대')),
+  );
+  const msg = messageBox();
+
+  async function paint() {
+    const status = pushStatus();
+    let body;
+    if (status === 'ios-install') {
+      body = [
+        el('p', {}, '아이폰은 ', el('strong', {}, '홈 화면에 추가한 도란톡 앱'), '에서 알림을 받을 수 있어요. (iOS 16.4 이상)'),
+        el('a', { href: '#/help', class: 'btn btn-secondary btn-block' }, '홈 화면에 추가하는 방법'),
+      ];
+    } else if (status === 'unsupported') {
+      body = [el('p', { class: 'muted' }, '이 브라우저는 알림을 지원하지 않아요. 안드로이드는 크롬, 아이폰은 홈 화면에 추가한 앱에서 켜 주세요.')];
+    } else if (status === 'denied') {
+      body = deniedHelp();
+    } else if (await isPushOn()) {
+      const test = el('button', { class: 'btn btn-secondary btn-block', type: 'button' }, '시험 알림 보내기');
+      const off = el('button', { class: 'btn btn-ghost btn-block btn-danger-text', type: 'button', style: 'margin-top:8px' }, '이 기기에서 알림 끄기');
+      test.addEventListener('click', async () => {
+        msg.clear();
+        setBusy(test, true, '보내는 중…');
+        try {
+          const r = await sendTestPush();
+          if (r?.sent > 0) msg.show('시험 알림을 보냈어요. 몇 초 안에 휴대폰 알림이 와요.', 'success');
+          else msg.show('30초 뒤에 다시 눌러 주세요.', 'info');
+        } catch (err) {
+          msg.show(friendlyError(err));
+        } finally {
+          setBusy(test, false);
+        }
+      });
+      off.addEventListener('click', async () => {
+        setBusy(off, true, '끄는 중…');
+        await disablePush().catch(() => {});
+        toast('이 기기에서 알림을 껐어요.');
+        paint();
+      });
+      body = [el('p', { class: 'form-msg success' }, '✓ 이 기기에서 알림을 받고 있어요'), msg, test, off];
+    } else {
+      const info = await pushServerInfo();
+      if (!info.ready) {
+        body = [el('p', { class: 'muted' }, '알림 서버가 아직 준비되지 않았어요. (관리자: 안내서 9단계)')];
+      } else {
+        const on = el('button', { class: 'btn btn-block', type: 'button' }, icon('bell', { size: 22 }), '알림 켜기');
+        on.addEventListener('click', async () => {
+          msg.clear();
+          setBusy(on, true, '켜는 중…');
+          try {
+            await enablePush();
+            toast('알림을 켰어요! 🔔');
+            await paint();
+          } catch (err) {
+            setBusy(on, false);
+            if (err.code === 'denied') return paint();
+            msg.show(pushErrorText(err));
+          }
+        });
+        body = [
+          el('p', {}, '가족이 채팅을 보내면 앱을 닫아 두어도 휴대폰에 알림이 와요.'),
+          msg,
+          on,
+        ];
+      }
+    }
+    box.replaceChildren(head, ...body);
+  }
+  box.append(head, el('p', { class: 'muted' }, '확인하는 중…'));
+  paint();
+  return box;
 }
 
 // ------------------------------------------------------------------

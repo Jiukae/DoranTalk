@@ -1529,3 +1529,8 @@ body.typing .page-chat { padding-bottom: calc(100px + env(safe-area-inset-bottom
   }
   .spinner { animation-duration: 2s !important; animation-iteration-count: infinite !important; }
 }
+
+/* ---------- 알림 ---------- */
+.key-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 2px 8px; }
+.key-value { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; word-break: break-all; }
+.push-card .form-msg { margin-bottom: 12px; }

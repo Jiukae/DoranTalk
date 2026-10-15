@@ -20,13 +20,14 @@
 | 6 | PWA + 배포 + 가족 접속 링크 | ✅ 완료 → [안내서](docs/step6-launch.md) · [가족 초대 문구](docs/family-invite.md) |
 | 7 | 앱 이름 "도란톡" + dorantalk.com 연결 + admin@dorantalk.com 메일 | ✅ 완료 → [안내서](docs/step7-domain.md) |
 | 8 | 개인정보처리방침 · 이용약관 · 가입 동의 · 회원 탈퇴 · 문의 메일 | ✅ 완료 → [안내서](docs/step8-legal.md) |
+| 9 | 휴대폰 알림 (채팅 · 새 소식 · 댓글 · 초대, 앱을 닫아도) | 🔧 설정 필요 → [안내서](docs/step9-push.md) |
 
 ## 폴더 구조
 
 ```
 index.html              앱의 시작 화면 (한 페이지 앱)
 manifest.webmanifest    홈 화면 앱 정보(이름, 아이콘, 색)
-sw.js                   서비스 워커: 앱 화면 저장(인터넷이 약해도 열림), 항상 최신 파일 우선
+sw.js                   서비스 워커: 앱 화면 저장(인터넷이 약해도 열림), 항상 최신 파일 우선, 알림 띄우기 · 누르면 그 화면 열기
 icons/                  앱 아이콘 (주황색 집 + 하트)
 css/style.css           디자인 (큰 글씨, 누르기 쉬운 버튼, 따뜻한 색)
 js/config.js            Supabase 주소 + 공개(anon/publishable) 키  ← 여기만 채우면 연결
@@ -57,10 +58,13 @@ js/pages/check.js       연결 점검 화면 (#/check)
 js/legal.js             약관 버전 · 보호책임자 · 문의 메일 + 동의 기록 확인
 js/pages/legal.js       개인정보처리방침(#/privacy) · 이용약관(#/terms) · 약관 동의 화면 · 동의 체크 칸
 js/pages/account.js     회원 탈퇴 (#/me/delete): 내 사진 파일 → 계정 순서로 삭제
+js/push.js              휴대폰 알림: 켜기 · 끄기 · 가족에게 알리기 · 앱 아이콘 숫자
+js/pages/pushsetup.js   알림 열쇠(VAPID) 만들기 · 알림 서버 확인 (관리자용, #/push-setup)
 vendor/supabase.js      Supabase 공식 라이브러리 v2.117.1 (MIT 라이선스)
 fonts/                  글꼴: 네이버 나눔스퀘어 네오 (보통·굵게·아주 굵게, © NAVER Corp., fonts/LICENSE.txt)
 supabase/schema.sql     DB 전체 설계(테이블 + 보안 규칙 RLS + 사진 저장소) — 처음 설치할 때 SQL Editor에서 실행
 supabase/updates/       단계별 짧은 업데이트 파일 (이미 설치한 DB에 바뀐 부분만 적용)
+supabase/functions/push 알림 서버 (Supabase Edge Function, 표준 암호 기능만 사용 · 비밀 키 없음)
 supabase/tests/         보안 규칙 자동 검사 (개발용, Supabase에 실행하지 않음)
 docs/                   단계별 안내서
 netlify.toml            배포 설정 + 보안 머리말(CSP 등)

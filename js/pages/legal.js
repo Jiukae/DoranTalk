@@ -1,5 +1,6 @@
 // 개인정보처리방침(#/privacy) · 이용약관(#/terms) · 약관 동의(#/consent) 화면, 가입용 동의 체크 묶음
 import { sb } from '../supabase.js';
+import { forgetThisDevice } from '../push.js';
 import { state, isLoggedIn } from '../state.js';
 import { go } from '../router.js';
 import { friendlyError } from '../errors.js';
@@ -38,6 +39,7 @@ function legalPage(title, intro, ...articles) {
         el('p', { class: 'muted' }, intro),
         ...articles,
         el('p', { class: 'muted small legal-date' }, `시행일: ${EFFECTIVE_DATE}`),
+        title === '개인정보처리방침' && el('p', { class: 'muted small' }, '개정: 2026년 10월 15일 — 휴대폰 알림(선택 기능) 관련 내용 추가'),
       ),
     ),
   );
@@ -53,7 +55,7 @@ export function renderPrivacy() {
     article('1. 개인정보를 쓰는 목적',
       ul(
         [b('회원 가입과 관리'), ': 본인 확인, 로그인, 닉네임 중복 확인, 비밀번호 재설정 메일 발송'],
-        [b('서비스 제공'), ': 가족 그룹 만들기·초대, 소식(글·사진·댓글·하트), 채팅, 안 읽은 메시지 표시'],
+        [b('서비스 제공'), ': 가족 그룹 만들기·초대, 소식(글·사진·댓글·하트), 채팅, 안 읽은 메시지 표시, 휴대폰 알림(켠 경우)'],
         [b('문의 응대와 안전한 운영'), ': 문의 답변, 부정 이용 방지, 서비스 오류 확인'],
       ),
       p('위 목적 외의 용도로는 쓰지 않으며, 목적이 바뀌면 미리 알리고 필요한 경우 다시 동의를 받습니다. 광고·마케팅에 쓰지 않습니다.'),
@@ -63,6 +65,7 @@ export function renderPrivacy() {
       table(['구분', '항목', '수집 방법'], [
         ['필수 (가입할 때)', '이메일 주소, 비밀번호(암호화되어 저장), 닉네임, 만 14세 이상 확인 및 약관 동의 기록', '회원가입 화면'],
         ['서비스 이용 중 만들어지는 정보', '가족 그룹 이름, 그룹 참여·초대 기록, 글·댓글·하트, 채팅 메시지, 사진, 메시지를 읽은 시각', '이용자가 직접 입력·업로드'],
+        ['선택 (알림을 켠 경우)', '이 기기의 알림 받을 주소(웹 푸시 구독 정보), 기기 종류(안드로이드·아이폰·컴퓨터)', '"알림 켜기"를 누를 때'],
         ['자동으로 생기는 정보', '접속 IP 주소, 접속 시각, 브라우저·기기 정보(서버 기록)', '서비스 이용 과정에서 자동 생성'],
         ['기기에만 저장', '로그인 유지 정보, 화면 테마 설정', '이용자 기기의 브라우저 저장소'],
       ]),
@@ -73,6 +76,7 @@ export function renderPrivacy() {
       ul(
         '탈퇴하면 내 닉네임·이메일과 내가 쓴 글·댓글·하트·채팅·사진이 함께 삭제됩니다.',
         '내가 혼자 남아 있던 가족 그룹은 그룹 전체가 삭제됩니다.',
+        '알림 받을 주소는 알림을 끄거나, 그 기기에서 로그아웃하거나, 탈퇴하면 바로 삭제됩니다.',
         '서버 접속 기록과 시스템 백업에 남은 정보는 아래 업체의 보관 주기가 지나면 자동으로 삭제됩니다.',
         '다른 법령에서 보관을 요구하는 경우에는 그 기간 동안만 따로 보관합니다.',
       ),
@@ -93,6 +97,7 @@ export function renderPrivacy() {
         ['Netlify, Inc. (미국)', '웹사이트(앱 화면) 전송', '접속 IP 주소, 접속 기록', '전 세계 전송망 · 업체 보관 주기에 따름'],
         ['Resend (미국)', '비밀번호 재설정 메일 발송', '이메일 주소', '일본(도쿄) 발송 서버 · 업체 보관 주기에 따름'],
         ['ImprovMX (미국)', '문의 메일 전달', '문의 메일을 보낸 분의 이메일 주소와 메일 내용', '업체 보관 주기에 따름'],
+        ['Google · Apple · Mozilla (미국) — 알림을 켠 경우', '휴대폰 알림 전달 (각 휴대폰 · 브라우저의 기본 알림 서버)', '암호화된 알림 내용 (업체는 내용을 열어 볼 수 없음), 알림 받을 주소', '전달될 때까지 최대 1일'],
       ]),
       p('국외 이전을 원하지 않으시면 회원가입을 하지 않거나 탈퇴할 수 있습니다. 다만 위 업체 없이는 서비스를 제공할 수 없어 이용이 불가능합니다.'),
     ),
@@ -296,7 +301,7 @@ export function renderConsent() {
   render(el('main', { class: 'page' },
     brandHeader(),
     form,
-    el('button', { class: 'btn btn-secondary btn-block', type: 'button', onclick: () => sb.auth.signOut() }, '나중에 하기 (로그아웃)'),
+    el('button', { class: 'btn btn-secondary btn-block', type: 'button', onclick: async () => { await forgetThisDevice(); sb.auth.signOut(); } }, '나중에 하기 (로그아웃)'),
     el('p', { class: 'center small muted' },
       '동의하지 않으시면 ', el('a', { href: '#/me/delete' }, '회원 탈퇴'), '할 수 있어요.'),
   ));

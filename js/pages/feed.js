@@ -15,6 +15,7 @@ import {
 } from '../feed.js';
 import { pickImages, shrinkImage, uploadImages, removeImages, signedUrls } from '../images.js';
 import { openLightbox } from '../lightbox.js';
+import { notifyFamily } from '../push.js';
 
 const GRID_LIMIT = 4; // 목록에서는 사진 4장까지만 보이고 "+N"
 
@@ -343,7 +344,8 @@ export async function renderWrite({ id: groupId, postId }) {
           toast('글을 수정했어요.');
           go(`/group/${groupId}/post/${postId}`, { replace: true });
         } else {
-          await createPost(groupId, content, finalPaths);
+          const created = await createPost(groupId, content, finalPaths);
+          notifyFamily('post', created.id); // 가족 휴대폰으로 알림
           toast('소식을 올렸어요! 🎉');
           go(`/group/${groupId}/feed`, { replace: true });
         }
@@ -539,7 +541,8 @@ function commentComposer(postId, onAdded) {
     }
     setBusy(send, true, '');
     try {
-      await addComment(postId, value);
+      const created = await addComment(postId, value);
+      notifyFamily('comment', created.id); // 글쓴이와 댓글 단 가족에게 알림
       box.value = '';
       box.style.height = 'auto';
       onAdded();

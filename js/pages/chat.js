@@ -9,8 +9,9 @@ import { timeOnly } from '../format.js';
 import { fetchMembers } from '../groups.js';
 import { signedUrls, pickImages } from '../images.js';
 import { openLightbox } from '../lightbox.js';
+import { notifyFamily, setAppBadge } from '../push.js';
 import {
-  fetchMessages, sendText, sendImage, fetchReads, markRead, watchChat, shapeMessage,
+  fetchMessages, sendText, sendImage, fetchReads, markRead, watchChat, shapeMessage, fetchUnreadCounts,
   PAGE_SIZE, MAX_MESSAGE_LENGTH,
 } from '../chat.js';
 
@@ -222,7 +223,12 @@ export async function renderChatTab(main, group, token) {
       updateUnread();
     }
     clearTimeout(markTimer);
-    markTimer = setTimeout(() => markRead(group.id).catch(() => {}), 600);
+    markTimer = setTimeout(() => {
+      markRead(group.id)
+        .then(() => fetchUnreadCounts())
+        .then((counts) => setAppBadge(Object.values(counts).reduce((a, b) => a + b, 0)))
+        .catch(() => {});
+    }, 600);
   }
 
   // 연결이 끊겼던 동안 놓친 메시지 가져오기
@@ -319,6 +325,7 @@ export async function renderChatTab(main, group, token) {
 
       try {
         const msg = file ? await sendImage(group.id, file) : await sendText(group.id, text);
+        notifyFamily('message', msg.id); // 가족 휴대폰으로 알림
         row.remove();
         await addMessage(msg);
         markSeen();

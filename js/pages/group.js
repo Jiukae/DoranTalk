@@ -17,6 +17,7 @@ import { timeAgo } from '../format.js';
 import { renderFeedTab } from './feed.js';
 import { renderChatTab } from './chat.js';
 import { fetchUnreadCounts, watchNewMessages } from '../chat.js';
+import { notifyFamily, setAppBadge } from '../push.js';
 
 const TABS = [
   { key: 'feed', label: '소식', icon: 'feed' },
@@ -105,6 +106,7 @@ function chatBadge(groupId) {
   const refresh = async () => {
     const counts = await fetchUnreadCounts().catch(() => null);
     if (!counts || !badge) return;
+    setAppBadge(Object.values(counts).reduce((a, b) => a + b, 0));
     const n = counts[groupId] || 0;
     badge.textContent = n > 99 ? '99+' : String(n);
     badge.hidden = n === 0;
@@ -172,6 +174,7 @@ function inviteForm(group, onInvited) {
       setBusy(submit, true, '보내는 중…');
       try {
         await inviteByNickname(group.id, value);
+        notifyFamily('invite', group.id); // 초대받은 사람 휴대폰으로 알림
         msg.show(`${value}님에게 초대를 보냈어요. ${value}님이 앱에서 수락하면 그룹에 들어와요.`, 'success');
         nick.value = '';
         onInvited();

@@ -2,8 +2,9 @@
 // - 앱 화면(HTML·CSS·JS·아이콘)을 휴대폰에 저장해 두어, 인터넷이 약하거나 끊겨도 앱이 열려요.
 // - 인터넷이 되면 항상 서버의 최신 파일을 먼저 받아요 (네트워크 우선). 4초 넘게 걸리면 저장본을 보여 줘요.
 // - Supabase(글·채팅·사진) 요청은 건드리지 않아요. 가족 데이터는 휴대폰에 따로 저장하지 않아요.
+// - 알림: 앱이 꺼져 있어도 알림 서버가 보낸 알림을 띄우고, 누르면 그 화면을 열어요.
 
-const VERSION = 'talkfeed-v13-photo-view';
+const VERSION = 'talkfeed-v14-push';
 // 글꼴은 앱이 업데이트돼도 다시 받지 않도록 따로 보관 (글꼴 파일을 바꿀 때만 이름을 올려요)
 const FONT_CACHE = 'talkfeed-fonts-v1';
 const APP_SHELL = [
@@ -30,6 +31,7 @@ const APP_SHELL = [
   '/js/theme.js',
   '/js/theme-boot.js',
   '/js/icons.js',
+  '/js/push.js',
   '/js/legal.js',
   '/js/pages/legal.js',
   '/js/pages/account.js',
@@ -40,10 +42,12 @@ const APP_SHELL = [
   '/js/pages/chat.js',
   '/js/pages/check.js',
   '/js/pages/help.js',
+  '/js/pages/pushsetup.js',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/apple-touch-icon.png',
   '/icons/favicon-32.png',
+  '/icons/badge-96.png',
 ];
 const NETWORK_TIMEOUT_MS = 4000;
 
@@ -101,4 +105,68 @@ async function networkFirst(event, req) {
   } catch { /* 인터넷 끊김 → 저장본 */ }
   const cached = await cache.match(cacheKey, { ignoreSearch: true });
   return cached || fromNetwork;
+}
+
+// ---------------------------------------------------------------------
+// 알림 (웹 푸시)
+// ---------------------------------------------------------------------
+// 아이폰 · 맥 사파리는 알림을 받으면 꼭 화면에 띄워야 해요 (안 띄우면 알림이 끊길 수 있음)
+const IS_APPLE = /iPhone|iPad|iPod|Macintosh/.test(self.navigator.userAgent) && !/Chrome|CriOS|Android|Firefox/.test(self.navigator.userAgent);
+
+// 앱이 알려 주는 "지금 보고 있는 화면" (그 채팅방을 보고 있을 때는 알림을 띄우지 않으려고)
+const screens = new Map();
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'screen' && event.source?.id) screens.set(event.source.id, String(event.data.url || ''));
+});
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+  event.waitUntil(showPush(data));
+});
+
+async function showPush(data) {
+  const url = new URL(data.url || '/#/home', self.location.origin).href;
+  // 그 채팅방을 지금 보고 있으면 알림을 띄우지 않아요 (카카오톡처럼)
+  if (!IS_APPLE && data.kind === 'message') {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (wins.some((w) => w.focused && w.visibilityState === 'visible' && (w.url === url || screens.get(w.id) === url))) return;
+  }
+  // 앱 아이콘에 안 읽은 채팅 수
+  if ('setAppBadge' in self.navigator) {
+    const n = Number(data.badge) || 0;
+    (n > 0 ? self.navigator.setAppBadge(n) : self.navigator.setAppBadge()).catch(() => {});
+  }
+  await self.registration.showNotification(data.title || '도란톡', {
+    body: data.body || '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/badge-96.png',
+    tag: data.tag || undefined,
+    renotify: Boolean(data.tag),
+    lang: 'ko',
+    timestamp: Date.now(),
+    data: { url },
+  });
+}
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || new URL('/#/home', self.location.origin).href;
+  event.waitUntil(openApp(url));
+});
+
+async function openApp(url) {
+  const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  const win = wins.find((w) => new URL(w.url).origin === self.location.origin);
+  if (win) {
+    // 이미 열려 있는 앱을 앞으로 가져와서 그 화면으로 이동
+    await win.focus().catch(() => {});
+    win.postMessage({ type: 'open-url', url });
+    return;
+  }
+  await self.clients.openWindow(url);
 }

@@ -5,7 +5,7 @@ import { el, render, brandHeader } from '../ui.js';
 import { APP_VERSION } from '../version.js';
 
 // 앱이 기대하는 schema.sql 버전. SQL 파일 맨 위 "버전 N" 과 같아야 해요.
-export const REQUIRED_SCHEMA_VERSION = 5;
+export const REQUIRED_SCHEMA_VERSION = 6;
 
 const CHECKS = [
   { id: 'config', title: '설정 파일', run: checkConfigStep },
@@ -13,7 +13,22 @@ const CHECKS = [
   { id: 'version', title: '데이터베이스 최신 버전', run: checkVersionStep },
   { id: 'security', title: '보안 규칙(RLS)', run: checkSecurityStep },
   { id: 'realtime', title: '실시간 연결 (채팅)', run: checkRealtimeStep },
+  { id: 'push', title: '휴대폰 알림 서버 (선택)', run: checkPushStep, optional: true },
 ];
+
+// 알림 서버(Edge Function "push")가 준비됐는지 — 없어도 앱은 잘 돼요 (알림만 안 감)
+async function checkPushStep() {
+  const guest = createGuestClient();
+  const { data, error } = await guest.functions.invoke('push', { method: 'GET' });
+  if (error) {
+    const status = error.context?.status;
+    if (status === 404) return { status: 'warn', detail: '아직 설정 전이에요. 알림을 쓰려면 안내서 9단계를 따라 주세요.' };
+    if (status === 401) return { status: 'warn', detail: '알림 서버의 "Verify JWT" 설정을 꺼 주세요. (안내서 9단계)' };
+    return { status: 'warn', detail: '아직 설정 전이거나 알림 서버에 연결하지 못했어요. 알림을 쓰려면 안내서 9단계를 따라 주세요.' };
+  }
+  if (data?.ready) return { status: 'ok', detail: '알림 서버가 준비됐어요. 내 정보 → 알림에서 켤 수 있어요.' };
+  return { status: 'warn', detail: data?.error || '알림 열쇠(VAPID)를 Secrets 에 넣어 주세요. (앱 주소 뒤에 #/push-setup)' };
+}
 
 // 실시간 서버에 연결되는지 (채팅이 새로고침 없이 오려면 필요)
 async function checkRealtimeStep() {
@@ -132,7 +147,7 @@ export async function renderCheck() {
       states[i] = { status: 'fail', detail: explainError(e) };
     }
     paint();
-    if (states[i].status !== 'ok') {
+    if (states[i].status !== 'ok' && !CHECKS[i].optional) {
       for (let j = i + 1; j < CHECKS.length; j++) {
         states[j] = { status: 'wait', detail: '앞 단계가 해결되면 확인할게요.' };
       }
@@ -141,7 +156,7 @@ export async function renderCheck() {
     }
   }
 
-  const allOk = states.every((s) => s.status === 'ok');
+  const allOk = states.every((s, i) => s.status === 'ok' || (CHECKS[i].optional && s.status === 'warn'));
   banner.className = `banner ${allOk ? 'ok' : 'fail'}`;
   banner.textContent = allOk
     ? '🎉 모두 정상이에요!'

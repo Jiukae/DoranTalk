@@ -296,4 +296,161 @@ do $$ begin
 exception when insufficient_privilege then null; end $$;
 reset role;
 
+-- ===== 버전 6: 휴대폰 알림 =====
+-- 새 가족: 할머니(P1, 방장) · 할아버지(P2, 기기 2대) · 손주(P3) · 이웃(P4, 그룹 밖)
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('bbbbbbbb-0000-0000-0000-000000000001', 'p1@x.com', '{"nickname":"할머니"}'),
+  ('bbbbbbbb-0000-0000-0000-000000000002', 'p2@x.com', '{"nickname":"할아버지"}'),
+  ('bbbbbbbb-0000-0000-0000-000000000003', 'p3@x.com', '{"nickname":"손주"}'),
+  ('bbbbbbbb-0000-0000-0000-000000000004', 'p4@x.com', '{"nickname":"이웃"}');
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000001');
+insert into pg_temp.ids values ('pg', public.create_group('시골집'));
+select public.invite_by_nickname((select v from pg_temp.ids where k='pg'), '할아버지');
+select public.invite_by_nickname((select v from pg_temp.ids where k='pg'), '손주');
+reset role;
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000002');
+select public.respond_invitation((select id from public.get_my_invitations() limit 1), true);
+reset role;
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000003');
+select public.respond_invitation((select id from public.get_my_invitations() limit 1), true);
+reset role;
+
+-- 로그인 안 한 사람은 알림 함수를 못 씀, 로그인한 사람도 표를 직접 못 읽음
+set role anon;
+do $$ begin
+  perform public.push_subscribe('https://fcm.googleapis.com/fcm/send/x', repeat('a', 87), repeat('b', 22));
+  raise exception 'TEST FAILED: anon push_subscribe';
+exception when insufficient_privilege then null; end $$;
+do $$ begin
+  perform * from public.push_targets('test');
+  raise exception 'TEST FAILED: anon push_targets';
+exception when insufficient_privilege then null; end $$;
+reset role;
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000002');
+do $$ begin
+  perform * from public.push_subscriptions;
+  raise exception 'TEST FAILED: user read push_subscriptions table';
+exception when insufficient_privilege then null; end $$;
+do $$ begin
+  perform public.unread_total_for('bbbbbbbb-0000-0000-0000-000000000001');
+  raise exception 'TEST FAILED: user called unread_total_for';
+exception when insufficient_privilege then null; end $$;
+-- 주소 형식 검사 (https 만)
+do $$ begin
+  perform public.push_subscribe('http://evil.local/x', repeat('a', 87), repeat('b', 22));
+  raise exception 'TEST FAILED: http endpoint accepted';
+exception when check_violation then null; end $$;
+reset role;
+
+-- 기기 등록: 할머니 1대, 할아버지 2대, 손주 1대, 이웃 1대
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000001');
+select public.push_subscribe('https://fcm.googleapis.com/fcm/send/p1', repeat('a', 87), repeat('b', 22), 'Android');
+reset role;
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000002');
+select public.push_subscribe('https://fcm.googleapis.com/fcm/send/p2a', repeat('a', 87), repeat('b', 22), 'Android');
+select public.push_subscribe('https://web.push.apple.com/p2b', repeat('a', 87), repeat('b', 22), 'iPhone');
+reset role;
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000003');
+select public.push_subscribe('https://fcm.googleapis.com/fcm/send/p3', repeat('a', 87), repeat('b', 22));
+reset role;
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000004');
+select public.push_subscribe('https://fcm.googleapis.com/fcm/send/p4', repeat('a', 87), repeat('b', 22));
+reset role;
+select pg_temp.assert((select count(*) from public.push_subscriptions where user_id::text like 'bbbbbbbb%') = 5, 'five devices registered');
+
+-- 채팅: 할머니가 보내면 할아버지(2대) + 손주(1대)에게만, 같은 메시지로는 한 번만
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000001');
+insert into public.messages (group_id, content) values ((select v from pg_temp.ids where k='pg'), '저녁 먹었니?');
+insert into pg_temp.ids values ('pm', (select id from public.messages where content = '저녁 먹었니?'));
+create temp table pt as select * from public.push_targets('message', (select v from pg_temp.ids where k='pm'));
+select pg_temp.assert((select count(*) from pt) = 3, 'message → 3 devices');
+select pg_temp.assert(not exists (select 1 from pt where endpoint in ('https://fcm.googleapis.com/fcm/send/p1', 'https://fcm.googleapis.com/fcm/send/p4')), 'not sender, not outsider');
+select pg_temp.assert((select min(title) from pt) = '시골집 · 할머니', 'message title');
+select pg_temp.assert((select min(body) from pt) = '저녁 먹었니?', 'message body');
+select pg_temp.assert((select min(url) from pt) = '/#/group/' || (select v from pg_temp.ids where k='pg') || '/chat', 'message url');
+select pg_temp.assert((select min(badge) from pt) = 1, 'unread badge 1');
+select pg_temp.assert((select count(*) from public.push_targets('message', (select v from pg_temp.ids where k='pm'))) = 0, 'message only once');
+reset role;
+-- 보낸 사람이 아니면 / 그룹 밖이면 / 오래된 메시지면 아무에게도 안 감
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000004');
+select pg_temp.assert((select count(*) from public.push_targets('message', (select v from pg_temp.ids where k='pm'))) = 0, 'outsider gets nothing');
+reset role;
+insert into public.messages (group_id, sender_id, content, created_at)
+  values ((select v from pg_temp.ids where k='pg'), 'bbbbbbbb-0000-0000-0000-000000000001', '옛날 메시지', now() - interval '1 hour');
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000001');
+select pg_temp.assert((select count(*) from public.push_targets('message', (select id from public.messages where content = '옛날 메시지'))) = 0, 'old message not pushed');
+-- 사진 메시지는 "사진을 보냈어요"
+insert into public.messages (group_id, image_path) values ((select v from pg_temp.ids where k='pg'), (select v from pg_temp.ids where k='pg') || '/chat/a.jpg');
+select pg_temp.assert((select min(body) from public.push_targets('message', (select id from public.messages where image_path like '%/chat/a.jpg'))) = '사진을 보냈어요 📷', 'photo message body');
+reset role;
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000002');
+select pg_temp.assert((select count(*) from public.push_targets('message', (select v from pg_temp.ids where k='pm'))) = 0, 'non-sender gets nothing');
+reset role;
+
+-- 새 소식: 할머니 글 → 할아버지 2대 + 손주 1대
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000001');
+insert into public.posts (group_id, content) values ((select v from pg_temp.ids where k='pg'), '텃밭에 상추가 잘 자라요');
+insert into pg_temp.ids values ('pp', (select id from public.posts where content = '텃밭에 상추가 잘 자라요'));
+drop table pt;
+create temp table pt as select * from public.push_targets('post', (select v from pg_temp.ids where k='pp'));
+select pg_temp.assert((select count(*) from pt) = 3, 'post → 3 devices');
+select pg_temp.assert((select min(body) from pt) = '할머니: 텃밭에 상추가 잘 자라요', 'post body');
+select pg_temp.assert((select min(title) from pt) = '시골집 · 새 소식', 'post title');
+reset role;
+
+-- 댓글: 할아버지 댓글 → 글쓴이 할머니(1대)만 / 손주 댓글 → 할머니 + 할아버지(2대)
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000002');
+insert into public.comments (post_id, content) values ((select v from pg_temp.ids where k='pp'), '맛있겠다');
+select pg_temp.assert((select count(*) from public.push_targets('comment', (select id from public.comments where content = '맛있겠다'))) = 1, 'comment → post author');
+reset role;
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000003');
+insert into public.comments (post_id, content) values ((select v from pg_temp.ids where k='pp'), '저도 먹고 싶어요');
+drop table pt;
+create temp table pt as select * from public.push_targets('comment', (select id from public.comments where content = '저도 먹고 싶어요'));
+select pg_temp.assert((select count(*) from pt) = 3, 'comment → author + other commenter');
+select pg_temp.assert((select min(body) from pt) = '손주: 저도 먹고 싶어요', 'comment body');
+reset role;
+
+-- 초대: 할머니가 이웃을 초대 → 이웃 기기 1대에만, 한 번만
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000001');
+select public.invite_by_nickname((select v from pg_temp.ids where k='pg'), '이웃');
+drop table pt;
+create temp table pt as select * from public.push_targets('invite', (select v from pg_temp.ids where k='pg'));
+select pg_temp.assert((select count(*) from pt) = 1 and (select min(endpoint) from pt) = 'https://fcm.googleapis.com/fcm/send/p4', 'invite → invitee');
+select pg_temp.assert((select count(*) from public.push_targets('invite', (select v from pg_temp.ids where k='pg'))) = 0, 'invite only once');
+reset role;
+-- 다른 사람은 남의 그룹 이름으로 초대 알림을 못 만듦
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000004');
+select pg_temp.assert((select count(*) from public.push_targets('invite', (select v from pg_temp.ids where k='pg'))) = 0, 'invite by non-inviter');
+reset role;
+
+-- 시험 알림: 내 기기(할아버지 2대)로만, 30초에 한 번
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000002');
+select pg_temp.assert((select count(*) from public.push_targets('test')) = 2, 'test → my devices');
+select pg_temp.assert((select count(*) from public.push_targets('test')) = 0, 'test rate limited');
+select pg_temp.assert((select count(*) from public.push_targets('nonsense', gen_random_uuid())) = 0, 'unknown kind');
+reset role;
+
+-- 지우기: 그룹 밖 사람은 남의 주소를 못 지움, 같은 가족은 (알림 서버가 '없는 주소'라고 하면) 지울 수 있음
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000004');
+select public.push_forget(array['https://fcm.googleapis.com/fcm/send/p2a']);
+reset role;
+select pg_temp.assert(exists (select 1 from public.push_subscriptions where endpoint = 'https://fcm.googleapis.com/fcm/send/p2a'), 'outsider cannot forget');
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000001');
+select public.push_forget(array['https://fcm.googleapis.com/fcm/send/p2a']);
+reset role;
+select pg_temp.assert(not exists (select 1 from public.push_subscriptions where endpoint = 'https://fcm.googleapis.com/fcm/send/p2a'), 'family member forgets gone endpoint');
+-- 알림 끄기는 내 기기만
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000003');
+select public.push_unsubscribe('https://web.push.apple.com/p2b');
+select public.push_unsubscribe('https://fcm.googleapis.com/fcm/send/p3');
+reset role;
+select pg_temp.assert(exists (select 1 from public.push_subscriptions where endpoint = 'https://web.push.apple.com/p2b'), 'cannot unsubscribe others');
+select pg_temp.assert(not exists (select 1 from public.push_subscriptions where endpoint = 'https://fcm.googleapis.com/fcm/send/p3'), 'unsubscribe own');
+-- 탈퇴하면 기기 등록도 함께 지워짐
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000004');
+select public.delete_my_account();
+reset role;
+select pg_temp.assert(not exists (select 1 from public.push_subscriptions where endpoint = 'https://fcm.googleapis.com/fcm/send/p4'), 'deleted account devices removed');
+
 select 'ALL RLS TESTS PASSED' as result;
