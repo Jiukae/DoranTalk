@@ -48,7 +48,7 @@ export function toast(message, ms = 2600) {
 
 export function brandHeader(subtitle = '우리 가족 소식방') {
   return el('div', { class: 'brand' },
-    el('img', { class: 'brand-logo', src: 'icons/icon-192.png', alt: '', width: 52, height: 52 }),
+    el('img', { class: 'brand-logo', src: '/icons/icon-192.png', alt: '', width: 52, height: 52 }),
     el('div', {},
       el('p', { class: 'brand-name' }, '도란톡'),
       el('p', { class: 'brand-sub' }, subtitle),
@@ -59,7 +59,7 @@ export function brandHeader(subtitle = '우리 가족 소식방') {
 // 로그인·회원가입 화면 맨 위의 큰 로고
 export function brandHero(title, subtitle) {
   return el('header', { class: 'hero' },
-    el('img', { class: 'hero-logo', src: 'icons/icon-192.png', alt: '도란톡', width: 76, height: 76 }),
+    el('img', { class: 'hero-logo', src: '/icons/icon-192.png', alt: '도란톡', width: 76, height: 76 }),
     el('h1', { class: 'hero-title' }, title),
     subtitle && el('p', { class: 'hero-sub' }, subtitle),
   );
@@ -68,7 +68,7 @@ export function brandHero(title, subtitle) {
 // 홈 위쪽 막대 왼쪽의 작은 로고 + 이름
 export function brandMark() {
   return el('span', { class: 'brand-mark' },
-    el('img', { src: 'icons/icon-192.png', alt: '', width: 30, height: 30 }),
+    el('img', { src: '/icons/icon-192.png', alt: '', width: 30, height: 30 }),
     el('span', {}, '도란톡'));
 }
 

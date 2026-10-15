@@ -3,6 +3,13 @@
   publish = "."
   command = ""
 
+# 주소를 # 없이 입력해도 앱이 열리게 (예: dorantalk.com/push-setup → 앱이 #/push-setup 으로 바꿔 줌)
+# 실제 파일이 있는 주소(js, css, 아이콘 등)는 그대로 그 파일을 보내요
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
 # 보안 머리말
 # - Content-Security-Policy: 우리 사이트 파일과 우리 Supabase 주소만 쓰도록 제한 (해킹 코드가 끼어들기 어렵게)
 # - 다른 사이트가 TalkFeed를 몰래 틀 안에 넣지 못하게 (X-Frame-Options / frame-ancestors)

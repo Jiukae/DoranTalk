@@ -17,6 +17,11 @@ import { hasConsented } from './legal.js';
 import { renderPushSetup } from './pages/pushsetup.js';
 import { refreshPush, listenNotificationClicks, forgetThisDevice } from './push.js';
 
+// 주소를 # 없이 입력한 경우 (예: dorantalk.com/push-setup) → dorantalk.com/#/push-setup 으로 바꿔서 열어요
+if (location.pathname !== '/' && location.pathname !== '/index.html' && !location.hash) {
+  history.replaceState(null, '', `/${location.search}#${location.pathname.replace(/\/+$/, '')}`);
+}
+
 // 메일 링크(비밀번호 재설정·가입 인증)를 눌러 들어왔는지 확인
 const initialHash = location.hash;
 const fromRecoveryLink = /(^|[#&])type=recovery(&|$)/.test(initialHash);
