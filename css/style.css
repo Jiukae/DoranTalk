@@ -1141,55 +1141,97 @@ body:has(.composer) .toast { bottom: calc(96px + env(safe-area-inset-bottom)); }
 .add-photo { border: 2px dashed var(--fill-press); background: transparent; color: var(--text); }
 .add-photo:hover, .add-photo:active { background: var(--fill); }
 
-/* 사진 크게 보기 */
+/* 사진 크게 보기
+   - 사진 전체가 항상 화면 안에 들어오게 (가로·세로 사진 모두, 잘리지 않게)
+   - 휴대폰: 위쪽 막대 아래를 가로로 꽉 채우고, 넘기기 버튼은 사진 위에 작게
+   - 컴퓨터: 사진 둘레에 여백을 두고, 넘기기 버튼은 사진 바깥 양옆에 */
 .lightbox {
   position: fixed;
   inset: 0;
   z-index: 2000;
-  background: rgba(8, 6, 4, 0.96);
-  display: grid;
-  place-items: center;
-  padding: calc(64px + env(safe-area-inset-top)) 8px calc(24px + env(safe-area-inset-bottom));
+  background: #000;
+  display: flex;
+  flex-direction: column;
   animation: fade-in 0.18s ease both;
+  touch-action: pan-y pinch-zoom;
 }
-.lb-img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.lb-top {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: env(safe-area-inset-top) 10px 0 18px;
+  min-height: calc(64px + env(safe-area-inset-top));
+}
+.lb-counter { color: #fff; font-weight: 800; font-size: 1.05rem; }
 .lb-close {
-  position: absolute;
-  top: calc(10px + env(safe-area-inset-top));
-  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-height: 48px;
-  padding: 8px 18px;
+  padding: 8px 18px 8px 14px;
   border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.16);
   color: #fff;
   font: inherit;
   font-weight: 800;
   cursor: pointer;
 }
-.lb-counter {
+.lb-close:hover, .lb-close:active { background: rgba(255, 255, 255, 0.26); }
+.lb-close:focus-visible, .lb-nav:focus-visible { outline: 3px solid rgba(255, 255, 255, 0.75); outline-offset: 2px; }
+/* 사진이 놓이는 칸: 위쪽 막대를 뺀 나머지 화면 전부 */
+.lb-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.lb-img {
   position: absolute;
-  top: calc(20px + env(safe-area-inset-top));
-  left: 16px;
-  color: #fff;
-  font-weight: 800;
+  inset: 0 0 env(safe-area-inset-bottom);
+  margin: auto;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: calc(100% - env(safe-area-inset-bottom));
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 .lb-nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   border: 0;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.45);
   color: #fff;
-  font-size: 2rem;
-  line-height: 1;
+  display: grid;
+  place-items: center;
   cursor: pointer;
+  z-index: 1;
 }
+.lb-nav:hover, .lb-nav:active { background: rgba(0, 0, 0, 0.65); }
 .lb-prev { left: 8px; }
 .lb-next { right: 8px; }
+
+/* 컴퓨터 · 태블릿: 사진 둘레에 여백, 화살표는 사진 바깥 */
+@media (min-width: 768px) {
+  .lb-top { padding: 0 20px 0 28px; min-height: 72px; }
+  .lb-img {
+    inset: 8px 96px 32px;
+    max-width: calc(100% - 192px);
+    max-height: calc(100% - 40px);
+    border-radius: 6px;
+  }
+  .lb-nav { width: 60px; height: 60px; background: rgba(255, 255, 255, 0.14); }
+  .lb-nav:hover { background: rgba(255, 255, 255, 0.26); }
+  .lb-prev { left: 20px; }
+  .lb-next { right: 20px; }
+}
 
 /* 아주 작은 휴대폰(폭 360px 이하): 글쓰기 칸을 넓게 */
 @media (max-width: 360px) {

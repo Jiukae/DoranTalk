@@ -1,13 +1,13 @@
 // 사진을 화면 가득 크게 보기 (옆으로 넘기기, 닫기)
-import { el } from './ui.js';
+import { el, icon } from './ui.js';
 
 export function openLightbox(urls, start = 0) {
   let index = start;
   const img = el('img', { class: 'lb-img', alt: '' });
   const counter = el('div', { class: 'lb-counter', 'aria-live': 'polite' });
-  const prev = el('button', { class: 'lb-nav lb-prev', type: 'button', 'aria-label': '이전 사진' }, '‹');
-  const next = el('button', { class: 'lb-nav lb-next', type: 'button', 'aria-label': '다음 사진' }, '›');
-  const close = el('button', { class: 'lb-close', type: 'button', 'aria-label': '닫기' }, '✕ 닫기');
+  const prev = el('button', { class: 'lb-nav lb-prev', type: 'button', 'aria-label': '이전 사진' }, icon('back', { size: 30 }));
+  const next = el('button', { class: 'lb-nav lb-next', type: 'button', 'aria-label': '다음 사진' }, icon('chevronRight', { size: 30 }));
+  const close = el('button', { class: 'lb-close', type: 'button', 'aria-label': '닫기' }, icon('close', { size: 22 }), '닫기');
 
   const show = () => {
     img.src = urls[index];
@@ -24,8 +24,11 @@ export function openLightbox(urls, start = 0) {
     }
   };
 
+  // 위쪽 막대(몇 번째 사진 · 닫기) + 사진 칸(사진이 화면 안에 꼭 맞게 들어감)
+  const stage = el('div', { class: 'lb-stage' }, img, prev, next);
   const box = el('div', { class: 'lightbox', role: 'dialog', 'aria-modal': 'true', 'aria-label': '사진 크게 보기' },
-    close, counter, img, prev, next);
+    el('div', { class: 'lb-top' }, counter, close),
+    stage);
 
   const onKey = (e) => {
     if (e.key === 'Escape') shut();
@@ -52,7 +55,8 @@ export function openLightbox(urls, start = 0) {
   prev.addEventListener('click', () => go(-1));
   next.addEventListener('click', () => go(1));
   close.addEventListener('click', shut);
-  box.addEventListener('click', (e) => { if (e.target === box) shut(); });
+  // 사진 바깥의 검은 부분을 누르면 닫기
+  box.addEventListener('click', (e) => { if (e.target === box || e.target === stage) shut(); });
   document.addEventListener('keydown', onKey);
   window.addEventListener('hashchange', shut);
   document.body.classList.add('no-scroll');
