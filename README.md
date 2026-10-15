@@ -4,7 +4,7 @@
 
 - 프론트엔드: HTML + CSS + 순수 JavaScript (빌드 과정 없음)
 - 백엔드: Supabase (로그인, 데이터베이스, 실시간 채팅, 사진 저장)
-- 배포: Netlify (정적 사이트) · PWA로 휴대폰 홈 화면에 추가 가능
+- 배포: Vercel (정적 사이트, 무료 Hobby) · PWA로 휴대폰 홈 화면에 추가 가능 → [옮기는 방법](docs/hosting-vercel.md)
 - 앱 주소: **https://dorantalk.com**
 - 비밀번호 찾기 메일: 도란톡 <admin@dorantalk.com> (Resend)
 
@@ -67,7 +67,8 @@ supabase/updates/       단계별 짧은 업데이트 파일 (이미 설치한 D
 supabase/functions/push 알림 서버 (Supabase Edge Function, 표준 암호 기능만 사용 · 비밀 키 없음)
 supabase/tests/         보안 규칙 자동 검사 (개발용, Supabase에 실행하지 않음)
 docs/                   단계별 안내서
-netlify.toml            배포 설정 + 보안 머리말(CSP 등)
+vercel.json             배포 설정(Vercel) + 보안 머리말(CSP 등) + # 없는 주소도 앱으로
+netlify.toml            (예전) Netlify 배포 설정 — 다시 돌아갈 때를 위해 남겨 둠
 ```
 
 ## 보안 설계 요약

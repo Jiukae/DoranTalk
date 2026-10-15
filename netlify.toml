@@ -1,4 +1,5 @@
-# Netlify 배포 설정 — 빌드 과정 없이 폴더 그대로 올립니다.
+# (예전) Netlify 배포 설정 — 지금은 Vercel(vercel.json)로 올려요. 다시 Netlify로 돌아갈 때를 위해 남겨 둡니다.
+# 빌드 과정 없이 폴더 그대로 올립니다.
 [build]
   publish = "."
   command = ""
