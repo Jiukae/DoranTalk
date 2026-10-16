@@ -20,7 +20,8 @@
 | 6 | PWA + 배포 + 가족 접속 링크 | ✅ 완료 → [안내서](docs/step6-launch.md) · [가족 초대 문구](docs/family-invite.md) |
 | 7 | 앱 이름 "도란톡" + dorantalk.com 연결 + admin@dorantalk.com 메일 | ✅ 완료 → [안내서](docs/step7-domain.md) |
 | 8 | 개인정보처리방침 · 이용약관 · 가입 동의 · 회원 탈퇴 · 문의 메일 | ✅ 완료 → [안내서](docs/step8-legal.md) |
-| 9 | 휴대폰 알림 (채팅 · 새 소식 · 댓글 · 초대, 앱을 닫아도) | 🔧 설정 필요 → [안내서](docs/step9-push.md) |
+| 9 | 휴대폰 알림 (채팅 · 새 소식 · 댓글 · 초대, 앱을 닫아도) | ✅ 완료 → [안내서](docs/step9-push.md) |
+| - | 사이트 올리는 곳을 Netlify → Vercel(무료)로 옮김 | ✅ 완료 → [안내서](docs/hosting-vercel.md) |
 
 ## 폴더 구조
 
