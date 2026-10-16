@@ -25,7 +25,7 @@ export function renderDeleteAccount() {
   const msg = messageBox();
   const submit = el('button', { class: 'btn btn-danger btn-block', type: 'submit' }, '회원 탈퇴하기');
   // 내가 보호자로 동의해 가입한 자녀 계정이 있으면 알려 줌 (자녀 계정은 자동으로 지워지지 않아요)
-  const kidsNote = el('p', { class: 'form-msg info', hidden: true });
+  const kidsNote = el('p', { class: 'note-box', hidden: true });
   sb.rpc('my_children').then(({ data }) => {
     if (!data?.length) return;
     kidsNote.textContent = `보호자로 동의한 자녀 계정(${data.map((k) => k.nickname).join(', ')})은 그대로 남아요. 함께 지우려면 내 정보 → 자녀 계정에서 먼저 지워 주세요.`;

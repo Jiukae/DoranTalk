@@ -454,6 +454,7 @@ img.brand-logo { object-fit: cover; }
 .form-msg.error { background: var(--danger-soft); color: var(--danger); }
 .form-msg.success { background: var(--ok-soft); color: var(--ok); }
 .form-msg.info { background: var(--fill); color: var(--muted); }
+.note-box { margin: 12px 0; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--fill); color: var(--muted); font-size: 0.95rem; }
 
 .nick-status { margin: 8px 2px 0; font-weight: 800; font-size: 0.95rem; min-height: 0; }
 .nick-status:empty { display: none; }
