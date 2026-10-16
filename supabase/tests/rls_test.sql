@@ -798,6 +798,60 @@ reset role;
 select pg_temp.assert(not exists (select 1 from auth.users where id = 'cccccccc-0000-0000-0000-000000000011'), 'child user deleted');
 select pg_temp.assert(not exists (select 1 from public.guardian_consents where child_id = 'cccccccc-0000-0000-0000-000000000011'), 'child consent record deleted');
 
+-- 이미 가입한 계정에 보호자 동의 연결 (예전에 가입한 만 14세 미만)
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('cccccccc-0000-0000-0000-000000000013', 'k5@x.com', '{"nickname":"예전꼬마"}');
+-- (어른인 줄 알고) 만들어 둔 안 쓴 링크 — 연결되면 지워져야 함
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000013', 30);
+select public.create_guardian_link('2026-10-14');
+reset role;
+do $$ declare tok text; begin
+  select c.token into tok from public.guardian_consents c
+  where c.guardian_id = 'cccccccc-0000-0000-0000-000000000001' and c.child_id is null and c.expires_at > now() limit 1;
+  -- 보호자 본인 계정에는 연결 못 함
+  perform pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000001', null);
+  begin
+    perform public.attach_guardian_consent(tok);
+    raise exception 'TEST FAILED: guardian attached own link';
+  exception when raise_exception then
+    if sqlerrm not like '%보호자 본인 계정%' then raise; end if;
+  end;
+  reset role;
+  -- 아이 계정에 연결 → 보호자 닉네임
+  perform pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000013', null);
+  if public.attach_guardian_consent(tok) is distinct from '보호자엄마' then raise exception 'TEST FAILED: attach returns guardian'; end if;
+  begin
+    perform public.attach_guardian_consent(tok);
+    raise exception 'TEST FAILED: attach twice';
+  exception when raise_exception then
+    if sqlerrm not like '%이미 보호자 동의%' then raise; end if;
+  end;
+  reset role;
+  -- 다른 사람이 같은 링크로 연결 못 함
+  perform pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000002', null);
+  begin
+    perform public.attach_guardian_consent(tok);
+    raise exception 'TEST FAILED: used link attached again';
+  exception when raise_exception then
+    if sqlerrm not like '%만료되었거나 이미 사용%' then raise; end if;
+  end;
+  reset role;
+end $$;
+select pg_temp.assert(public.is_child_account('cccccccc-0000-0000-0000-000000000013'), 'existing account attached');
+select pg_temp.assert(not exists (select 1 from public.guardian_consents where guardian_id = 'cccccccc-0000-0000-0000-000000000013'), 'attached child old links removed');
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000013', null);
+do $$ begin
+  perform public.create_group('예전꼬마그룹');
+  raise exception 'TEST FAILED: attached child created group';
+exception when raise_exception then
+  if sqlerrm not like '%직접 만들 수 없어요%' then raise; end if;
+end $$;
+select pg_temp.assert((select guardian_nickname from public.my_guardian_info()) = '보호자엄마', 'attached child sees guardian');
+reset role;
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000001', null);
+select pg_temp.assert((select count(*) from public.my_children()) = 2, 'guardian sees attached child too');
+reset role;
+
 -- 보호자 탈퇴: 안 쓴 링크는 지워지고, 이미 가입한 아이의 동의 기록은 남음(보호자 칸만 비움)
 select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000001', null);
 select public.delete_my_account();

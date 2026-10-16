@@ -1101,6 +1101,7 @@ grant execute on function
 --   1) 보호자가 로그인 → 비밀번호를 다시 확인 → 동의 내용을 읽고 체크 → "자녀 가입 링크"를 받아요.
 --      (보호자 동의를 먼저 받은 뒤에 아이의 정보를 받아요)
 --   2) 아이는 그 링크로 가입해요. 링크는 7일 안에 한 번만 쓸 수 있어요.
+--      이미 가입한 아이라면, 자기 계정으로 로그인한 채 링크를 열어 "이 계정에 연결"할 수 있어요.
 --   3) 아이 계정은 보호자가 들어 있는 그룹에만 초대받을 수 있고, 그룹을 직접 만들 수 없어요.
 --   4) 보호자는 언제든 동의를 철회하고 아이 계정을 지울 수 있어요.
 -- ---------------------------------------------------------------------
@@ -1191,6 +1192,46 @@ begin
   insert into public.guardian_consents (token, guardian_id, terms_version)
   values (replace(gen_random_uuid()::text, '-', ''), uid, p_terms_version)
   returning guardian_consents.token, guardian_consents.expires_at;
+end;
+$$;
+
+-- 이미 가입한 계정에 보호자 동의 연결 (만 14세 미만인데 예전에 가입한 경우)
+-- 자녀가 자기 계정으로 로그인한 채 보호자가 보낸 링크를 열고 "연결하기"를 눌러요.
+create or replace function public.attach_guardian_consent(p_token text)
+returns text
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  uid uuid := auth.uid();
+  c public.guardian_consents%rowtype;
+  gnick text;
+begin
+  if uid is null then
+    raise exception '로그인이 필요해요.';
+  end if;
+  if public.is_child_account(uid) then
+    raise exception '이미 보호자 동의가 연결된 계정이에요.';
+  end if;
+  select * into c from public.guardian_consents g
+  where g.token = btrim(coalesce(p_token, '')) and g.child_id is null
+    and g.guardian_id is not null and g.expires_at > now()
+  for update;
+  if not found then
+    raise exception '보호자 동의 링크가 만료되었거나 이미 사용되었어요. 보호자께 새 링크를 부탁해 주세요.';
+  end if;
+  if c.guardian_id = uid then
+    raise exception '보호자 본인 계정에는 연결할 수 없어요. 자녀의 휴대폰(자녀 계정)에서 링크를 열어 주세요.';
+  end if;
+  if exists (select 1 from public.guardian_consents g where g.guardian_id = uid and g.child_id is not null) then
+    raise exception '자녀가 있는 보호자 계정에는 연결할 수 없어요.';
+  end if;
+
+  update public.guardian_consents g set child_id = uid, used_at = now() where g.id = c.id;
+  -- 이제 자녀 계정이라 보호자가 될 수 없으니, 예전에 만들어 둔 안 쓴 링크는 지워요
+  delete from public.guardian_consents g where g.guardian_id = uid and g.child_id is null;
+
+  select p.nickname into gnick from public.profiles p where p.id = c.guardian_id;
+  return gnick;
 end;
 $$;
 
@@ -1308,6 +1349,7 @@ revoke execute on function
   public.is_guardian_of(text),
   public.recently_signed_in_with_password(),
   public.create_guardian_link(text),
+  public.attach_guardian_consent(text),
   public.guardian_link_info(text),
   public.my_children(),
   public.my_guardian_links(),
@@ -1320,6 +1362,7 @@ grant execute on function public.guardian_link_info(text) to anon, authenticated
 grant execute on function
   public.is_guardian_of(text),
   public.create_guardian_link(text),
+  public.attach_guardian_consent(text),
   public.my_children(),
   public.my_guardian_links(),
   public.cancel_guardian_link(uuid),

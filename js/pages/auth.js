@@ -5,10 +5,11 @@ import { go, currentPath } from '../router.js';
 import { friendlyError } from '../errors.js';
 import {
   el, render, brandHeader, brandHero, field, passwordInput, messageBox, setBusy, toast, icon, iconTile, loadingScreen,
+  confirmDialog,
 } from '../ui.js';
 import { inAppBrowserNotice } from '../install.js';
 import { consentChecklist, legalLinks } from './legal.js';
-import { consentRecord } from '../legal.js';
+import { consentRecord, isChildUser } from '../legal.js';
 import { signupSource } from '../source.js';
 import { forgetThisDevice } from '../push.js';
 
@@ -239,40 +240,11 @@ async function linkStatus(token) {
 }
 
 export async function renderChildSignup({ token }) {
-  // 이 기기가 이미 누군가(보통 보호자)로 로그인되어 있으면, 로그아웃할지 먼저 물어봐요
-  if (state.session) {
-    const logout = el('button', {
-      class: 'btn btn-block', type: 'button',
-      onclick: async () => {
-        setBusy(logout, true, '로그아웃하는 중…');
-        state.afterSignOut = currentPath();
-        await forgetThisDevice();
-        const { error } = await sb.auth.signOut();
-        if (error) {
-          state.afterSignOut = null;
-          setBusy(logout, false);
-          toast(friendlyError(error));
-        }
-      },
-    }, '로그아웃하고 자녀 가입 계속하기');
-    render(el('main', { class: 'page' },
-      brandHeader('보호자와 함께 시작해요'),
-      el('section', { class: 'card center stack' },
-        el('div', { class: 'empty-icon', 'aria-hidden': 'true' }, icon('user', { size: 34 })),
-        el('h1', {}, '지금 다른 계정으로 로그인되어 있어요'),
-        el('p', {}, el('strong', {}, state.profile?.nickname || state.session.user?.email || ''), ' 계정으로 로그인되어 있어요.'),
-        el('p', { class: 'muted' }, '자녀 가입 링크는 자녀의 휴대폰에서 여는 게 가장 좋아요. 이 기기에서 자녀 계정을 만들려면 먼저 로그아웃해야 해요. (보호자는 나중에 다시 로그인하면 돼요)'),
-        logout,
-        el('a', { href: '#/home', class: 'btn btn-secondary btn-block' }, '취소하고 돌아가기'),
-      ),
-    ));
-    return;
-  }
-
   render(loadingScreen('가입 링크를 확인하는 중…'));
   let info;
   try {
     info = await linkStatus(token);
+    if (state.session && !state.profile) await loadProfile();
   } catch (err) {
     render(el('main', { class: 'page' },
       brandHeader(),
@@ -285,7 +257,99 @@ export async function renderChildSignup({ token }) {
     return;
   }
   if (info.status !== 'ok') return renderLinkProblem(info.status);
+  // 이 기기가 이미 누군가로 로그인되어 있으면: 그 계정에 동의를 연결할지, 로그아웃하고 새로 만들지
+  if (state.session) return renderLoggedInChoice(token, info.guardian_nickname);
   return renderSignup(null, { token, guardianNickname: info.guardian_nickname });
+}
+
+function renderLoggedInChoice(token, guardianNickname) {
+  const me = state.profile?.nickname || state.session.user?.email || '';
+  const guardianSelf = state.profile?.nickname === guardianNickname;
+  const alreadyChild = isChildUser(state.session.user);
+  const msg = messageBox();
+
+  const logout = el('button', {
+    class: `btn ${guardianSelf || alreadyChild ? '' : 'btn-secondary'} btn-block`, type: 'button',
+    onclick: async () => {
+      setBusy(logout, true, '로그아웃하는 중…');
+      state.afterSignOut = currentPath();
+      await forgetThisDevice();
+      const { error } = await sb.auth.signOut();
+      if (error) {
+        state.afterSignOut = null;
+        setBusy(logout, false);
+        toast(friendlyError(error));
+      }
+    },
+  }, '로그아웃하고 자녀 새 계정 만들기');
+
+  // 예전에 가입한 자녀 계정에 보호자 동의 연결
+  const attach = el('button', {
+    class: 'btn btn-block', type: 'button',
+    onclick: async () => {
+      const ok = await confirmDialog({
+        title: `${me} 계정에 보호자 동의를 연결할까요?`,
+        message: `보호자 ${guardianNickname}님의 동의로 쓰는 자녀 계정이 돼요. 앞으로 그룹을 직접 만들 수 없고, 보호자가 있는 그룹에만 새로 초대받을 수 있어요. (지금 있는 그룹과 글은 그대로예요)`,
+        confirmText: '연결하기',
+      });
+      if (!ok) return;
+      msg.clear();
+      setBusy(attach, true, '연결하는 중…');
+      try {
+        const { error } = await sb.rpc('attach_guardian_consent', { p_token: token });
+        // 이미 연결된 경우(앞에서 연결은 됐는데 기록 저장만 실패했던 경우)는 기록만 다시 저장
+        if (error && !/이미 보호자 동의가 연결된/.test(error.message || '')) throw error;
+        const { data, error: saveError } = await sb.auth.updateUser({ data: consentRecord({ child: true }) });
+        if (saveError) throw saveError;
+        if (data?.user) state.session = { ...state.session, user: data.user };
+        toast(`보호자 ${guardianNickname}님의 동의를 연결했어요 👍`, 4000);
+        go('/me', { replace: true });
+      } catch (err) {
+        setBusy(attach, false);
+        msg.show(friendlyError(err));
+      }
+    },
+  }, '이 계정에 보호자 동의 연결하기');
+
+  const head = [
+    el('div', { class: 'empty-icon', 'aria-hidden': 'true' }, icon('user', { size: 34 })),
+    el('h1', {}, '지금 로그인되어 있어요'),
+    el('p', {}, el('strong', {}, me), ' 계정으로 로그인되어 있어요.'),
+  ];
+  const cancel = el('a', { href: '#/home', class: 'btn btn-ghost btn-block' }, '취소하고 돌아가기');
+
+  if (guardianSelf || alreadyChild) {
+    render(el('main', { class: 'page' },
+      brandHeader('보호자와 함께 시작해요'),
+      el('section', { class: 'card center stack' },
+        ...head,
+        el('p', { class: 'muted' }, guardianSelf
+          ? `이 링크는 보호자 ${guardianNickname}님이 만든 링크예요. 자녀의 휴대폰에서 열거나, 이 기기에서 로그아웃한 뒤 자녀 계정을 만들어 주세요.`
+          : '이 계정은 이미 보호자 동의가 연결되어 있어요. 다른 자녀의 계정을 만들려면 로그아웃해 주세요.'),
+        logout,
+        cancel,
+      ),
+    ));
+    return;
+  }
+
+  render(el('main', { class: 'page' },
+    brandHeader('보호자와 함께 시작해요'),
+    el('section', { class: 'card center stack' }, ...head,
+      el('p', { class: 'muted' }, `보호자 ${guardianNickname}님이 만든 자녀 가입 링크예요.`)),
+    el('section', { class: 'card stack' },
+      el('h2', {}, '이 계정이 만 14세 미만 자녀의 계정인가요?'),
+      el('p', { class: 'muted' }, '예전에 가입한 자녀 계정이라면, 새로 만들지 않고 이 계정에 보호자 동의를 연결할 수 있어요.'),
+      msg,
+      attach,
+    ),
+    el('section', { class: 'card stack' },
+      el('h2', {}, '자녀의 새 계정을 만들려면'),
+      el('p', { class: 'muted' }, '먼저 로그아웃해야 해요. (지금 계정은 나중에 다시 로그인하면 돼요)'),
+      logout,
+    ),
+    cancel,
+  ));
 }
 
 function renderLinkProblem(status) {
