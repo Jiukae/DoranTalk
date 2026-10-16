@@ -98,7 +98,7 @@ export function renderPushSetup() {
         el('ul', { class: 'bullets' },
           el('li', {}, '열쇠는 ', el('strong', {}, '이 기기 안에서만'), ' 만들어지고, 어디에도 저장 · 전송되지 않아요.'),
           el('li', {}, 'Supabase → Edge Functions → ', el('strong', {}, 'Secrets'), ' 에 이름과 값을 그대로 붙여 넣어 주세요.'),
-          el('li', {}, '열쇠를 다시 만들어 바꾸면, 가족들이 알림을 한 번씩 다시 켜야 해요.'),
+          el('li', {}, '열쇠를 다시 만들어 바꾸면, 회원들이 알림을 한 번씩 다시 켜야 해요.'),
         ),
         make,
         keysBox,

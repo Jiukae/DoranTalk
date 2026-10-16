@@ -159,7 +159,7 @@ export async function renderFeedTab(main, group, token) {
 
     if (reset && posts.length === 0) {
       list.replaceChildren(el('section', { class: 'card' },
-        emptyState('sparkles', '아직 소식이 없어요', '위의 칸을 눌러 가족에게 첫 소식을 전해 보세요!')));
+        emptyState('sparkles', '아직 소식이 없어요', '위의 칸을 눌러 그룹에 첫 소식을 전해 보세요!')));
     }
   }
 
@@ -265,7 +265,7 @@ export async function renderWrite({ id: groupId, postId }) {
 
   const textarea = el('textarea', {
     class: 'input textarea', rows: 7, maxlength: MAX_POST_LENGTH,
-    placeholder: '가족에게 어떤 소식을 전할까요?\n(사진만 올려도 돼요)',
+    placeholder: '그룹에 어떤 소식을 전할까요?\n(사진만 올려도 돼요)',
     'aria-label': '글 내용',
   });
   textarea.value = post?.content || '';

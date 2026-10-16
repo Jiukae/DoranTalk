@@ -5,7 +5,7 @@ import { el, render, brandHeader } from '../ui.js';
 import { APP_VERSION } from '../version.js';
 
 // 앱이 기대하는 schema.sql 버전. SQL 파일 맨 위 "버전 N" 과 같아야 해요.
-export const REQUIRED_SCHEMA_VERSION = 8;
+export const REQUIRED_SCHEMA_VERSION = 9;
 
 const CHECKS = [
   { id: 'config', title: '설정 파일', run: checkConfigStep },
@@ -14,7 +14,17 @@ const CHECKS = [
   { id: 'security', title: '보안 규칙(RLS)', run: checkSecurityStep },
   { id: 'realtime', title: '실시간 연결 (채팅)', run: checkRealtimeStep },
   { id: 'push', title: '휴대폰 알림 서버 (선택)', run: checkPushStep, optional: true },
+  { id: 'mail', title: '초대 · 승인 요청 메일 (선택)', run: checkMailStep, optional: true },
 ];
+
+// 초대 메일을 보낼 준비가 됐는지 (pg_net + Vault 의 Resend 열쇠) — 없어도 앱은 잘 돼요 (메일만 안 감)
+async function checkMailStep() {
+  const guest = createGuestClient();
+  const { data, error } = await guest.rpc('mail_ready');
+  if (error) return { status: 'warn', detail: '데이터베이스를 버전 9로 업데이트하면 확인할 수 있어요.' };
+  if (data === true) return { status: 'ok', detail: '초대받은 사람과 보호자에게 이메일로 알려 드려요.' };
+  return { status: 'warn', detail: '아직 설정 전이에요. 메일로도 알리려면 안내서 12단계를 따라 주세요. (앱 안 초대는 그대로 돼요)' };
+}
 
 // 알림 서버(Edge Function "push")가 준비됐는지 — 없어도 앱은 잘 돼요 (알림만 안 감)
 async function checkPushStep() {
@@ -83,7 +93,7 @@ async function checkSecurityStep() {
   const guest = createGuestClient();
   const { data, error } = await guest.from('posts').select('id').limit(1);
   if (error && (error.code === '42501' || /permission denied/i.test(error.message))) {
-    return { status: 'ok', detail: '로그인하지 않은 사람은 가족 글을 볼 수 없어요. (정상)' };
+    return { status: 'ok', detail: '로그인하지 않은 사람은 그룹 글을 볼 수 없어요. (정상)' };
   }
   if (error) return { status: 'fail', detail: explainError(error) };
   return {

@@ -1,6 +1,6 @@
-// 가족 그룹 · 초대 관련 서버 요청 모음
+// 그룹 · 초대 관련 서버 요청 모음
 import { sb } from './supabase.js';
-import { state } from './state.js';
+import { state, isMissingHandle } from './state.js';
 
 function check({ data, error }) {
   if (error) throw error;
@@ -34,33 +34,57 @@ export async function respondInvitation(id, accept) {
   return check(await sb.rpc('respond_invitation', { inv_id: id, accept }));
 }
 
+// 아이디 칸이 없는 예전 데이터베이스(버전 9 전)면 아이디 없이 다시 물어봐요
+async function withHandle(run) {
+  const res = await run(', handle');
+  return res.error && isMissingHandle(res.error) ? run('') : res;
+}
+
 export async function fetchMembers(groupId) {
-  const rows = check(await sb
+  const rows = check(await withHandle((h) => sb
     .from('group_members')
-    .select('user_id, role, joined_at, profile:profiles!group_members_user_id_fkey(nickname)')
+    .select(`user_id, role, joined_at, profile:profiles!group_members_user_id_fkey(nickname${h})`)
     .eq('group_id', groupId)
-    .order('joined_at', { ascending: true }));
-  return rows.map((m) => ({ ...m, nickname: m.profile?.nickname ?? '(알 수 없음)' }));
+    .order('joined_at', { ascending: true })));
+  return rows.map((m) => ({ ...m, nickname: m.profile?.nickname ?? '(알 수 없음)', handle: m.profile?.handle ?? '' }));
 }
 
 // 이 그룹에서 보낸, 아직 대기 중인 초대
 export async function fetchPendingInvites(groupId) {
-  const rows = check(await sb
+  const rows = check(await withHandle((h) => sb
     .from('group_invitations')
-    .select('id, created_at, invitee:profiles!group_invitations_invitee_id_fkey(nickname), inviter:profiles!group_invitations_inviter_id_fkey(nickname)')
+    .select(`id, created_at, invitee:profiles!group_invitations_invitee_id_fkey(nickname${h}), inviter:profiles!group_invitations_inviter_id_fkey(nickname)`)
     .eq('group_id', groupId)
     .eq('status', 'pending')
-    .order('created_at', { ascending: false }));
+    .order('created_at', { ascending: false })));
   return rows.map((i) => ({
     id: i.id,
     created_at: i.created_at,
     inviteeNickname: i.invitee?.nickname ?? '(알 수 없음)',
+    inviteeHandle: i.invitee?.handle ?? '',
     inviterNickname: i.inviter?.nickname ?? '(알 수 없음)',
   }));
 }
 
-export async function inviteByNickname(groupId, nickname) {
-  return check(await sb.rpc('invite_by_nickname', { gid: groupId, nick: nickname }));
+// 아이디로 초대 (초대받은 사람에게는 앱 알림 · 이메일로도 알려요)
+export async function inviteByHandle(groupId, handle) {
+  const res = await sb.rpc('invite_by_handle', { gid: groupId, p_handle: handle });
+  // 예전 데이터베이스(버전 9 전): 닉네임으로 찾던 함수로
+  if (res.error?.code === 'PGRST202') return check(await sb.rpc('invite_by_nickname', { gid: groupId, nick: handle }));
+  return check(res);
+}
+
+// 만 14세 미만: 보호자에게 그룹 만들기 승인 요청
+export async function requestGroup(name) {
+  return check(await sb.rpc('request_group', { p_name: name }));
+}
+
+export async function fetchMyGroupRequests() {
+  return check(await sb.rpc('my_group_requests'));
+}
+
+export async function cancelGroupRequest(id) {
+  return check(await sb.rpc('cancel_group_request', { p_id: id }));
 }
 
 export async function cancelInvitation(id) {
@@ -82,6 +106,10 @@ export function watchMyInvitations(onChange) {
     .channel(`invites-${uid}-${Date.now()}`)
     .on('postgres_changes',
       { event: '*', schema: 'public', table: 'group_invitations', filter: `invitee_id=eq.${uid}` },
+      () => onChange())
+    // 내가 그룹에 들어가게 되면(예: 보호자가 자녀의 그룹 만들기를 승인) 홈을 바로 새로
+    .on('postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'group_members', filter: `user_id=eq.${uid}` },
       () => onChange())
     .subscribe();
   return () => sb.removeChannel(channel);

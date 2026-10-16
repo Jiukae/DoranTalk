@@ -15,7 +15,7 @@ const AUTH_CODES = {
   signup_disabled: '지금은 회원가입이 막혀 있어요. 관리자에게 문의해 주세요.',
   session_expired: '로그인이 만료되었어요. 다시 로그인해 주세요.',
   otp_expired: '링크가 만료되었어요. 처음부터 다시 시도해 주세요.',
-  unexpected_failure: '가입 중 문제가 생겼어요. 닉네임이 방금 다른 사람에게 사용됐을 수 있어요. 다른 닉네임으로 해 보세요.',
+  unexpected_failure: '가입 중 문제가 생겼어요. 아이디가 방금 다른 사람에게 사용됐을 수 있어요. 다른 아이디로 해 보세요.',
 };
 
 export function friendlyError(error) {
@@ -29,7 +29,7 @@ export function friendlyError(error) {
   if (code === 'PGRST202' || code === 'PGRST205') {
     return '서버(데이터베이스)가 예전 버전이라 이 기능을 쓸 수 없어요. 관리자가 최신 schema.sql 을 다시 실행해야 해요. (앱 주소 뒤에 #/check 를 붙여 열면 확인할 수 있어요)';
   }
-  if (code === '23505') return '이미 사용 중인 닉네임이에요. 다른 닉네임을 골라 주세요.';
+  if (code === '23505') return '이미 다른 사람이 쓰고 있는 아이디예요. 다른 아이디를 골라 주세요.';
   if (code === '23514') return '입력한 내용이 규칙에 맞지 않아요.';
   if (code === '42501') return '이 작업을 할 수 있는 권한이 없어요.';
 

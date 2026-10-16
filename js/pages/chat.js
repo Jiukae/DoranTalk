@@ -136,7 +136,7 @@ export async function renderChatTab(main, group, token) {
     moreBtn.hidden = !hasOlder;
     if (!messages.length) {
       list.replaceChildren(el('div', { class: 'card chat-empty' },
-        emptyState('chat', '가족 채팅방이에요', '아래 칸에 첫 인사를 남겨 보세요!')));
+        emptyState('chat', '그룹 채팅방이에요', '아래 칸에 첫 인사를 남겨 보세요!')));
     }
     updateUnread();
   }
@@ -210,7 +210,7 @@ export async function renderChatTab(main, group, token) {
         return !readAt || readAt < msg.created_at;
       }).length;
       unreadEl.textContent = n > 0 ? String(n) : '';
-      unreadEl.setAttribute('aria-label', n > 0 ? `안 읽은 가족 ${n}명` : '');
+      unreadEl.setAttribute('aria-label', n > 0 ? `안 읽은 멤버 ${n}명` : '');
     }
   }
 

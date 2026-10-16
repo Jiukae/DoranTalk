@@ -22,11 +22,15 @@ create table pg_temp.ids (k text primary key, v uuid);
 grant all on pg_temp.ids to authenticated;
 
 do $$ begin
-  -- 닉네임 중복 (대소문자 무시)
+  -- (버전 9) 아이디 중복 (대소문자 무시)은 안 되고, 닉네임은 겹쳐도 됨
   begin
-    insert into auth.users (email, raw_user_meta_data) values ('e@x.com', '{"nickname":"DAUGHTER"}');
-    raise exception 'TEST FAILED: duplicate nickname accepted';
+    insert into auth.users (email, raw_user_meta_data) values ('e@x.com', '{"nickname":"딸2","handle":"DAUGHTER"}');
+    raise exception 'TEST FAILED: duplicate handle accepted';
   exception when unique_violation then null; end;
+  begin
+    insert into auth.users (email, raw_user_meta_data) values ('e2@x.com', '{"nickname":"딸2","handle":"a b"}');
+    raise exception 'TEST FAILED: bad handle accepted';
+  exception when raise_exception then null; end;
   -- 닉네임 형식
   begin
     insert into auth.users (email, raw_user_meta_data) values ('f@x.com', '{"nickname":"a"}');
@@ -37,7 +41,10 @@ end $$;
 -- anon: 닉네임 확인만 가능
 set role anon;
 select pg_temp.assert(public.is_nickname_available('새닉네임'), 'nickname available');
-select pg_temp.assert(not public.is_nickname_available('daughter'), 'nickname taken (case-insensitive)');
+select pg_temp.assert(public.is_nickname_available('daughter'), 'nickname can repeat (v9)');
+select pg_temp.assert(public.is_handle_available('새아이디_1'), 'handle available');
+select pg_temp.assert(not public.is_handle_available('daughter'), 'handle taken (case-insensitive)');
+select pg_temp.assert(not public.is_handle_available('a'), 'handle too short');
 select pg_temp.assert(not public.is_nickname_available('a b'), 'nickname invalid');
 do $$ begin
   perform * from public.profiles;
@@ -671,7 +678,7 @@ do $$ begin
   perform public.create_group('아이그룹');
   raise exception 'TEST FAILED: child created group';
 exception when raise_exception then
-  if sqlerrm not like '%직접 만들 수 없어요%' then raise; end if;
+  if sqlerrm not like '%보호자 승인%' then raise; end if;
 end $$;
 do $$ begin
   perform public.create_guardian_link('2026-10-14');
@@ -844,7 +851,7 @@ do $$ begin
   perform public.create_group('예전꼬마그룹');
   raise exception 'TEST FAILED: attached child created group';
 exception when raise_exception then
-  if sqlerrm not like '%직접 만들 수 없어요%' then raise; end if;
+  if sqlerrm not like '%보호자 승인%' then raise; end if;
 end $$;
 select pg_temp.assert((select guardian_nickname from public.my_guardian_info()) = '보호자엄마', 'attached child sees guardian');
 reset role;
@@ -863,4 +870,157 @@ select pg_temp.assert((select guardian_nickname from public.my_guardian_info()) 
 reset role;
 select set_config('request.jwt.claims', '', false);
 
+
+-- =====================================================================
+-- (버전 9) 아이디 · 초대 메일 · 자녀 그룹 승인
+-- =====================================================================
+-- 예전 회원: 닉네임이 첫 아이디
+select pg_temp.assert((select handle from public.profiles where id = 'aaaaaaaa-0000-0000-0000-000000000002') = '아빠', 'old member handle = nickname');
+-- 아이디 없이 가입(예전 앱) + 닉네임이 이미 다른 사람 아이디 → 숫자 붙은 아이디
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('eeeeeeee-0000-0000-0000-000000000001', 'n1@x.com', '{"nickname":"아빠"}');
+select pg_temp.assert((select handle from public.profiles where id = 'eeeeeeee-0000-0000-0000-000000000001') ~ '^아빠_[0-9]{4}$', 'fallback handle with digits');
+select pg_temp.assert((select count(*) from public.profiles where nickname = '아빠') = 2, 'same nickname twice ok');
+-- 아이디로 초대 (닉네임이 같아도 아이디로 정확히)
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('eeeeeeee-0000-0000-0000-000000000002', 'n2@x.com', '{"nickname":"할머니","handle":"granny_kim"}'),
+  ('eeeeeeee-0000-0000-0000-000000000003', 'n3@x.com', '{"nickname":"할머니","handle":"외할머니"}'),
+  ('eeeeeeee-0000-0000-0000-000000000004', 'n4@x.com', '{"nickname":"방장","handle":"방장님"}');
+update auth.users set email_confirmed_at = null where id = 'eeeeeeee-0000-0000-0000-000000000003';
+-- 메일 열쇠 없음 → 초대는 되고 메일은 안 감
+select pg_temp.as_user('eeeeeeee-0000-0000-0000-000000000004');
+insert into pg_temp.ids values ('mg', public.create_group('메일그룹'));
+select public.invite_by_handle((select v from pg_temp.ids where k='mg'), 'GRANNY_KIM');
+reset role;
+select pg_temp.assert((select count(*) from public.group_invitations i where i.invitee_id = 'eeeeeeee-0000-0000-0000-000000000002' and i.status = 'pending') = 1, 'invite by handle (case-insensitive)');
+select pg_temp.assert((select count(*) from net.sent) = 0, 'no mail without key');
+select pg_temp.assert(not public.mail_ready(), 'mail not ready without key');
+-- 열쇠를 넣으면 메일이 감 (받는 이메일 · 이스케이프 확인)
+insert into vault.decrypted_secrets values ('resend_api_key', 're_test_key');
+select pg_temp.assert(public.mail_ready(), 'mail ready with key');
+update public.profiles set nickname = '방장' where id = 'eeeeeeee-0000-0000-0000-000000000004';
+update public.family_groups set name = '<b>메일</b>그룹' where id = (select v from pg_temp.ids where k='mg');
+select pg_temp.as_user('eeeeeeee-0000-0000-0000-000000000004');
+select public.invite_by_nickname((select v from pg_temp.ids where k='mg'), '아빠');  -- 예전 앱 호환(아이디로 찾음)
+-- 이메일 확인 안 된 사람에게는 메일 안 감
+select public.invite_by_handle((select v from pg_temp.ids where k='mg'), '외할머니');
+reset role;
+select pg_temp.assert((select count(*) from net.sent) = 1, 'one invite mail sent');
+select pg_temp.assert((select body->'to'->>0 from net.sent order by id desc limit 1) = 'b@x.com', 'mail to invitee email');
+select pg_temp.assert((select body->>'html' from net.sent order by id desc limit 1) like '%&lt;b&gt;메일&lt;/b&gt;그룹%', 'group name escaped in mail');
+select pg_temp.assert((select body->>'html' from net.sent order by id desc limit 1) not like '%<b>메일%', 'no raw html from user');
+select pg_temp.assert((select headers->>'Authorization' from net.sent order by id desc limit 1) = 'Bearer re_test_key', 'mail uses vault key');
+-- 같은 사람에게 10분 안에 또 초대 → 초대는 되지만 메일은 안 감
+select pg_temp.as_user('eeeeeeee-0000-0000-0000-000000000004');
+insert into pg_temp.ids values ('mg2', public.create_group('메일그룹2'));
+select public.invite_by_handle((select v from pg_temp.ids where k='mg2'), '아빠');
+reset role;
+select pg_temp.assert((select count(*) from net.sent) = 1, 'mail rate limited (10 min)');
+-- 앱(초대한 사람)은 메일 기록 · 받는 사람 이메일을 볼 수 없음
+select pg_temp.as_user('eeeeeeee-0000-0000-0000-000000000004');
+do $$ begin
+  perform * from public.mail_log;
+  raise exception 'TEST FAILED: read mail_log';
+exception when insufficient_privilege then null; end $$;
+do $$ begin
+  perform public.send_mail('x@x.com', 's', 'h');
+  raise exception 'TEST FAILED: user called send_mail';
+exception when insufficient_privilege then null; end $$;
+-- 받은 초대에 초대한 사람 아이디가 보임
+reset role;
+select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000002');
+select pg_temp.assert((select inviter_handle from public.get_my_invitations() where group_name = '메일그룹2') = '방장님', 'invitation shows inviter handle');
+reset role;
+-- 아이디 바꾸기: 겹치면 안 됨, 본인만
+select pg_temp.as_user('eeeeeeee-0000-0000-0000-000000000004');
+update public.profiles set handle = '새방장' where id = 'eeeeeeee-0000-0000-0000-000000000004';
+do $$ begin
+  update public.profiles set handle = 'granny_KIM' where id = 'eeeeeeee-0000-0000-0000-000000000004';
+  raise exception 'TEST FAILED: duplicate handle update';
+exception when unique_violation then null; end $$;
+update public.profiles set handle = '남의아이디' where id = 'eeeeeeee-0000-0000-0000-000000000002';
+reset role;
+select pg_temp.assert((select handle from public.profiles where id = 'eeeeeeee-0000-0000-0000-000000000004') = '새방장', 'handle changed');
+select pg_temp.assert((select handle from public.profiles where id = 'eeeeeeee-0000-0000-0000-000000000002') = 'granny_kim', 'cannot change others handle');
+
+-- 자녀 그룹 승인: 둘째 아이(cccc...0012)는 보호자가 탈퇴해서 요청 불가 → 새 보호자 · 아이로 시험
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('eeeeeeee-0000-0000-0000-000000000010', 'pg@x.com', '{"nickname":"아빠보호","handle":"dadguard"}');
+select pg_temp.as_user_pw('eeeeeeee-0000-0000-0000-000000000010', 30);
+insert into pg_temp.toks select 'tg', token from public.create_guardian_link('2026-10-14');
+reset role;
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('eeeeeeee-0000-0000-0000-000000000011', 'kk@x.com',
+   json_build_object('nickname', '막내', 'handle', 'maknae', 'under_14_with_guardian', true,
+     'guardian_token', (select v from pg_temp.toks where k='tg'))::jsonb);
+select set_config('request.jwt.claims', '', false);
+delete from net.sent;
+select pg_temp.as_user('eeeeeeee-0000-0000-0000-000000000011');
+do $$ begin
+  perform public.create_group('막내그룹');
+  raise exception 'TEST FAILED: child created group directly';
+exception when raise_exception then
+  if sqlerrm not like '%보호자 승인%' then raise; end if;
+end $$;
+insert into pg_temp.ids values ('rq', public.request_group('막내그룹'));
+select pg_temp.assert((select status from public.my_group_requests() limit 1) = 'pending', 'child sees pending request');
+reset role;
+select pg_temp.assert((select count(*) from net.sent) = 1, 'guardian got request mail');
+select pg_temp.assert((select body->'to'->>0 from net.sent order by id desc limit 1) = 'pg@x.com', 'request mail to guardian');
+-- 어른은 요청 대신 바로 만들어요
+select pg_temp.as_user('eeeeeeee-0000-0000-0000-000000000004');
+do $$ begin
+  perform public.request_group('x');
+  raise exception 'TEST FAILED: adult requested';
+exception when raise_exception then
+  if sqlerrm not like '%만 14세 미만 계정만%' then raise; end if;
+end $$;
+-- 남의 아이 요청은 승인 못 함 · 목록에도 안 보임
+select pg_temp.assert((select count(*) from public.children_group_requests()) = 0, 'stranger sees no requests');
+do $$ begin
+  perform public.decide_group_request((select v from pg_temp.ids where k='rq'), true);
+  raise exception 'TEST FAILED: stranger approved';
+exception when raise_exception then
+  if sqlerrm not like '%찾을 수 없어요%' then raise; end if;
+end $$;
+do $$ begin
+  perform * from public.group_requests;
+  raise exception 'TEST FAILED: read group_requests';
+exception when insufficient_privilege then null; end $$;
+reset role;
+-- 보호자 승인 → 그룹 생김 (아이 방장, 보호자 멤버)
+select pg_temp.as_user('eeeeeeee-0000-0000-0000-000000000010');
+select pg_temp.assert((select child_handle from public.children_group_requests()) = 'maknae', 'guardian sees request');
+insert into pg_temp.ids values ('rg', public.decide_group_request((select v from pg_temp.ids where k='rq'), true));
+select pg_temp.assert(public.is_group_member((select v from pg_temp.ids where k='rg')), 'guardian is member of approved group');
+reset role;
+select pg_temp.assert((select role from public.group_members where group_id = (select v from pg_temp.ids where k='rg') and user_id = 'eeeeeeee-0000-0000-0000-000000000011') = 'owner', 'child is owner');
+select pg_temp.assert((select status from public.group_requests where id = (select v from pg_temp.ids where k='rq')) = 'approved', 'request approved');
+-- 보호자가 있는 그룹이니, 아이(방장)가 다른 사람을 초대할 수도 있고 다른 멤버가 아이 친구를 초대해도 됨
+select pg_temp.as_user('eeeeeeee-0000-0000-0000-000000000011');
+select public.invite_by_handle((select v from pg_temp.ids where k='rg'), 'granny_kim');
+-- 거절 · 취소
+insert into pg_temp.ids values ('rq2', public.request_group('두번째'));
+insert into pg_temp.ids values ('rq3', public.request_group('세번째'));
+select public.cancel_group_request((select v from pg_temp.ids where k='rq3'));
+reset role;
+select pg_temp.as_user('eeeeeeee-0000-0000-0000-000000000010');
+select public.decide_group_request((select v from pg_temp.ids where k='rq2'), false);
+select pg_temp.assert((select count(*) from public.children_group_requests()) = 0, 'no pending after decide/cancel');
+-- 한 번 결정한 요청은 다시 결정 못 함
+do $$ begin
+  perform public.decide_group_request((select v from pg_temp.ids where k='rq2'), true);
+  raise exception 'TEST FAILED: decided twice';
+exception when raise_exception then
+  if sqlerrm not like '%찾을 수 없어요%' then raise; end if;
+end $$;
+reset role;
+select pg_temp.assert((select count(*) from public.family_groups where name = '두번째') = 0, 'declined request made no group');
+-- 보호자 화면: 자녀 아이디
+select pg_temp.as_user('eeeeeeee-0000-0000-0000-000000000010');
+select pg_temp.assert((select handle from public.my_children()) = 'maknae', 'my_children shows handle');
+reset role;
+set role anon;
+select pg_temp.assert((select guardian_handle from public.guardian_link_info('nope')) is null, 'link info handle null for bad link');
+reset role;
 select 'ALL RLS TESTS PASSED' as result;

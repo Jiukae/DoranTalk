@@ -312,7 +312,7 @@ export async function shareAppLink() {
   const url = `${location.origin}/welcome?from=family`;
   const text = '우리 가족 소식방 도란톡에 초대할게요! 😊\n'
     + '① 아래 링크를 눌러 회원가입해 주세요\n'
-    + '② 가입할 때 정한 닉네임을 저에게 알려 주세요';
+    + '② 가입할 때 정한 아이디를 저에게 알려 주세요';
   if (navigator.share) {
     try {
       await navigator.share({ title: '도란톡', text, url });

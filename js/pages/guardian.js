@@ -50,17 +50,20 @@ export async function renderChildren() {
           el('li', {}, '아래 버튼으로 동의하고 가입 링크 만들기'),
           el('li', {}, '링크를 자녀에게 보내기 (카카오톡 등)'),
           el('li', {}, '자녀가 링크를 열어 가입 (이미 가입한 자녀는 자기 계정에 연결)'),
-          el('li', {}, '가족 그룹의 가족 탭에서 자녀 닉네임으로 초대'),
+          el('li', {}, '그룹의 멤버 탭에서 자녀의 아이디로 초대'),
         ),
         el('a', { href: '#/me/children/consent', class: 'btn btn-block' }, icon('shield', { size: 22 }), '동의하고 가입 링크 만들기'),
       ),
       list,
       el('p', { class: 'muted small center' },
-        '자녀 계정은 보호자가 들어 있는 가족 그룹에만 초대받을 수 있고, 그룹을 직접 만들 수 없어요.'),
+        '자녀 계정은 보호자가 들어 있는 그룹에만 초대받을 수 있어요(보호자가 있으면 누가 초대해도 자녀가 수락할 수 있어요). 자녀가 그룹을 만들려면 보호자 승인이 필요하고, 승인하면 보호자도 그 그룹의 멤버가 돼요.'),
     ),
   );
 
-  const [kids, links] = await Promise.all([sb.rpc('my_children'), sb.rpc('my_guardian_links')]);
+  const [kids, links, reqs] = await Promise.all([
+    sb.rpc('my_children'), sb.rpc('my_guardian_links'),
+    sb.rpc('children_group_requests').then((r) => (r.error ? { data: [] } : r)), // 예전 DB면 건너뜀
+  ]);
   const error = kids.error || links.error;
   if (error) {
     list.replaceChildren(errorCard(friendlyError(error), renderChildren));
@@ -71,7 +74,7 @@ export async function renderChildren() {
     avatar(k.nickname),
     el('div', { class: 'child-info' },
       el('p', { class: 'child-name' }, k.nickname),
-      el('p', { class: 'muted small' }, `${day(k.joined_at)} 가입`, k.email_confirmed ? '' : ' · 이메일 확인 전'),
+      el('p', { class: 'muted small' }, k.handle ? `아이디 ${k.handle} · ` : '', `${day(k.joined_at)} 가입`, k.email_confirmed ? '' : ' · 이메일 확인 전'),
     ),
     el('button', {
       class: 'btn btn-ghost btn-small btn-danger-text', type: 'button',
@@ -101,7 +104,36 @@ export async function renderChildren() {
     ),
   ));
 
+  // 자녀의 그룹 만들기 요청: 승인하면 그룹이 생기고(자녀가 방장) 보호자도 멤버가 돼요
+  const reqRows = (reqs.data || []).map((r) => {
+    const approve = el('button', { class: 'btn btn-small', type: 'button' }, '승인');
+    const decline = el('button', { class: 'btn btn-ghost btn-small', type: 'button' }, '거절');
+    const decide = async (yes, button) => {
+      const ok = await confirmDialog(yes
+        ? { title: `'${r.name}' 그룹을 만들까요?`, message: `${r.child_nickname}님이 방장이 되고, 보호자님도 이 그룹의 멤버가 돼요.`, confirmText: '승인' }
+        : { title: '요청을 거절할까요?', message: `${r.child_nickname}님에게 거절했다고 보여요.`, confirmText: '거절' });
+      if (!ok) return;
+      setBusy(button, true, '');
+      const { error: err } = await sb.rpc('decide_group_request', { p_id: r.id, p_approve: yes });
+      if (err) { setBusy(button, false); return toast(friendlyError(err), 4500); }
+      toast(yes ? `'${r.name}' 그룹을 만들었어요. 홈에서 볼 수 있어요.` : '요청을 거절했어요.', 3500);
+      renderChildren();
+    };
+    approve.addEventListener('click', () => decide(true, approve));
+    decline.addEventListener('click', () => decide(false, decline));
+    return el('div', { class: 'child-row' },
+      iconTile('family'),
+      el('div', { class: 'child-info' },
+        el('p', { class: 'child-name' }, r.name),
+        el('p', { class: 'muted small' }, `${r.child_nickname}(${r.child_handle})님의 요청 · ${day(r.created_at)}`),
+      ),
+      el('div', { class: 'child-actions' }, approve, decline),
+    );
+  });
+
   list.replaceChildren(...[
+    reqRows.length && el('h2', { class: 'section-title' }, '그룹 만들기 요청 ', el('span', { class: 'count' }, String(reqRows.length))),
+    reqRows.length && el('section', { class: 'card list-card' }, ...reqRows),
     el('h2', { class: 'section-title' }, '내 자녀 계정 ', el('span', { class: 'count' }, String(kidRows.length))),
     el('section', { class: 'card list-card' },
       ...(kidRows.length ? kidRows : [el('p', { class: 'muted child-empty' }, '아직 가입한 자녀가 없어요.')])),
@@ -148,10 +180,10 @@ export function renderGuardianConsent() {
     {
       key: 'privacy', label: '[필수] 자녀의 개인정보 수집·이용에 동의해요', link: '#/privacy',
       summary: [
-        '수집 항목: 자녀의 이메일, 비밀번호, 닉네임 (가입할 때 자녀가 입력)',
-        '쓰는 목적: 회원 확인, 가족 소식·채팅 서비스 제공, 비밀번호 찾기',
+        '수집 항목: 자녀의 이메일, 비밀번호, 아이디, 닉네임 (가입할 때 자녀가 입력)',
+        '쓰는 목적: 회원 확인, 그룹 소식·채팅 서비스 제공, 초대 알림, 비밀번호 찾기',
         '보유 기간: 자녀가 탈퇴하거나 보호자가 자녀 계정을 지울 때까지',
-        '자녀 보호: 보호자가 들어 있는 가족 그룹에만 초대받을 수 있고, 그룹을 직접 만들 수 없어요',
+        '자녀 보호: 보호자가 들어 있는 그룹에만 초대받을 수 있고, 그룹은 보호자가 승인해야 만들 수 있어요',
         '동의하지 않을 수 있지만, 그러면 자녀가 가입할 수 없어요. 동의는 언제든 철회할 수 있어요(자녀 계정 삭제).',
       ],
     },
@@ -238,7 +270,7 @@ function renderLinkReady(link) {
         }, icon('copy', { size: 22 }), '링크 복사'),
         el('p', { class: 'muted small' }, '자녀의 휴대폰에서 열어 주세요. 이 휴대폰에서 열면 보호자님은 로그아웃돼요.'),
         el('p', { class: 'muted small' }, '자녀가 이미 도란톡 계정이 있다면, 자녀의 휴대폰(자녀 계정으로 로그인된 상태)에서 링크를 열고 "이 계정에 보호자 동의 연결하기"를 누르면 돼요.'),
-        el('p', { class: 'muted small' }, '자녀가 가입하면, 가족 그룹의 가족 탭에서 자녀의 닉네임으로 초대해 주세요.'),
+        el('p', { class: 'muted small' }, '자녀가 가입하면, 그룹의 멤버 탭에서 자녀의 아이디로 초대해 주세요. (자녀 계정 화면에서 아이디를 볼 수 있어요)'),
         el('a', { href: '#/me/children', class: 'btn btn-ghost btn-block' }, '자녀 계정으로 돌아가기'),
       ),
     ),

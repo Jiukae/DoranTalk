@@ -1,4 +1,4 @@
-// 가족 그룹 화면: 아래쪽 탭(피드 · 채팅 · 가족)으로 이동합니다.
+// 그룹 화면: 아래쪽 탭(소식 · 채팅 · 멤버)으로 이동합니다.
 // 소식 탭은 pages/feed.js, 채팅 탭은 pages/chat.js 에 있어요.
 import { sb } from '../supabase.js';
 import { state } from '../state.js';
@@ -9,10 +9,10 @@ import {
   shareAppLink, icon, iconTile, confirmDialog, skeletonPosts,
 } from '../ui.js';
 import {
-  fetchGroup, fetchMembers, fetchPendingInvites, inviteByNickname, cancelInvitation, leaveGroup,
+  fetchGroup, fetchMembers, fetchPendingInvites, inviteByHandle, cancelInvitation, leaveGroup,
   watchGroupMembers,
 } from '../groups.js';
-import { nicknameFormatError } from './auth.js';
+import { handleFormatError } from './auth.js';
 import { timeAgo } from '../format.js';
 import { renderFeedTab } from './feed.js';
 import { renderChatTab } from './chat.js';
@@ -22,7 +22,7 @@ import { notifyFamily, setAppBadge } from '../push.js';
 const TABS = [
   { key: 'feed', label: '소식', icon: 'feed' },
   { key: 'chat', label: '채팅', icon: 'chat' },
-  { key: 'members', label: '가족', icon: 'family' },
+  { key: 'members', label: '멤버', icon: 'family' },
 ];
 
 function tabBar(groupId, active) {
@@ -90,7 +90,7 @@ export async function renderGroup({ id, tab }) {
 
   if (tab === 'chat') return renderChatTab(main, group, token);
 
-  // 소식·가족 탭에서는 채팅 탭에 안 읽은 메시지 수를 표시
+  // 소식·멤버 탭에서는 채팅 탭에 안 읽은 메시지 수를 표시
   const stopBadge = chatBadge(group.id);
   const stopTab = tab === 'feed'
     ? await renderFeedTab(main, group, token)
@@ -125,7 +125,7 @@ function chatBadge(groupId) {
 }
 
 // ------------------------------------------------------------------
-// 가족 탭: 초대하기, 대기 중인 초대, 멤버 목록, 그룹 이름 바꾸기, 나가기
+// 멤버 탭: 초대하기, 대기 중인 초대, 멤버 목록, 그룹 이름 바꾸기, 나가기
 // ------------------------------------------------------------------
 async function renderMembersTab(main, group, token) {
   const myId = state.session.user.id;
@@ -157,8 +157,8 @@ async function renderMembersTab(main, group, token) {
 
 function inviteForm(group, onInvited) {
   const nick = el('input', {
-    class: 'input', type: 'text', maxlength: 12, autocapitalize: 'off', spellcheck: 'false',
-    placeholder: '가족의 닉네임',
+    class: 'input', type: 'text', maxlength: 20, autocapitalize: 'off', spellcheck: 'false',
+    placeholder: '초대할 사람의 아이디',
   });
   const msg = messageBox();
   const submit = el('button', { class: 'btn btn-block', type: 'submit' }, '초대 보내기');
@@ -169,13 +169,13 @@ function inviteForm(group, onInvited) {
       e.preventDefault();
       msg.clear();
       const value = nick.value.trim();
-      const formatError = nicknameFormatError(value);
+      const formatError = handleFormatError(value);
       if (formatError) return msg.show(formatError);
       setBusy(submit, true, '보내는 중…');
       try {
-        await inviteByNickname(group.id, value);
-        notifyFamily('invite', group.id); // 초대받은 사람 휴대폰으로 알림
-        msg.show(`${value}님에게 초대를 보냈어요. ${value}님이 앱에서 수락하면 그룹에 들어와요.`, 'success');
+        await inviteByHandle(group.id, value);
+        notifyFamily('invite', group.id); // 초대받은 사람 휴대폰으로 알림 (이메일은 서버가 보내요)
+        msg.show(`아이디 ${value}에게 초대를 보냈어요. 상대방이 도란톡 홈 화면이나 이메일에서 확인하고 수락하면 그룹에 들어와요.`, 'success');
         nick.value = '';
         onInvited();
       } catch (err) {
@@ -187,15 +187,15 @@ function inviteForm(group, onInvited) {
   },
     el('div', { class: 'card-head' },
       iconTile('userPlus'),
-      el('div', {}, el('h2', {}, '가족 초대하기'), el('p', { class: 'muted' }, '닉네임으로 초대해요')),
+      el('div', {}, el('h2', {}, '멤버 초대하기'), el('p', { class: 'muted' }, '아이디로 초대해요')),
     ),
-    field('초대할 가족의 닉네임', nick, '가족이 도란톡에 가입할 때 정한 닉네임을 정확히 입력해 주세요.'),
+    field('초대할 사람의 아이디', nick, '상대방의 내 정보 화면에 있는 아이디를 정확히 입력해 주세요. 초대하면 그 사람의 이메일로도 알려 드려요.'),
     msg,
     submit,
     el('div', { class: 'share-hint' },
-      el('p', { class: 'muted small' }, '아직 가입하지 않은 가족이 있나요? 링크를 보내 가입을 부탁해 보세요.'),
+      el('p', { class: 'muted small' }, '아직 가입하지 않은 사람이 있나요? 링크를 보내 가입을 부탁하고, 아이디를 알려 달라고 해 보세요.'),
       el('button', { class: 'btn btn-secondary btn-block', type: 'button', onclick: shareAppLink },
-        icon('share', { size: 22 }), '가족에게 도란톡 링크 보내기'),
+        icon('share', { size: 22 }), '도란톡 가입 링크 보내기'),
     ),
   );
 }
@@ -220,7 +220,7 @@ function pendingCard(pending, refresh) {
         return el('li', { class: 'person' },
           avatar(p.inviteeNickname),
           el('div', { class: 'person-text' },
-            el('p', { class: 'person-name' }, p.inviteeNickname),
+            el('p', { class: 'person-name' }, p.inviteeNickname, p.inviteeHandle && el('span', { class: 'person-handle' }, `@${p.inviteeHandle}`)),
             el('p', { class: 'muted small', style: 'margin:0' }, `${p.inviterNickname}님이 초대 · ${timeAgo(p.created_at)}`),
           ),
           cancel,
@@ -232,7 +232,7 @@ function pendingCard(pending, refresh) {
 
 function membersCard(members, myId) {
   return el('div', { class: 'card' },
-    el('h2', {}, `우리 가족 ${members.length}명`),
+    el('h2', {}, `멤버 ${members.length}명`),
     el('ul', { class: 'people' },
       ...members.map((m) => el('li', { class: 'person' },
         avatar(m.nickname),
@@ -242,7 +242,7 @@ function membersCard(members, myId) {
             m.user_id === myId && el('span', { class: 'badge' }, '나'),
             m.role === 'owner' && el('span', { class: 'badge badge-owner' }, '방장'),
           ),
-          el('p', { class: 'muted small', style: 'margin:0' }, `${timeAgo(m.joined_at)} 참여`),
+          el('p', { class: 'muted small', style: 'margin:0' }, m.handle ? `@${m.handle} · ${timeAgo(m.joined_at)} 참여` : `${timeAgo(m.joined_at)} 참여`),
         ),
       )),
     ),
@@ -282,7 +282,7 @@ function leaveSection(group) {
   leave.addEventListener('click', async () => {
     const ok = await confirmDialog({
       title: `'${group.name}' 그룹에서 나갈까요?`,
-      message: '나가면 이 그룹의 글과 채팅을 볼 수 없고, 다시 들어오려면 가족에게 초대받아야 해요.',
+      message: '나가면 이 그룹의 글과 채팅을 볼 수 없고, 다시 들어오려면 멤버에게 초대받아야 해요.',
       confirmText: '나가기', danger: true,
     });
     if (!ok) return;

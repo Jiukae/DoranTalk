@@ -14,7 +14,9 @@ import { signupSource } from '../source.js';
 import { forgetThisDevice } from '../push.js';
 
 export const NICKNAME_RULE = /^[가-힣a-zA-Z0-9_]{2,12}$/;
-export const NICKNAME_HINT = '2~12자, 한글·영어·숫자로 지어 주세요. 가족이 나를 초대할 때 이 이름으로 찾아요.';
+export const NICKNAME_HINT = '2~12자. 그룹에서 보이는 이름이에요. 다른 사람과 같아도 괜찮아요.';
+export const HANDLE_RULE = /^[가-힣a-zA-Z0-9_]{2,20}$/;
+export const HANDLE_HINT = '2~20자, 한글·영어·숫자·밑줄(_). 다른 사람과 겹칠 수 없어요. 그룹에 초대받을 때 이 아이디로 찾아요.';
 
 function emailInput(attrs = {}) {
   return el('input', {
@@ -34,10 +36,66 @@ export function nicknameFormatError(nick) {
   return null;
 }
 
-export async function checkNicknameAvailable(nick) {
-  const { data, error } = await sb.rpc('is_nickname_available', { nick });
+// 아이디 형식 검사 (서버에 묻기 전)
+export function handleFormatError(h) {
+  if (!h) return '아이디를 입력해 주세요.';
+  if (/\s/.test(h)) return '아이디에는 띄어쓰기를 쓸 수 없어요.';
+  if (/[ㄱ-ㅎㅏ-ㅣ]/.test(h)) return '완성된 글자로 입력해 주세요. (예: ㅎㅎ → 하하)';
+  if (h.length < 2) return '아이디는 2자 이상이어야 해요.';
+  if (h.length > 20) return '아이디는 20자까지 쓸 수 있어요.';
+  if (!HANDLE_RULE.test(h)) return '한글, 영어, 숫자, 밑줄(_)만 쓸 수 있어요.';
+  return null;
+}
+
+export async function checkHandleAvailable(h) {
+  const { data, error } = await sb.rpc('is_handle_available', { p_handle: h });
+  // 예전 데이터베이스(버전 9 전)에는 아이디 확인 기능이 없어요 → 가입할 때 서버가 확인해요
+  if (error?.code === 'PGRST202') return true;
   if (error) throw error;
   return data === true;
+}
+
+// 아이디 입력 칸: 입력하면 0.5초 뒤 자동으로 쓸 수 있는지 확인
+// current: 지금 내 아이디 (내 정보에서 바꿀 때) — 대소문자만 다르면 내 아이디라 괜찮아요
+export function handleField({ id, value = '', current = '' }) {
+  const input = el('input', {
+    class: 'input', type: 'text', id, value, autocomplete: 'off', autocapitalize: 'off',
+    spellcheck: 'false', maxlength: 20, required: true, placeholder: '예) 지우_2014, 김씨네엄마',
+  });
+  const status = el('p', { class: 'nick-status', 'aria-live': 'polite' });
+  const setStatus = (text, kind) => {
+    status.textContent = text;
+    status.className = `nick-status ${kind || ''}`;
+  };
+  let timer;
+  let seq = 0;
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const value = input.value.trim();
+    if (!value || (current && value.toLowerCase() === current.toLowerCase())) return setStatus('', '');
+    const formatError = handleFormatError(value);
+    if (formatError) return setStatus(formatError, 'bad');
+    setStatus('확인하는 중…', '');
+    const mine = ++seq;
+    timer = setTimeout(async () => {
+      try {
+        const ok = await checkHandleAvailable(value);
+        if (mine !== seq) return;
+        setStatus(ok ? '✓ 쓸 수 있는 아이디예요.' : '이미 다른 사람이 쓰고 있어요. 다른 아이디를 골라 주세요.', ok ? 'good' : 'bad');
+      } catch {
+        if (mine === seq) setStatus('', '');
+      }
+    }, 500);
+  });
+  const wrap = el('div', { class: 'field' },
+    el('label', { class: 'label', for: id }, '아이디'),
+    input,
+    status,
+    el('p', { class: 'hint' }, HANDLE_HINT),
+  );
+  wrap.input = input;
+  wrap.setStatus = setStatus;
+  return wrap;
 }
 
 // ------------------------------------------------------------------
@@ -95,42 +153,16 @@ export function renderLogin() {
 // child: { token, guardianNickname } — 보호자가 동의하고 보낸 링크로 들어온 만 14세 미만 (renderChildSignup 에서)
 // ------------------------------------------------------------------
 export function renderSignup(_params, child = null) {
+  const handleBox = handleField({ id: 'signup-handle' });
   const nick = el('input', {
     class: 'input', type: 'text', autocomplete: 'nickname', autocapitalize: 'off',
     spellcheck: 'false', maxlength: 12, required: true, placeholder: '예) 엄마, 큰아들, 지우',
   });
-  const nickStatus = el('p', { class: 'nick-status', 'aria-live': 'polite' });
   const email = emailInput();
   const pw = passwordInput({ autocomplete: 'new-password', placeholder: '6자 이상' });
   const pw2 = passwordInput({ autocomplete: 'new-password', placeholder: '한 번 더 입력' });
   const msg = messageBox();
   const submit = el('button', { class: 'btn btn-block', type: 'submit' }, '가입하기');
-
-  // 닉네임을 입력하면 0.5초 뒤 자동으로 사용 가능 여부를 확인
-  let timer;
-  let checkSeq = 0;
-  const setNickStatus = (text, kind) => {
-    nickStatus.textContent = text;
-    nickStatus.className = `nick-status ${kind || ''}`;
-  };
-  nick.addEventListener('input', () => {
-    clearTimeout(timer);
-    const value = nick.value.trim();
-    if (!value) return setNickStatus('', '');
-    const formatError = nicknameFormatError(value);
-    if (formatError) return setNickStatus(formatError, 'bad');
-    setNickStatus('확인하는 중…', '');
-    const seq = ++checkSeq;
-    timer = setTimeout(async () => {
-      try {
-        const ok = await checkNicknameAvailable(value);
-        if (seq !== checkSeq) return;
-        setNickStatus(ok ? '✓ 사용할 수 있는 닉네임이에요.' : '이미 다른 사람이 쓰고 있어요. 다른 닉네임을 골라 주세요.', ok ? 'good' : 'bad');
-      } catch {
-        if (seq === checkSeq) setNickStatus('', '');
-      }
-    }, 500);
-  });
 
   const consent = consentChecklist(child ? { child: true } : { childHint: true });
 
@@ -139,10 +171,13 @@ export function renderSignup(_params, child = null) {
     onsubmit: async (e) => {
       e.preventDefault();
       msg.clear();
+      const handle = handleBox.input.value.trim();
       const nickname = nick.value.trim();
       const emailValue = email.value.trim();
       const password = pw.input.value;
 
+      const handleError = handleFormatError(handle);
+      if (handleError) return msg.show(handleError);
       const formatError = nicknameFormatError(nickname);
       if (formatError) return msg.show(formatError);
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) return msg.show('이메일 주소를 정확히 입력해 주세요. (예: mom@naver.com)');
@@ -156,15 +191,16 @@ export function renderSignup(_params, child = null) {
 
       setBusy(submit, true, '가입하는 중…');
       try {
-        if (!(await checkNicknameAvailable(nickname))) {
-          setNickStatus('이미 다른 사람이 쓰고 있어요. 다른 닉네임을 골라 주세요.', 'bad');
-          throw new Error('이미 다른 사람이 쓰고 있는 닉네임이에요. 다른 닉네임을 골라 주세요.');
+        if (!(await checkHandleAvailable(handle))) {
+          handleBox.setStatus('이미 다른 사람이 쓰고 있어요. 다른 아이디를 골라 주세요.', 'bad');
+          throw new Error('이미 다른 사람이 쓰고 있는 아이디예요. 다른 아이디를 골라 주세요.');
         }
         const { data, error } = await sb.auth.signUp({
           email: emailValue,
           password,
           options: {
             data: {
+              handle,
               nickname,
               ...consentRecord({ child: Boolean(child) }),
               ...(child ? { guardian_token: child.token } : {}),
@@ -198,10 +234,10 @@ export function renderSignup(_params, child = null) {
     },
   },
     el('h1', {}, child ? '자녀 회원가입' : '회원가입'),
+    handleBox,
     el('div', { class: 'field' },
       el('label', { class: 'label', for: 'signup-nick' }, '닉네임'),
       Object.assign(nick, { id: 'signup-nick' }),
-      nickStatus,
       el('p', { class: 'hint' }, NICKNAME_HINT),
     ),
     field('이메일', email, child ? '로그인할 때 써요. 보호자가 만들어 준 이메일도 괜찮아요.' : '로그인할 때 써요. 자주 쓰는 이메일을 넣어 주세요.'),
@@ -220,7 +256,8 @@ export function renderSignup(_params, child = null) {
       iconTile('shield', 'green'),
       el('div', {},
         el('p', { class: 'guardian-ok-title' }, `보호자 ${child.guardianNickname}님이 가입을 허락했어요`),
-        el('p', { class: 'muted' }, '닉네임, 이메일, 비밀번호를 정해 줘. 모르는 게 있으면 보호자에게 물어봐요.'),
+        child.guardianHandle && el('p', { class: 'muted small' }, `보호자 아이디: ${child.guardianHandle}`),
+        el('p', { class: 'muted' }, '아이디, 닉네임, 이메일, 비밀번호를 정해 줘. 모르는 게 있으면 보호자에게 물어봐요.'),
       ),
     ),
     form,
@@ -258,13 +295,16 @@ export async function renderChildSignup({ token }) {
   }
   if (info.status !== 'ok') return renderLinkProblem(info.status);
   // 이 기기가 이미 누군가로 로그인되어 있으면: 그 계정에 동의를 연결할지, 로그아웃하고 새로 만들지
-  if (state.session) return renderLoggedInChoice(token, info.guardian_nickname);
-  return renderSignup(null, { token, guardianNickname: info.guardian_nickname });
+  if (state.session) return renderLoggedInChoice(token, info.guardian_nickname, info.guardian_handle);
+  return renderSignup(null, { token, guardianNickname: info.guardian_nickname, guardianHandle: info.guardian_handle });
 }
 
-function renderLoggedInChoice(token, guardianNickname) {
+function renderLoggedInChoice(token, guardianNickname, guardianHandle) {
   const me = state.profile?.nickname || state.session.user?.email || '';
-  const guardianSelf = state.profile?.nickname === guardianNickname;
+  // 닉네임은 겹칠 수 있어서 아이디로 비교해요
+  const guardianSelf = guardianHandle
+    ? (state.profile?.handle || '').toLowerCase() === guardianHandle.toLowerCase()
+    : state.profile?.nickname === guardianNickname;
   const alreadyChild = isChildUser(state.session.user);
   const msg = messageBox();
 

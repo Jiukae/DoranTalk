@@ -1,4 +1,4 @@
-// 로그인한 뒤 보이는 화면: 홈(받은 초대 + 내 가족 그룹), 새 그룹 만들기, 내 정보
+// 로그인한 뒤 보이는 화면: 홈(받은 초대 + 내 그룹), 새 그룹 만들기, 내 정보
 import { sb } from '../supabase.js';
 import { state } from '../state.js';
 import { go, navToken, isStale } from '../router.js';
@@ -7,9 +7,12 @@ import {
   el, render, appBar, backButton, field, messageBox, setBusy, toast, avatar, emptyState, errorCard,
   icon, iconTile, brandMark, listRow, skeletonRows, colorIndex, confirmDialog,
 } from '../ui.js';
-import { nicknameFormatError, checkNicknameAvailable, NICKNAME_HINT } from './auth.js';
+import {
+  nicknameFormatError, NICKNAME_HINT, handleField, handleFormatError, checkHandleAvailable,
+} from './auth.js';
 import {
   fetchMyGroups, fetchMyInvitations, respondInvitation, createGroup, watchMyInvitations,
+  requestGroup, fetchMyGroupRequests, cancelGroupRequest,
 } from '../groups.js';
 import { timeAgo } from '../format.js';
 import { fetchUnreadCounts, watchNewMessages } from '../chat.js';
@@ -35,20 +38,24 @@ export function groupIcon(name) {
 }
 
 // ------------------------------------------------------------------
-// 홈: 받은 초대 + 내 가족 그룹 목록
+// 홈: 받은 초대 + 내 그룹 목록
 // ------------------------------------------------------------------
 export async function renderHome() {
   const token = navToken();
   const content = el('main', { class: 'page' }, skeletonRows(2));
   render(appBar('', { left: brandMark(), right: meButton() }), content);
 
+  const child = isChildUser(state.session?.user);
   async function load() {
     let groups;
     let invites;
     let unread;
+    let requests;
     try {
-      [groups, invites, unread] = await Promise.all([
+      [groups, invites, unread, requests] = await Promise.all([
         fetchMyGroups(), fetchMyInvitations(), fetchUnreadCounts().catch(() => ({})),
+        // 자녀: 내 그룹 만들기 요청 / 보호자: 자녀들이 보낸 요청 (예전 DB면 조용히 건너뜀)
+        (child ? fetchMyGroupRequests() : sb.rpc('children_group_requests').then(({ data }) => data || [])).catch(() => []),
       ]);
     } catch (err) {
       if (!isStale(token)) content.replaceChildren(errorCard(friendlyError(err), load));
@@ -68,10 +75,11 @@ export async function renderHome() {
     setAppBadge(Object.values(unread).reduce((a, b) => a + b, 0));
     content.replaceChildren(
       ...[inAppBrowserNotice() || installBanner()].filter(Boolean),
+      ...(child ? childRequestsSection(requests, load) : guardianRequestsCard(requests)),
       ...(invites.length > 0 ? [invitationsSection(invites, load)] : []),
       groupsSection(groups, unread),
     );
-    // 가족 그룹이 있고 아직 알림을 묻지 않았다면 "알림 켜기" 안내 (알림 서버가 준비된 경우만)
+    // 그룹이 있고 아직 알림을 묻지 않았다면 "알림 켜기" 안내 (알림 서버가 준비된 경우만)
     if (groups.length > 0 && shouldPromptPush()) {
       pushServerInfo().then((info) => {
         if (info.ready && !isStale(token) && shouldPromptPush() && content.isConnected && !content.querySelector('.push-prompt')) {
@@ -85,7 +93,7 @@ export async function renderHome() {
 
   // 초대가 새로 오면 바로 보여 주기 + 앱으로 돌아왔을 때 새로고침
   const stopWatching = watchMyInvitations(load);
-  // 가족이 채팅을 보내면 그룹 옆 숫자를 새로
+  // 누가 채팅을 보내면 그룹 옆 숫자를 새로
   let timer = null;
   const stopMessages = watchNewMessages((msg) => {
     if (msg.sender_id === state.session.user.id) return;
@@ -115,7 +123,7 @@ function pushPrompt() {
     try {
       await enablePush();
       box.remove();
-      toast('알림을 켰어요! 가족이 채팅을 보내면 알려 드릴게요. 🔔', 3500);
+      toast('알림을 켰어요! 그룹에 채팅이 오면 알려 드릴게요. 🔔', 3500);
     } catch (err) {
       setBusy(on, false);
       dismissPushPrompt();
@@ -188,7 +196,7 @@ function invitationCard(inv, reload) {
     el('div', { class: 'invite-head' },
       groupIcon(inv.group_name),
       el('div', {},
-        el('p', { class: 'invite-from' }, `${inv.inviter_nickname || '가족'}님이 초대했어요 · ${timeAgo(inv.created_at)}`),
+        el('p', { class: 'invite-from' }, `${inv.inviter_nickname || '누군가'}${inv.inviter_handle ? `(@${inv.inviter_handle})` : ''}님이 초대했어요 · ${timeAgo(inv.created_at)}`),
         el('p', { class: 'invite-group' }, inv.group_name),
       ),
     ),
@@ -198,19 +206,66 @@ function invitationCard(inv, reload) {
   );
 }
 
+// 보호자: 자녀들이 보낸 그룹 만들기 요청 → 자녀 계정 화면에서 승인
+function guardianRequestsCard(reqs) {
+  if (!reqs?.length) return [];
+  return [el('a', { href: '#/me/children', class: 'card request-card' },
+    iconTile('family'),
+    el('div', { class: 'request-text' },
+      el('p', { class: 'request-title' }, `자녀의 그룹 만들기 요청 ${reqs.length}개`),
+      el('p', { class: 'muted small' }, reqs.map((r) => `${r.child_nickname}: ${r.name}`).join(' · ')),
+    ),
+    icon('chevronRight', { size: 22, className: 'chevron' }),
+  )];
+}
+
+// 자녀: 보호자 승인을 기다리는(또는 거절된) 그룹 만들기 요청
+function childRequestsSection(reqs, reload) {
+  const shown = (reqs || []).filter((r) => r.status === 'pending' || r.status === 'declined');
+  if (!shown.length) return [];
+  return [el('section', {},
+    el('h2', { class: 'section-title' }, '보호자 승인'),
+    el('div', { class: 'card list-card' }, ...shown.map((r) => {
+      const row = el('div', { class: 'child-row' },
+        groupIcon(r.name),
+        el('div', { class: 'child-info' },
+          el('p', { class: 'child-name' }, r.name),
+          el('p', { class: 'muted small' }, r.status === 'pending' ? '보호자 승인을 기다리는 중이에요' : '보호자가 거절했어요'),
+        ),
+      );
+      if (r.status === 'pending') {
+        const cancel = el('button', { class: 'btn btn-ghost btn-small', type: 'button' }, '요청 취소');
+        cancel.addEventListener('click', async () => {
+          if (!(await confirmDialog({ title: '요청을 취소할까요?', message: `'${r.name}' 그룹 만들기 요청이 사라져요.`, confirmText: '요청 취소' }))) return;
+          setBusy(cancel, true, '');
+          try {
+            await cancelGroupRequest(r.id);
+            toast('요청을 취소했어요.');
+          } catch (err) {
+            toast(friendlyError(err), 4000);
+          }
+          reload();
+        });
+        row.append(cancel);
+      }
+      return row;
+    })),
+  )];
+}
+
 function groupsSection(groups, unread = {}) {
   const createBtn = el('a', { href: '#/groups/new', class: `btn btn-block ${groups.length ? 'btn-tonal' : ''}` },
-    icon('plus'), '새 가족 그룹 만들기');
+    icon('plus'), '새 그룹 만들기');
 
   if (groups.length === 0) {
     return el('section', {},
-      el('h2', { class: 'section-title' }, '우리 가족 그룹'),
+      el('h2', { class: 'section-title' }, '내 그룹'),
       el('div', { class: 'card' },
-        emptyState('home', '아직 가족 그룹이 없어요',
-          '가족 그룹을 새로 만들거나, 가족에게 초대를 받아 보세요.'),
+        emptyState('home', '아직 그룹이 없어요',
+          '그룹을 새로 만들거나, 초대를 받아 보세요.'),
         el('div', { class: 'my-nick' },
-          el('p', { class: 'muted small', style: 'margin:0' }, '가족에게 이 닉네임을 알려 주면 초대받을 수 있어요'),
-          el('p', { class: 'my-nick-value' }, state.profile?.nickname || ''),
+          el('p', { class: 'muted small', style: 'margin:0' }, '이 아이디를 알려 주면 그룹에 초대받을 수 있어요'),
+          el('p', { class: 'my-nick-value' }, state.profile?.handle || state.profile?.nickname || ''),
         ),
         createBtn,
       ),
@@ -218,7 +273,7 @@ function groupsSection(groups, unread = {}) {
   }
 
   return el('section', {},
-    el('h2', { class: 'section-title' }, '우리 가족 그룹'),
+    el('h2', { class: 'section-title' }, '내 그룹'),
     el('ul', { class: 'group-list' },
       ...groups.map((g) => el('li', {},
         // 안 읽은 채팅이 있으면 바로 채팅방으로
@@ -226,7 +281,7 @@ function groupsSection(groups, unread = {}) {
           groupIcon(g.name),
           el('div', { class: 'group-text' },
             el('p', { class: 'group-name' }, g.name),
-            el('p', { class: 'group-sub' }, unread[g.id] > 0 ? `새 채팅 ${unread[g.id]}개 · 가족 ${g.memberCount}명` : `가족 ${g.memberCount}명`),
+            el('p', { class: 'group-sub' }, unread[g.id] > 0 ? `새 채팅 ${unread[g.id]}개 · 멤버 ${g.memberCount}명` : `멤버 ${g.memberCount}명`),
           ),
           unread[g.id] > 0 && el('span', { class: 'unread-badge', 'aria-label': `안 읽은 메시지 ${unread[g.id]}개` },
             unread[g.id] > 99 ? '99+' : String(unread[g.id])),
@@ -239,14 +294,15 @@ function groupsSection(groups, unread = {}) {
 }
 
 // ------------------------------------------------------------------
-// 새 가족 그룹 만들기
+// 새 그룹 만들기 (만 14세 미만은 보호자에게 승인 요청)
 // ------------------------------------------------------------------
 export function renderNewGroup() {
+  const child = isChildUser(state.session?.user);
   const name = el('input', {
-    class: 'input', type: 'text', maxlength: 30, required: true, placeholder: '예) 우리 가족, 김씨네',
+    class: 'input', type: 'text', maxlength: 30, required: true, placeholder: '예) 우리 가족, 축구부 친구들',
   });
   const msg = messageBox();
-  const submit = el('button', { class: 'btn btn-block', type: 'submit' }, '그룹 만들기');
+  const submit = el('button', { class: 'btn btn-block', type: 'submit' }, child ? '보호자에게 승인 요청' : '그룹 만들기');
 
   const form = el('form', {
     class: 'card', novalidate: true,
@@ -255,10 +311,22 @@ export function renderNewGroup() {
       msg.clear();
       const value = name.value.trim();
       if (!value) return msg.show('그룹 이름을 입력해 주세요.');
+      if (child) {
+        setBusy(submit, true, '요청하는 중…');
+        try {
+          await requestGroup(value);
+          toast(`보호자에게 '${value}' 그룹 승인 요청을 보냈어요. 승인되면 홈에 그룹이 생겨요.`, 4500);
+          go('/home', { replace: true });
+        } catch (err) {
+          msg.show(friendlyError(err));
+          setBusy(submit, false);
+        }
+        return;
+      }
       setBusy(submit, true, '만드는 중…');
       try {
         const groupId = await createGroup(value);
-        toast(`'${value}' 그룹을 만들었어요! 이제 가족을 초대해 보세요.`, 3500);
+        toast(`'${value}' 그룹을 만들었어요! 이제 아이디로 멤버를 초대해 보세요.`, 3500);
         go(`/group/${groupId}/members`, { replace: true });
       } catch (err) {
         msg.show(friendlyError(err));
@@ -266,8 +334,8 @@ export function renderNewGroup() {
       }
     },
   },
-    el('h1', {}, '새 가족 그룹'),
-    field('그룹 이름', name, '가족 모두가 보는 이름이에요. 나중에 바꿀 수 있어요.'),
+    el('h1', {}, child ? '새 그룹 (보호자 승인)' : '새 그룹'),
+    field('그룹 이름', name, '멤버 모두가 보는 이름이에요. 나중에 바꿀 수 있어요.'),
     msg,
     submit,
   );
@@ -276,7 +344,9 @@ export function renderNewGroup() {
     appBar('그룹 만들기', { left: backButton(() => go('/home')) }),
     el('main', { class: 'page' },
       form,
-      el('p', { class: 'muted small center' }, '그룹을 만들면 내가 방장이 되고, 가족을 닉네임으로 초대할 수 있어요.'),
+      el('p', { class: 'muted small center' }, child
+        ? '만 14세 미만은 보호자 승인이 필요해요. 요청하면 보호자에게 이메일로 알려 드려요. 승인되면 그룹이 만들어지고, 보호자도 그 그룹의 멤버가 돼요.'
+        : '그룹을 만들면 내가 방장이 되고, 아이디로 멤버를 초대할 수 있어요.'),
     ),
   );
   name.focus();
@@ -296,43 +366,56 @@ export function renderMe() {
       if (g?.guardian_nickname) guardianLine.lastChild.textContent = `보호자 동의로 가입한 계정이에요 · 보호자: ${g.guardian_nickname}`;
     });
   }
+  // 데이터베이스가 버전 9 전이면 아이디 칸이 없어요 → 닉네임만
+  const hasHandle = Boolean(profile?.handle);
+  const handleBox = hasHandle ? handleField({ id: 'me-handle', value: profile.handle, current: profile.handle }) : null;
   const nick = el('input', {
     class: 'input', type: 'text', value: profile?.nickname || '', maxlength: 12,
     autocapitalize: 'off', spellcheck: 'false', required: true,
   });
   const msg = messageBox();
-  const save = el('button', { class: 'btn btn-block', type: 'submit' }, '닉네임 저장');
+  const save = el('button', { class: 'btn btn-block', type: 'submit' }, '저장');
   const headerAvatar = avatar(profile?.nickname, 'avatar-lg');
   const headerName = el('p', { class: 'welcome-hello' }, profile?.nickname || '');
+  const headerHandle = hasHandle ? el('p', { class: 'my-handle' }, `아이디 ${profile.handle}`) : null;
 
   const nickForm = el('form', {
     class: 'card', novalidate: true,
     onsubmit: async (e) => {
       e.preventDefault();
       msg.clear();
+      const handle = hasHandle ? handleBox.input.value.trim() : '';
       const nickname = nick.value.trim();
-      if (nickname === profile.nickname) return msg.show('지금 쓰는 닉네임과 같아요.', 'info');
-      const formatError = nicknameFormatError(nickname);
+      const changes = {};
+      if (hasHandle && handle !== profile.handle) changes.handle = handle;
+      if (nickname !== profile.nickname) changes.nickname = nickname;
+      if (!Object.keys(changes).length) return msg.show('바뀐 내용이 없어요.', 'info');
+      const handleError = changes.handle !== undefined && handleFormatError(handle);
+      if (handleError) return msg.show(handleError);
+      const formatError = changes.nickname !== undefined && nicknameFormatError(nickname);
       if (formatError) return msg.show(formatError);
 
       setBusy(save, true, '저장하는 중…');
       try {
-        // 대소문자만 바꾸는 경우(예: jiwoo → Jiwoo)는 내 닉네임이라 중복 검사를 건너뜀
-        const sameIgnoringCase = nickname.toLowerCase() === profile.nickname.toLowerCase();
-        if (!sameIgnoringCase && !(await checkNicknameAvailable(nickname))) {
-          throw new Error('이미 다른 사람이 쓰고 있어요. 다른 닉네임을 골라 주세요.');
+        // 대소문자만 바꾸는 경우(예: jiwoo → Jiwoo)는 내 아이디라 중복 검사를 건너뜀
+        if (changes.handle !== undefined && handle.toLowerCase() !== profile.handle.toLowerCase()
+            && !(await checkHandleAvailable(handle))) {
+          throw new Error('이미 다른 사람이 쓰고 있는 아이디예요. 다른 아이디를 골라 주세요.');
         }
         const { data, error } = await sb.from('profiles')
-          .update({ nickname })
+          .update(changes)
           .eq('id', profile.id)
-          .select('id, nickname, created_at')
+          .select(hasHandle ? 'id, nickname, handle, created_at' : 'id, nickname, created_at')
           .single();
         if (error) throw error;
         state.profile = data;
         headerName.textContent = data.nickname;
+        if (headerHandle) headerHandle.textContent = `아이디 ${data.handle}`;
         headerAvatar.textContent = data.nickname.slice(0, 1);
         headerAvatar.className = `avatar avatar-lg av-${colorIndex(data.nickname)}`;
-        msg.show('닉네임을 바꿨어요. 이제 가족들은 새 닉네임으로 나를 찾을 수 있어요.', 'success');
+        msg.show(changes.handle !== undefined
+          ? '저장했어요. 이제 새 아이디로 초대받을 수 있어요.'
+          : '닉네임을 바꿨어요.', 'success');
       } catch (err) {
         msg.show(friendlyError(err));
       } finally {
@@ -340,8 +423,9 @@ export function renderMe() {
       }
     },
   },
-    el('h2', {}, '닉네임 바꾸기'),
-    field('내 닉네임', nick, NICKNAME_HINT),
+    el('h2', {}, hasHandle ? '아이디 · 닉네임' : '닉네임 바꾸기'),
+    handleBox,
+    field('닉네임', nick, NICKNAME_HINT),
     msg,
     save,
   );
@@ -366,6 +450,7 @@ export function renderMe() {
         headerAvatar,
         el('div', { style: 'min-width:0' },
           headerName,
+          headerHandle,
           el('p', { class: 'muted' }, state.session?.user?.email || ''),
           guardianLine,
         ),
@@ -472,7 +557,7 @@ function pushCard() {
           }
         });
         body = [
-          el('p', {}, '가족이 채팅을 보내면 앱을 닫아 두어도 휴대폰에 알림이 와요.'),
+          el('p', {}, '그룹에 채팅이 오면 앱을 닫아 두어도 휴대폰에 알림이 와요.'),
           msg,
           on,
         ];

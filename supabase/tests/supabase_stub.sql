@@ -51,3 +51,14 @@ grant usage on schema storage to anon, authenticated;
 grant select, insert, delete on storage.objects to authenticated;
 
 create publication supabase_realtime;
+
+-- 메일 보내기(pg_net) · 비밀 금고(Vault) 흉내: 보낸 요청을 net.sent 에 모아요
+create schema net;
+create table net.sent (id bigserial primary key, url text, body jsonb, headers jsonb);
+create function net.http_post(url text, body jsonb default '{}', params jsonb default '{}',
+                              headers jsonb default '{}', timeout_milliseconds integer default 5000)
+returns bigint language sql as $$
+  insert into net.sent (url, body, headers) values (url, body, headers) returning id
+$$;
+create schema vault;
+create table vault.decrypted_secrets (name text, decrypted_secret text);
