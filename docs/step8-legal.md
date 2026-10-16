@@ -92,6 +92,7 @@
 
 ### B-5. (선택) 답장도 admin@dorantalk.com 으로 보내기
 그냥 내 지메일로 답장해도 괜찮아요. 꼭 admin@ 주소로 답장하고 싶을 때만 하세요.
+> Outlook(윈도우)에서 받고 답장하고 싶다면 → [Outlook 연결 안내서](outlook-mail.md)
 
 1. **Resend** → 왼쪽 **API Keys** → **Create API Key** → 이름 `gmail` · 권한 **Sending access** · 도메인 dorantalk.com → **Add** → 나온 키(`re_`로 시작)를 복사
    - 이 키는 비밀번호예요. **어디에도 붙여넣지 말고** 아래 지메일 칸에만 넣으세요.
