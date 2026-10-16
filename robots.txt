@@ -1,0 +1,7 @@
+# 검색 엔진 안내: 소개 화면은 검색에 나오고, 개발용 폴더는 빼요
+User-agent: *
+Allow: /
+Disallow: /supabase/
+Disallow: /docs/
+
+Sitemap: https://dorantalk.com/sitemap.xml

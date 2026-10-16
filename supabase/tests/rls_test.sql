@@ -152,6 +152,9 @@ end $$;
 reset role;
 
 -- 엄마가 딸을 다시 초대했다가 취소 → 딸에게 초대가 사라짐, 외부인은 취소 불가
+-- (버전 7부터는 거절당한 지 3일이 지나야 다시 초대할 수 있어서, 거절 시각을 4일 전으로)
+update public.group_invitations set responded_at = now() - interval '4 days'
+  where invitee_id = 'aaaaaaaa-0000-0000-0000-000000000003' and status = 'declined';
 select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000001');
 select public.invite_by_nickname((select v from pg_temp.ids where k='g'), 'Daughter');
 insert into pg_temp.ids values ('inv2', (select id from public.group_invitations where status = 'pending' and invitee_id = 'aaaaaaaa-0000-0000-0000-000000000003'));
@@ -452,5 +455,115 @@ select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000004');
 select public.delete_my_account();
 reset role;
 select pg_temp.assert(not exists (select 1 from public.push_subscriptions where endpoint = 'https://fcm.googleapis.com/fcm/send/p4'), 'deleted account devices removed');
+
+-- ===== 버전 7: 공개 준비 (초대 · 그룹 만들기 제한) =====
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('dddddddd-0000-0000-0000-000000000001', 'q1@x.com', '{"nickname":"큐원"}'),
+  ('dddddddd-0000-0000-0000-000000000002', 'q2@x.com', '{"nickname":"큐투"}');
+-- 그룹 만들기: 하루 5개까지
+select pg_temp.as_user('dddddddd-0000-0000-0000-000000000001');
+select public.create_group('그룹' || n) from generate_series(1, 5) n;
+do $$ begin
+  perform public.create_group('여섯째');
+  raise exception 'TEST FAILED: 6th group in a day';
+exception when raise_exception then
+  if sqlerrm not like '%하루에 5개%' then raise; end if;
+end $$;
+reset role;
+-- 어제 만든 것으로 바꾸면 다시 만들 수 있음 / 들어가 있는 그룹 20개까지
+update public.family_groups set created_at = now() - interval '2 days' where created_by = 'dddddddd-0000-0000-0000-000000000001';
+insert into public.family_groups (id, name, created_by, created_at)
+  select gen_random_uuid(), '옛그룹' || n, 'dddddddd-0000-0000-0000-000000000002', now() - interval '10 days' from generate_series(1, 15) n;
+insert into public.group_members (group_id, user_id, role)
+  select id, 'dddddddd-0000-0000-0000-000000000001', 'member' from public.family_groups where name like '옛그룹%';
+select pg_temp.as_user('dddddddd-0000-0000-0000-000000000001');
+do $$ begin
+  perform public.create_group('스물한째');
+  raise exception 'TEST FAILED: more than 20 groups';
+exception when raise_exception then
+  if sqlerrm not like '%20개까지%' then raise; end if;
+end $$;
+reset role;
+
+-- 초대 제한용 그룹 (큐투가 방장)
+select pg_temp.as_user('dddddddd-0000-0000-0000-000000000002');
+insert into pg_temp.ids values ('qg', public.create_group('큐네'));
+reset role;
+-- 거절당한 지 3일 안에는 다시 초대 못 함, 3일 지나면 가능
+insert into public.group_invitations (group_id, inviter_id, invitee_id, status, responded_at)
+  values ((select v from pg_temp.ids where k='qg'), 'dddddddd-0000-0000-0000-000000000002', 'bbbbbbbb-0000-0000-0000-000000000003', 'declined', now() - interval '1 day');
+select pg_temp.as_user('dddddddd-0000-0000-0000-000000000002');
+do $$ begin
+  perform public.invite_by_nickname((select v from pg_temp.ids where k='qg'), '손주');
+  raise exception 'TEST FAILED: re-invite right after decline';
+exception when raise_exception then
+  if sqlerrm not like '%최근에 이 초대를 거절%' then raise; end if;
+end $$;
+reset role;
+update public.group_invitations set responded_at = now() - interval '4 days'
+  where group_id = (select v from pg_temp.ids where k='qg') and status = 'declined';
+select pg_temp.as_user('dddddddd-0000-0000-0000-000000000002');
+select public.invite_by_nickname((select v from pg_temp.ids where k='qg'), '손주');
+reset role;
+select pg_temp.assert((select count(*) from public.group_invitations where group_id = (select v from pg_temp.ids where k='qg') and status = 'pending') = 1, 're-invite after 3 days');
+
+-- 대기 중 초대 20개까지 / 한 그룹 50명까지 / 하루 30번까지
+insert into auth.users (email, raw_user_meta_data)
+  select 'm' || n || '@x.com', json_build_object('nickname', 'mem' || lpad(n::text, 2, '0'))::jsonb from generate_series(1, 60) n;
+insert into public.group_invitations (group_id, inviter_id, invitee_id)
+  select (select v from pg_temp.ids where k='qg'), 'dddddddd-0000-0000-0000-000000000002', p.id
+  from public.profiles p where p.nickname between 'mem01' and 'mem19';
+reset role;
+select pg_temp.as_user('dddddddd-0000-0000-0000-000000000002');
+do $$ begin
+  perform public.invite_by_nickname((select v from pg_temp.ids where k='qg'), 'mem20');
+  raise exception 'TEST FAILED: more than 20 pending';
+exception when raise_exception then
+  if sqlerrm not like '%대기 중인 초대%' then raise; end if;
+end $$;
+reset role;
+delete from public.group_invitations where group_id = (select v from pg_temp.ids where k='qg') and invitee_id in (select id from public.profiles where nickname like 'mem%');
+-- 멤버 49명 + 손주 대기 1 = 50 → 더는 초대 못 함
+insert into public.group_members (group_id, user_id, role)
+  select (select v from pg_temp.ids where k='qg'), p.id, 'member' from public.profiles p where p.nickname between 'mem01' and 'mem48';
+select pg_temp.as_user('dddddddd-0000-0000-0000-000000000002');
+do $$ begin
+  perform public.invite_by_nickname((select v from pg_temp.ids where k='qg'), 'mem55');
+  raise exception 'TEST FAILED: more than 50 in group';
+exception when raise_exception then
+  if sqlerrm not like '%50명까지%' then raise; end if;
+end $$;
+reset role;
+-- 꽉 찬 그룹(50명)은 초대를 받아도 수락 못 함
+insert into public.group_members (group_id, user_id, role)
+  select (select v from pg_temp.ids where k='qg'), p.id, 'member' from public.profiles p where p.nickname = 'mem49';
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000003');
+do $$ begin
+  perform public.respond_invitation((select i.id from public.group_invitations i where i.invitee_id = 'bbbbbbbb-0000-0000-0000-000000000003' and i.status = 'pending' and i.group_id = (select v from pg_temp.ids where k='qg')), true);
+  raise exception 'TEST FAILED: accepted into full group';
+exception when raise_exception then
+  if sqlerrm not like '%꽉 찼어요%' then raise; end if;
+end $$;
+-- 거절은 할 수 있음
+select public.respond_invitation((select i.id from public.group_invitations i where i.invitee_id = 'bbbbbbbb-0000-0000-0000-000000000003' and i.status = 'pending' and i.group_id = (select v from pg_temp.ids where k='qg')), false);
+reset role;
+-- 하루 30번: 오늘 보낸 초대 30개가 이미 있으면 더는 못 보냄
+delete from public.group_members where user_id = 'dddddddd-0000-0000-0000-000000000001'
+  and group_id in (select id from public.family_groups where name like '옛그룹%');
+select pg_temp.as_user('dddddddd-0000-0000-0000-000000000001');
+insert into pg_temp.ids values ('qg1', public.create_group('큐원네'));
+reset role;
+update public.family_groups set created_at = now() - interval '2 days' where id = (select v from pg_temp.ids where k='qg1');
+insert into public.group_invitations (group_id, inviter_id, invitee_id, status, responded_at)
+  select (select v from pg_temp.ids where k='qg1'), 'dddddddd-0000-0000-0000-000000000001', p.id, 'canceled', now()
+  from public.profiles p where p.nickname between 'mem01' and 'mem30';
+select pg_temp.as_user('dddddddd-0000-0000-0000-000000000001');
+do $$ begin
+  perform public.invite_by_nickname((select v from pg_temp.ids where k='qg1'), 'mem31');
+  raise exception 'TEST FAILED: more than 30 invites a day';
+exception when raise_exception then
+  if sqlerrm not like '%하루에 30번%' then raise; end if;
+end $$;
+reset role;
 
 select 'ALL RLS TESTS PASSED' as result;

@@ -9,13 +9,17 @@ import { renderLogin, renderSignup, renderForgot, renderNewPassword } from './pa
 import { renderHome, renderMe, renderNewGroup } from './pages/home.js';
 import { renderGroup } from './pages/group.js';
 import { renderHelp } from './pages/help.js';
-import { setupInstall } from './install.js';
+import { setupInstall, isStandalone } from './install.js';
 import { renderWrite, renderPostDetail } from './pages/feed.js';
 import { renderPrivacy, renderTerms, renderConsent } from './pages/legal.js';
 import { renderDeleteAccount } from './pages/account.js';
 import { hasConsented } from './legal.js';
 import { renderPushSetup } from './pages/pushsetup.js';
 import { refreshPush, listenNotificationClicks, forgetThisDevice } from './push.js';
+import { captureSource } from './source.js';
+
+// 홍보 링크(?from=insta 등)로 들어왔다면 기억해 두기 (가입할 때 함께 저장)
+captureSource();
 
 // 주소를 # 없이 입력한 경우 (예: dorantalk.com/push-setup) → dorantalk.com/#/push-setup 으로 바꿔서 열어요
 if (location.pathname !== '/' && location.pathname !== '/index.html' && !location.hash) {
@@ -72,6 +76,7 @@ route('/help', renderHelp, { access: 'any' });
 route('/privacy', renderPrivacy, { access: 'any' });
 route('/terms', renderTerms, { access: 'any' });
 route('/push-setup', renderPushSetup, { access: 'any' });
+route('/welcome', () => { location.assign('/welcome'); }, { access: 'any' });
 route('/consent', needsProfile(renderConsent, { skipConsent: true }));
 route('/me/delete', needsProfile(renderDeleteAccount, { skipConsent: true }));
 route('/login', renderLogin, { access: 'guest' });
@@ -119,6 +124,19 @@ function listenAuthChanges() {
   });
 }
 
+function firstVisit() {
+  try {
+    if (localStorage.getItem('talkfeed.visited')) return false;
+    // 예전부터 쓰던 기기(테마 · 로그인 기록이 있는 기기)는 처음 온 사람이 아니에요
+    return !Object.keys(localStorage).some((k) => k.startsWith('sb-') || (k.startsWith('talkfeed.') && k !== 'talkfeed.from'));
+  } catch {
+    return false;
+  }
+}
+function rememberVisit() {
+  try { localStorage.setItem('talkfeed.visited', '1'); } catch { /* 무시 */ }
+}
+
 // "홈 화면에 추가" 신호는 앱이 열리자마자 올 수 있어서 가장 먼저 준비
 setupInstall();
 
@@ -149,6 +167,13 @@ async function start() {
   // 메일 링크로 들어왔다면 이 과정에서 로그인 처리가 끝납니다
   const { data } = await sb.auth.getSession();
   state.session = data.session;
+
+  // 처음 온 사람이 주소(dorantalk.com)만 입력해 들어오면 소개 화면부터 (홈 화면 앱 · 로그인한 사람 · 링크로 바로 온 경우는 제외)
+  if (!state.session && !currentPath() && !isStandalone() && firstVisit()) {
+    location.replace('/welcome');
+    return;
+  }
+  rememberVisit();
   state.recovery = fromRecoveryLink && Boolean(data.session);
 
   listenAuthChanges();

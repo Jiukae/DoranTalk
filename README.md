@@ -22,18 +22,25 @@
 | 8 | 개인정보처리방침 · 이용약관 · 가입 동의 · 회원 탈퇴 · 문의 메일 | ✅ 완료 → [안내서](docs/step8-legal.md) |
 | 9 | 휴대폰 알림 (채팅 · 새 소식 · 댓글 · 초대, 앱을 닫아도) | ✅ 완료 → [안내서](docs/step9-push.md) |
 | - | 사이트 올리는 곳을 Netlify → Vercel(무료)로 옮김 | ✅ 완료 → [안내서](docs/hosting-vercel.md) |
+| 10 | 다른 가족들에게 공개 · 홍보: 소개 화면 · 링크 미리보기 · 가입 경로 · 장난 방지 제한(DB 7) · 홍보 이미지와 문구 | ✅ 준비 완료 → [안내서](docs/step10-launch.md) · [홍보 문구](marketing/promo-texts.md) |
 
 ## 폴더 구조
 
 ```
 index.html              앱의 시작 화면 (한 페이지 앱)
+welcome.html            소개 화면 (dorantalk.com/welcome) — 처음 온 사람 · 홍보 링크용
+robots.txt, sitemap.xml 검색 사이트 안내 (소개 화면을 찾을 수 있게)
+assets/                 소개 화면 사진(앱 화면 예시) · 링크 미리보기 그림(og-image.png)
+marketing/              홍보 이미지(인스타 · 쇼츠 · 배너) + 홍보 문구 모음(promo-texts.md)
 manifest.webmanifest    홈 화면 앱 정보(이름, 아이콘, 색)
 sw.js                   서비스 워커: 앱 화면 저장(인터넷이 약해도 열림), 항상 최신 파일 우선, 알림 띄우기 · 누르면 그 화면 열기
 icons/                  앱 아이콘 (주황색 집 + 하트)
 css/style.css           디자인 (큰 글씨, 누르기 쉬운 버튼, 따뜻한 색)
 js/config.js            Supabase 주소 + 공개(anon/publishable) 키  ← 여기만 채우면 연결
 js/supabase.js          Supabase 연결 + 키 안전 검사 (비밀 키 감지 시 작동 중지)
-js/app.js               앱 시작: 로그인 상태 확인, 화면 연결
+js/app.js               앱 시작: 로그인 상태 확인, 화면 연결, 처음 온 사람은 소개 화면으로
+js/welcome.js           소개 화면 도우미 (로그인한 사람에게는 "도란톡 열기")
+js/source.js            가입 경로 기억 (홍보 주소의 ?from=insta 등)
 js/router.js            주소(#/login, #/home …)에 따라 화면 바꾸기
 js/state.js             로그인 정보와 내 닉네임 보관
 js/errors.js            서버 오류를 쉬운 한국어로 바꾸기

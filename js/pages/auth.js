@@ -9,6 +9,7 @@ import {
 import { inAppBrowserNotice } from '../install.js';
 import { consentChecklist, legalLinks } from './legal.js';
 import { consentRecord } from '../legal.js';
+import { signupSource } from '../source.js';
 
 export const NICKNAME_RULE = /^[가-힣a-zA-Z0-9_]{2,12}$/;
 export const NICKNAME_HINT = '2~12자, 한글·영어·숫자로 지어 주세요. 가족이 나를 초대할 때 이 이름으로 찾아요.';
@@ -156,7 +157,7 @@ export function renderSignup() {
           email: emailValue,
           password,
           options: {
-            data: { nickname, ...consentRecord() },
+            data: { nickname, ...consentRecord(), ...(signupSource() ? { signup_from: signupSource() } : {}) },
             emailRedirectTo: location.origin + location.pathname,
           },
         });

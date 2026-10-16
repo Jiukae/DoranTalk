@@ -1,6 +1,6 @@
 -- =====================================================================
 --  TalkFeed 데이터베이스 설계 (테이블 + 보안 규칙 RLS + 사진 저장소)
---  ★ 버전 6 (휴대폰 알림) ★
+--  ★ 버전 7 (공개 준비: 초대 · 그룹 만들기 제한) ★
 --    앱 주소 뒤에 #/check 를 붙여 열면 DB 버전이 최신인지 확인할 수 있어요.
 -- ---------------------------------------------------------------------
 --  사용법: Supabase 대시보드 → SQL Editor → 이 파일 내용을 전부 붙여넣고 Run
@@ -269,7 +269,7 @@ create trigger on_auth_user_created
 create or replace function public.talkfeed_schema_version()
 returns integer
 language sql immutable set search_path = ''
-as $$ select 6 $$;
+as $$ select 7 $$;
 
 -- 닉네임 사용 가능 여부 (가입 화면에서 로그인 전에 확인)
 create or replace function public.is_nickname_available(nick text)
@@ -297,6 +297,14 @@ begin
   end if;
   if char_length(btrim(coalesce(group_name, ''))) not between 1 and 30 then
     raise exception '그룹 이름은 1~30자로 정해 주세요.';
+  end if;
+  -- (버전 7) 함부로 많이 만들지 못하게: 하루 5개, 한 사람이 들어가 있는 그룹은 20개까지
+  if (select count(*) from public.family_groups g
+      where g.created_by = uid and g.created_at > now() - interval '1 day') >= 5 then
+    raise exception '그룹은 하루에 5개까지 만들 수 있어요. 내일 다시 해 주세요.';
+  end if;
+  if (select count(*) from public.group_members m where m.user_id = uid) >= 20 then
+    raise exception '가족 그룹은 20개까지 들어갈 수 있어요.';
   end if;
 
   insert into public.family_groups (name, created_by)
@@ -346,6 +354,24 @@ begin
              where i.group_id = gid and i.invitee_id = target and i.status = 'pending') then
     raise exception '이미 초대를 보냈어요. 상대방이 수락하기를 기다려 주세요.';
   end if;
+  -- (버전 7) 모르는 사람에게 초대를 마구 보내지 못하게
+  if (select count(*) from public.group_invitations i
+      where i.inviter_id = uid and i.created_at > now() - interval '1 day') >= 30 then
+    raise exception '초대는 하루에 30번까지 보낼 수 있어요. 내일 다시 해 주세요.';
+  end if;
+  if exists (select 1 from public.group_invitations i
+             where i.group_id = gid and i.invitee_id = target and i.status = 'declined'
+               and i.responded_at > now() - interval '3 days') then
+    raise exception '상대방이 최근에 이 초대를 거절했어요. 며칠 뒤에 다시 초대해 주세요.';
+  end if;
+  if (select count(*) from public.group_invitations i
+      where i.group_id = gid and i.status = 'pending') >= 20 then
+    raise exception '수락을 기다리는 초대가 너무 많아요. 가족 탭에서 대기 중인 초대를 먼저 정리해 주세요.';
+  end if;
+  if (select count(*) from public.group_members m where m.group_id = gid)
+     + (select count(*) from public.group_invitations i where i.group_id = gid and i.status = 'pending') >= 50 then
+    raise exception '한 그룹에는 50명까지 들어올 수 있어요.';
+  end if;
 
   insert into public.group_invitations (group_id, inviter_id, invitee_id)
   values (gid, uid, target);
@@ -387,6 +413,10 @@ begin
 
   if not found then
     raise exception '이 초대를 찾을 수 없어요. 이미 처리되었을 수 있어요.';
+  end if;
+  -- (버전 7) 한 그룹 50명까지
+  if accept and (select count(*) from public.group_members m where m.group_id = inv.group_id) >= 50 then
+    raise exception '이 그룹은 가족이 꽉 찼어요. (50명)';
   end if;
 
   update public.group_invitations

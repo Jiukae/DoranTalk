@@ -4,7 +4,7 @@
 // - Supabase(글·채팅·사진) 요청은 건드리지 않아요. 가족 데이터는 휴대폰에 따로 저장하지 않아요.
 // - 알림: 앱이 꺼져 있어도 알림 서버가 보낸 알림을 띄우고, 누르면 그 화면을 열어요.
 
-const VERSION = 'talkfeed-v16-paths';
+const VERSION = 'talkfeed-v17-welcome';
 // 글꼴은 앱이 업데이트돼도 다시 받지 않도록 따로 보관 (글꼴 파일을 바꿀 때만 이름을 올려요)
 const FONT_CACHE = 'talkfeed-fonts-v1';
 const APP_SHELL = [
@@ -91,9 +91,15 @@ async function cacheFirst(req) {
 
 async function networkFirst(event, req) {
   const cache = await caches.open(VERSION);
-  const cacheKey = req.mode === 'navigate' ? '/index.html' : req;
+  const path = new URL(req.url).pathname;
+  const isNavigate = req.mode === 'navigate';
+  // 화면 이동은 앱(index.html) 하나로 저장 — 소개 화면(/welcome)은 따로
+  const isWelcome = path === '/welcome' || path === '/welcome.html';
+  const cacheKey = isNavigate ? (isWelcome ? '/welcome' : '/index.html') : req;
   const fromNetwork = fetch(req, { cache: 'no-cache' }).then((res) => {
-    if (res.ok) cache.put(cacheKey, res.clone());
+    // 그림 같은 파일을 주소창에 직접 열었을 때 앱 자리에 저장되지 않게 (HTML 만)
+    const html = (res.headers.get('content-type') || '').includes('text/html');
+    if (res.ok && !res.redirected && (!isNavigate || html)) cache.put(cacheKey, res.clone());
     return res;
   });
   event.waitUntil(fromNetwork.catch(() => {}));
