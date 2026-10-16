@@ -117,6 +117,45 @@ select (select count(*) from auth.users)            as 가입자,
        (select count(*) from public.messages)       as 채팅;
 ```
 
+### D-2. 반응이 좋은지 보기 (홍보 2~4주 뒤부터)
+가입자 수보다 **가족들이 계속 쓰는지**가 더 중요해요. 돈 버는 기능(프리미엄 · 포토북 등)은 이 숫자가 괜찮을 때 시작해요.
+
+1. 주마다 **글이나 채팅이 있었던 가족 수** (늘어나고 있으면 좋아요)
+```sql
+with 활동 as (
+  select group_id, created_at from public.posts
+  union all
+  select group_id, created_at from public.messages
+)
+select date_trunc('week', created_at at time zone 'Asia/Seoul')::date as 주_시작일,
+       count(distinct group_id) as 활동한_가족
+from 활동
+where created_at > now() - interval '8 weeks'
+group by 1
+order by 1 desc;
+```
+
+2. **4~8주 전에 만든 가족 중 지금도 쓰는 비율** (홍보 시작 후 4주가 지나야 숫자가 나와요)
+```sql
+with 시작 as (
+  select id from public.family_groups
+  where created_at between now() - interval '8 weeks' and now() - interval '4 weeks'
+), 최근 as (
+  select group_id from public.posts    where created_at > now() - interval '7 days'
+  union
+  select group_id from public.messages where created_at > now() - interval '7 days'
+)
+select count(*) as 그때_만든_가족,
+       count(*) filter (where id in (select group_id from 최근)) as 지금도_쓰는_가족,
+       round(100.0 * count(*) filter (where id in (select group_id from 최근)) / nullif(count(*), 0)) as 비율_퍼센트
+from 시작;
+```
+
+**대략적인 기준** (정답은 없어요. 참고용이에요)
+- **비율 40% 이상** → 가족들이 계속 쓰고 있어요. 써 본 가족에게 "어떤 기능이면 돈을 내실까요?" 물어볼 때예요.
+- **가입 경로 `family` 가 늘어남** → 쓰던 가족이 다른 가족에게 소개하고 있다는 뜻이에요. 아주 좋은 신호예요.
+- **비율 20% 아래** → 돈보다 먼저 "왜 그만 쓰는지"를 알아봐요. 문의 메일 · 지인 의견을 모아 주시면 같이 고쳐요.
+
 ---
 
 ## E. (선택) 구글 · 네이버 검색에 등록
@@ -201,7 +240,7 @@ select (select count(*) from auth.users)            as 가입자,
 - [ ] A. `v6_to_v7.sql` 실행 → "업데이트 완료! 버전 7" → #/check 최신 버전(7)
 - [ ] B. URL 설정 확인 · Confirm email 켜기 · Confirm signup 한국어 메일 · 시크릿 창에서 가입 시험
 - [ ] C. dorantalk.com/welcome 확인 · 카톡 나와의 채팅에서 미리보기 확인
-- [ ] D. 가입 경로 SQL 저장해 두기 (SQL Editor 에서 **Save**)
+- [ ] D. 가입 경로 · 반응 확인 SQL 저장해 두기 (SQL Editor 에서 **Save**) → 2~4주 뒤 D-2로 반응 보기
 - [ ] E. (선택) 구글 Search Console · 네이버 서치어드바이저 등록
 - [ ] F. (선택) 인스타 홍보 · 네이버 파워링크 · 구글 광고 — 하루 5천~1만 원, 1~2주
 - [ ] G. 한 달에 한 번 Supabase Usage 보기
