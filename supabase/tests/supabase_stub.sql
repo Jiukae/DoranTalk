@@ -8,7 +8,9 @@ create schema auth;
 create table auth.users (
   id uuid primary key default gen_random_uuid(),
   email text,
-  raw_user_meta_data jsonb default '{}'
+  raw_user_meta_data jsonb default '{}',
+  email_confirmed_at timestamptz default now(),
+  created_at timestamptz not null default now()
 );
 -- 실제 Supabase와 같은 방식: PostgREST가 넣어 주는 JWT 정보에서 사용자 ID를 꺼냄
 create function auth.uid() returns uuid language sql stable as $$
@@ -16,6 +18,13 @@ create function auth.uid() returns uuid language sql stable as $$
     nullif(current_setting('request.jwt.claim.sub', true), ''),
     (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
   )::uuid
+$$;
+-- 실제 Supabase와 같은 auth.jwt(): 로그인 정보(JWT) 전체
+create function auth.jwt() returns jsonb language sql stable as $$
+  select coalesce(
+    nullif(current_setting('request.jwt.claim', true), ''),
+    nullif(current_setting('request.jwt.claims', true), '')
+  )::jsonb
 $$;
 grant usage on schema auth to anon, authenticated;
 

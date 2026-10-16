@@ -1,15 +1,16 @@
 // 로그인 · 회원가입 · 비밀번호 찾기 화면
 import { sb } from '../supabase.js';
 import { state, loadProfile } from '../state.js';
-import { go } from '../router.js';
+import { go, currentPath } from '../router.js';
 import { friendlyError } from '../errors.js';
 import {
-  el, render, brandHeader, brandHero, field, passwordInput, messageBox, setBusy, toast, icon,
+  el, render, brandHeader, brandHero, field, passwordInput, messageBox, setBusy, toast, icon, iconTile, loadingScreen,
 } from '../ui.js';
 import { inAppBrowserNotice } from '../install.js';
 import { consentChecklist, legalLinks } from './legal.js';
 import { consentRecord } from '../legal.js';
 import { signupSource } from '../source.js';
+import { forgetThisDevice } from '../push.js';
 
 export const NICKNAME_RULE = /^[가-힣a-zA-Z0-9_]{2,12}$/;
 export const NICKNAME_HINT = '2~12자, 한글·영어·숫자로 지어 주세요. 가족이 나를 초대할 때 이 이름으로 찾아요.';
@@ -90,8 +91,9 @@ export function renderLogin() {
 
 // ------------------------------------------------------------------
 // 회원가입
+// child: { token, guardianNickname } — 보호자가 동의하고 보낸 링크로 들어온 만 14세 미만 (renderChildSignup 에서)
 // ------------------------------------------------------------------
-export function renderSignup() {
+export function renderSignup(_params, child = null) {
   const nick = el('input', {
     class: 'input', type: 'text', autocomplete: 'nickname', autocapitalize: 'off',
     spellcheck: 'false', maxlength: 12, required: true, placeholder: '예) 엄마, 큰아들, 지우',
@@ -129,7 +131,7 @@ export function renderSignup() {
     }, 500);
   });
 
-  const consent = consentChecklist();
+  const consent = consentChecklist(child ? { child: true } : { childHint: true });
 
   const form = el('form', {
     class: 'card', novalidate: true,
@@ -145,7 +147,11 @@ export function renderSignup() {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) return msg.show('이메일 주소를 정확히 입력해 주세요. (예: mom@naver.com)');
       if (password.length < 6) return msg.show('비밀번호는 6자 이상으로 정해 주세요.');
       if (password !== pw2.input.value) return msg.show('비밀번호 두 개가 서로 달라요. 다시 입력해 주세요.');
-      if (!consent.isComplete()) return msg.show('아래 필수 항목에 모두 동의해 주세요. (만 14세 미만은 가입할 수 없어요)');
+      if (!consent.isComplete()) {
+        return msg.show(child
+          ? '아래 칸에 모두 체크해 주세요. 모르는 게 있으면 보호자에게 물어봐요.'
+          : '아래 필수 항목에 모두 동의해 주세요. (만 14세 미만은 보호자가 보내 준 가입 링크로 가입해요)');
+      }
 
       setBusy(submit, true, '가입하는 중…');
       try {
@@ -157,7 +163,12 @@ export function renderSignup() {
           email: emailValue,
           password,
           options: {
-            data: { nickname, ...consentRecord(), ...(signupSource() ? { signup_from: signupSource() } : {}) },
+            data: {
+              nickname,
+              ...consentRecord({ child: Boolean(child) }),
+              ...(child ? { guardian_token: child.token } : {}),
+              ...(signupSource() ? { signup_from: signupSource() } : {}),
+            },
             emailRedirectTo: location.origin + location.pathname,
           },
         });
@@ -174,35 +185,122 @@ export function renderSignup() {
         toast(`${nickname}님, 환영해요! 🎉`);
         // 세션이 생기면 app.js 가 홈으로 보냅니다
       } catch (err) {
+        // 자녀 가입: 그사이 링크가 만료·사용됐다면 그 안내를 보여 줌
+        if (child && /database error saving new user/i.test(String(err?.message || ''))) {
+          const status = await linkStatus(child.token).catch(() => null);
+          if (status && status !== 'ok') return renderLinkProblem(status);
+        }
         msg.show(friendlyError(err));
       } finally {
         setBusy(submit, false);
       }
     },
   },
-    el('h1', {}, '회원가입'),
+    el('h1', {}, child ? '자녀 회원가입' : '회원가입'),
     el('div', { class: 'field' },
       el('label', { class: 'label', for: 'signup-nick' }, '닉네임'),
       Object.assign(nick, { id: 'signup-nick' }),
       nickStatus,
       el('p', { class: 'hint' }, NICKNAME_HINT),
     ),
-    field('이메일', email, '로그인할 때 써요. 자주 쓰는 이메일을 넣어 주세요.'),
+    field('이메일', email, child ? '로그인할 때 써요. 보호자가 만들어 준 이메일도 괜찮아요.' : '로그인할 때 써요. 자주 쓰는 이메일을 넣어 주세요.'),
     field('비밀번호', pw, '6자 이상. 잊지 않게 따로 적어 두세요.'),
     field('비밀번호 확인', pw2),
-    el('h2', { class: 'consent-title' }, '약관 동의'),
+    el('h2', { class: 'consent-title' }, child ? '꼭 읽어 주세요' : '약관 동의'),
     consent,
     msg,
     submit,
   );
 
   render(el('main', { class: 'page' },
-    brandHeader('가족과 함께 시작해요'),
+    brandHeader(child ? '보호자와 함께 시작해요' : '가족과 함께 시작해요'),
     inAppBrowserNotice(),
+    child && el('section', { class: 'card guardian-ok' },
+      iconTile('shield', 'green'),
+      el('div', {},
+        el('p', { class: 'guardian-ok-title' }, `보호자 ${child.guardianNickname}님이 가입을 허락했어요`),
+        el('p', { class: 'muted' }, '닉네임, 이메일, 비밀번호를 정해 줘. 모르는 게 있으면 보호자에게 물어봐요.'),
+      ),
+    ),
     form,
     el('p', { class: 'center' },
       '이미 가입하셨나요? ', el('a', { href: '#/login', class: 'link-strong' }, '로그인')),
     legalLinks(),
+  ));
+}
+
+// ------------------------------------------------------------------
+// 자녀(만 14세 미만) 회원가입: 보호자가 보낸 링크 #/signup/child/{링크 번호}
+// ------------------------------------------------------------------
+async function linkStatus(token) {
+  const { data, error } = await sb.rpc('guardian_link_info', { p_token: token });
+  if (error) throw error;
+  return data?.[0] || { status: 'not_found' };
+}
+
+export async function renderChildSignup({ token }) {
+  // 이 기기가 이미 누군가(보통 보호자)로 로그인되어 있으면, 로그아웃할지 먼저 물어봐요
+  if (state.session) {
+    const logout = el('button', {
+      class: 'btn btn-block', type: 'button',
+      onclick: async () => {
+        setBusy(logout, true, '로그아웃하는 중…');
+        state.afterSignOut = currentPath();
+        await forgetThisDevice();
+        const { error } = await sb.auth.signOut();
+        if (error) {
+          state.afterSignOut = null;
+          setBusy(logout, false);
+          toast(friendlyError(error));
+        }
+      },
+    }, '로그아웃하고 자녀 가입 계속하기');
+    render(el('main', { class: 'page' },
+      brandHeader('보호자와 함께 시작해요'),
+      el('section', { class: 'card center stack' },
+        el('div', { class: 'empty-icon', 'aria-hidden': 'true' }, icon('user', { size: 34 })),
+        el('h1', {}, '지금 다른 계정으로 로그인되어 있어요'),
+        el('p', {}, el('strong', {}, state.profile?.nickname || state.session.user?.email || ''), ' 계정으로 로그인되어 있어요.'),
+        el('p', { class: 'muted' }, '자녀 가입 링크는 자녀의 휴대폰에서 여는 게 가장 좋아요. 이 기기에서 자녀 계정을 만들려면 먼저 로그아웃해야 해요. (보호자는 나중에 다시 로그인하면 돼요)'),
+        logout,
+        el('a', { href: '#/home', class: 'btn btn-secondary btn-block' }, '취소하고 돌아가기'),
+      ),
+    ));
+    return;
+  }
+
+  render(loadingScreen('가입 링크를 확인하는 중…'));
+  let info;
+  try {
+    info = await linkStatus(token);
+  } catch (err) {
+    render(el('main', { class: 'page' },
+      brandHeader(),
+      el('section', { class: 'card center stack' },
+        el('h1', {}, '가입 링크를 확인하지 못했어요'),
+        el('p', { class: 'muted' }, friendlyError(err)),
+        el('button', { class: 'btn btn-block', type: 'button', onclick: () => renderChildSignup({ token }) }, '다시 시도'),
+      ),
+    ));
+    return;
+  }
+  if (info.status !== 'ok') return renderLinkProblem(info.status);
+  return renderSignup(null, { token, guardianNickname: info.guardian_nickname });
+}
+
+function renderLinkProblem(status) {
+  const [title, text] = {
+    used: ['이미 사용한 링크예요', '이 링크로 이미 가입했어요. 가입한 계정으로 로그인해 주세요. 새로 가입하려면 보호자께 새 링크를 부탁해 주세요.'],
+    expired: ['링크 기간이 지났어요', '가입 링크는 7일 동안만 쓸 수 있어요. 보호자께 새 링크를 부탁해 주세요.'],
+  }[status] || ['링크 주소가 올바르지 않아요', '보호자가 보낸 링크를 그대로 눌러 열어 주세요. 주소가 잘렸을 수 있어요.'];
+  render(el('main', { class: 'page' },
+    brandHeader('보호자와 함께 시작해요'),
+    el('section', { class: 'card center stack' },
+      el('div', { class: 'empty-icon', 'aria-hidden': 'true' }, icon('lock', { size: 34 })),
+      el('h1', {}, title),
+      el('p', { class: 'muted' }, text),
+      el('a', { href: '#/login', class: 'btn btn-secondary btn-block' }, '로그인 화면으로'),
+    ),
   ));
 }
 

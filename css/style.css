@@ -1438,6 +1438,39 @@ body.typing .page-chat { padding-bottom: calc(100px + env(safe-area-inset-bottom
 .profile-card { display: flex; align-items: center; gap: 16px; }
 .profile-card .muted { margin: 0; font-size: 0.95rem; }
 .app-version { color: var(--muted); font-size: 0.85rem; text-align: center; margin: 18px 0 4px; }
+.guardian-line {
+  display: flex; align-items: center; gap: 6px;
+  margin: 6px 0 0; color: var(--ok); font-size: 0.92rem; font-weight: 700;
+}
+.guardian-line svg { flex: none; }
+
+/* ---------- 자녀 계정 (만 14세 미만 · 보호자 동의) ---------- */
+.child-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 6px;
+}
+.child-row + .child-row { border-top: 1px solid var(--line); }
+.child-info { flex: 1; min-width: 0; }
+.child-info p { margin: 0; }
+.child-name { font-weight: 800; font-size: 1.08rem; overflow-wrap: anywhere; }
+.child-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.child-row > .btn, .child-actions .btn { flex: none; }
+.child-empty { margin: 10px 8px; }
+.link-input { font-size: 0.95rem; text-align: center; }
+.guardian-ok { display: flex; align-items: center; gap: 14px; }
+.guardian-ok p { margin: 0; }
+.guardian-ok-title { font-weight: 800; font-size: 1.1rem; margin-bottom: 2px !important; }
+.consent-hint {
+  margin: 10px 0 0; padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--fill); color: var(--muted); font-size: 0.92rem;
+}
+.consent-hint strong { color: var(--text); }
+@media (max-width: 360px) {
+  .child-row { flex-wrap: wrap; }
+  .child-actions { width: 100%; justify-content: stretch; }
+  .child-actions .btn { flex: 1; }
+}
 
 /* =====================================================================
    약관 · 개인정보처리방침

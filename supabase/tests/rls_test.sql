@@ -566,4 +566,247 @@ exception when raise_exception then
 end $$;
 reset role;
 
+-- =====================================================================
+-- (버전 8) 만 14세 미만: 보호자 동의로 가입
+-- =====================================================================
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('cccccccc-0000-0000-0000-000000000001', 'g1@x.com', '{"nickname":"보호자엄마"}'),
+  ('cccccccc-0000-0000-0000-000000000002', 'g2@x.com', '{"nickname":"이웃어른"}');
+
+-- 비밀번호 확인 시각(amr)을 넣은 로그인 흉내 (ago: 몇 초 전에 비밀번호로 로그인했는지, null 이면 기록 없음)
+create or replace function pg_temp.as_user_pw(uid text, ago int) returns void language plpgsql as $$
+begin
+  perform set_config('request.jwt.claim.sub', uid, false);
+  perform set_config('request.jwt.claims', case when ago is null
+    then json_build_object('sub', uid, 'role', 'authenticated')::text
+    else json_build_object('sub', uid, 'role', 'authenticated',
+      'amr', json_build_array(json_build_object('method', 'password', 'timestamp', extract(epoch from now())::bigint - ago)))::text end, false);
+  execute 'set role authenticated';
+end $$;
+
+-- 비밀번호 확인 없이 / 오래전 확인으로는 링크를 못 만듦
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000001', null);
+do $$ begin
+  perform public.create_guardian_link('2026-10-14');
+  raise exception 'TEST FAILED: guardian link without password check';
+exception when raise_exception then
+  if sqlerrm not like '%비밀번호를 다시%' then raise; end if;
+end $$;
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000001', 1200);
+do $$ begin
+  perform public.create_guardian_link('2026-10-14');
+  raise exception 'TEST FAILED: guardian link with stale password check';
+exception when raise_exception then
+  if sqlerrm not like '%비밀번호를 다시%' then raise; end if;
+end $$;
+-- 방금 비밀번호를 확인했으면 OK
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000001', 30);
+insert into pg_temp.ids select 'gl1', null;
+create table pg_temp.toks (k text primary key, v text);
+grant all on pg_temp.toks to authenticated, anon;
+insert into pg_temp.toks select 't1', token from public.create_guardian_link('2026-10-14');
+insert into pg_temp.toks select 't2', token from public.create_guardian_link('2026-10-14');
+select pg_temp.assert((select count(*) from public.my_guardian_links()) = 2, 'guardian sees 2 unused links');
+select pg_temp.assert(length((select v from pg_temp.toks where k='t1')) = 32, 'token is 32 chars');
+-- 표를 직접 읽을 수 없음
+do $$ begin
+  perform * from public.guardian_consents;
+  raise exception 'TEST FAILED: authenticated read guardian_consents';
+exception when insufficient_privilege then null; end $$;
+-- 보호자 그룹
+insert into pg_temp.ids values ('gg', public.create_group('보호자네'));
+reset role;
+
+-- 로그인 전(anon): 링크 확인
+set role anon;
+select pg_temp.assert((select status from public.guardian_link_info((select v from pg_temp.toks where k='t1'))) = 'ok', 'link ok');
+select pg_temp.assert((select guardian_nickname from public.guardian_link_info((select v from pg_temp.toks where k='t1'))) = '보호자엄마', 'link shows guardian nickname');
+select pg_temp.assert((select status from public.guardian_link_info('nope')) = 'not_found', 'unknown link');
+do $$ begin
+  perform * from public.guardian_consents;
+  raise exception 'TEST FAILED: anon read guardian_consents';
+exception when insufficient_privilege then null; end $$;
+do $$ begin
+  perform public.my_children();
+  raise exception 'TEST FAILED: anon my_children';
+exception when insufficient_privilege then null; end $$;
+reset role;
+
+-- 가입: 링크 없이 "만 14세 미만"이면 거절
+do $$ begin
+  insert into auth.users (email, raw_user_meta_data) values ('k0@x.com', '{"nickname":"꼬마영","under_14_with_guardian":true}');
+  raise exception 'TEST FAILED: child signup without link';
+exception when raise_exception then
+  if sqlerrm not like '%가입 링크로%' then raise; end if;
+end $$;
+-- 링크로 가입 성공
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('cccccccc-0000-0000-0000-000000000011', 'k1@x.com',
+   json_build_object('nickname', '꼬마일', 'under_14_with_guardian', true, 'guardian_token', (select v from pg_temp.toks where k='t1'))::jsonb);
+select pg_temp.assert(public.is_child_account('cccccccc-0000-0000-0000-000000000011'), 'child account linked');
+select pg_temp.assert((select status from public.guardian_link_info((select v from pg_temp.toks where k='t1'))) = 'used', 'link used');
+-- 같은 링크로 두 번은 안 됨
+do $$ begin
+  insert into auth.users (email, raw_user_meta_data) values ('k2@x.com',
+    json_build_object('nickname', '꼬마이', 'under_14_with_guardian', true, 'guardian_token', (select v from pg_temp.toks where k='t1'))::jsonb);
+  raise exception 'TEST FAILED: link reused';
+exception when raise_exception then
+  if sqlerrm not like '%만료되었거나 이미 사용%' then raise; end if;
+end $$;
+select pg_temp.assert(not exists (select 1 from auth.users where email = 'k2@x.com'), 'reused link left no account');
+-- 만료된 링크도 안 됨
+update public.guardian_consents set expires_at = now() - interval '1 minute' where token = (select v from pg_temp.toks where k='t2');
+do $$ begin
+  insert into auth.users (email, raw_user_meta_data) values ('k3@x.com',
+    json_build_object('nickname', '꼬마삼', 'under_14_with_guardian', true, 'guardian_token', (select v from pg_temp.toks where k='t2'))::jsonb);
+  raise exception 'TEST FAILED: expired link';
+exception when raise_exception then
+  if sqlerrm not like '%만료되었거나 이미 사용%' then raise; end if;
+end $$;
+select pg_temp.assert((select status from public.guardian_link_info((select v from pg_temp.toks where k='t2'))) = 'expired', 'link expired');
+
+-- 아이: 그룹을 직접 만들 수 없고, 보호자가 될 수 없음, 내 보호자는 보임
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000011', 10);
+do $$ begin
+  perform public.create_group('아이그룹');
+  raise exception 'TEST FAILED: child created group';
+exception when raise_exception then
+  if sqlerrm not like '%직접 만들 수 없어요%' then raise; end if;
+end $$;
+do $$ begin
+  perform public.create_guardian_link('2026-10-14');
+  raise exception 'TEST FAILED: child became guardian';
+exception when raise_exception then
+  if sqlerrm not like '%보호자가 될 수 없어요%' then raise; end if;
+end $$;
+select pg_temp.assert((select guardian_nickname from public.my_guardian_info()) = '보호자엄마', 'child sees guardian');
+select pg_temp.assert((select count(*) from public.my_children()) = 0, 'child has no children');
+reset role;
+
+-- 모르는 어른: 보호자가 없는 그룹으로는 아이를 초대할 수 없음 (아이 계정인지도 알 수 없게 "찾을 수 없어요")
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000002', null);
+insert into pg_temp.ids values ('xg', public.create_group('이웃네'));
+do $$ begin
+  perform public.invite_by_nickname((select v from pg_temp.ids where k='xg'), '꼬마일');
+  raise exception 'TEST FAILED: stranger invited child';
+exception when raise_exception then
+  if sqlerrm not like '%찾을 수 없어요%' then raise; end if;
+end $$;
+select pg_temp.assert((select count(*) from public.my_children()) = 0, 'stranger sees no children');
+select pg_temp.assert((select count(*) from public.child_photo_paths('cccccccc-0000-0000-0000-000000000011')) = 0, 'stranger no child photo paths');
+do $$ begin
+  perform public.delete_child_account('cccccccc-0000-0000-0000-000000000011');
+  raise exception 'TEST FAILED: stranger deleted child';
+exception when raise_exception then
+  if sqlerrm not like '%자녀 계정만%' then raise; end if;
+end $$;
+do $$ begin
+  perform public.cancel_guardian_link((select id from public.guardian_consents limit 1));
+  raise exception 'TEST FAILED: stranger read consents';
+exception when insufficient_privilege then null; end $$;
+-- 보호자를 먼저 초대
+select public.invite_by_nickname((select v from pg_temp.ids where k='xg'), '보호자엄마');
+reset role;
+
+-- 보호자: 자기 그룹에 아이 초대 → 아이 수락
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000001', null);
+select public.invite_by_nickname((select v from pg_temp.ids where k='gg'), '꼬마일');
+select pg_temp.assert((select count(*) from public.my_children()) = 1, 'guardian sees child');
+select pg_temp.assert((select nickname from public.my_children()) = '꼬마일', 'guardian sees child nickname');
+-- 이웃 그룹 초대 수락
+select public.respond_invitation((select id from public.get_my_invitations() where group_name = '이웃네'), true);
+reset role;
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000011', null);
+select public.respond_invitation((select id from public.get_my_invitations() where group_name = '보호자네'), true);
+select pg_temp.assert(public.is_group_member((select v from pg_temp.ids where k='gg')), 'child joined guardian group');
+-- 아이가 사진을 올림
+insert into storage.objects (bucket_id, name)
+  values ('family-photos', (select v from pg_temp.ids where k='gg')::text || '/posts/kid1.jpg');
+reset role;
+
+-- 이제 보호자가 있는 이웃 그룹이라면 초대할 수 있음
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000002', null);
+select public.invite_by_nickname((select v from pg_temp.ids where k='xg'), '꼬마일');
+reset role;
+-- 그런데 아이가 수락하기 전에 보호자가 그 그룹을 나가면 수락할 수 없음
+delete from public.group_members where group_id = (select v from pg_temp.ids where k='xg') and user_id = 'cccccccc-0000-0000-0000-000000000001';
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000011', null);
+do $$ begin
+  perform public.respond_invitation((select id from public.get_my_invitations() where group_name = '이웃네'), true);
+  raise exception 'TEST FAILED: child joined group without guardian';
+exception when raise_exception then
+  if sqlerrm not like '%보호자가 이 그룹에 없어서%' then raise; end if;
+end $$;
+-- 거절은 됨
+select public.respond_invitation((select id from public.get_my_invitations() where group_name = '이웃네'), false);
+reset role;
+
+-- 사진 창고: 모르는 어른은 아이 사진을 지울 수 없고, 보호자는 지울 수 있음
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000002', null);
+delete from storage.objects where name like '%/posts/kid1.jpg';
+reset role;
+select pg_temp.assert((select count(*) from storage.objects where name like '%/posts/kid1.jpg') = 1, 'stranger cannot delete child photo');
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000001', null);
+select pg_temp.assert((select count(*) from public.child_photo_paths('cccccccc-0000-0000-0000-000000000011')) = 1, 'guardian lists child photos');
+delete from storage.objects where name like '%/posts/kid1.jpg';
+reset role;
+select pg_temp.assert((select count(*) from storage.objects where name like '%/posts/kid1.jpg') = 0, 'guardian deleted child photo');
+
+-- 안 쓴 링크: 5개까지, 남의 링크는 취소 못 함, 내 링크는 취소
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000001', 30);
+select public.create_guardian_link('2026-10-14') from generate_series(1, 5);
+do $$ begin
+  perform public.create_guardian_link('2026-10-14');
+  raise exception 'TEST FAILED: more than 5 unused links';
+exception when raise_exception then
+  if sqlerrm not like '%5개 있어요%' then raise; end if;
+end $$;
+reset role;
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000002', null);
+do $$ begin
+  perform public.cancel_guardian_link((select c.id from public.guardian_consents c limit 1));
+  raise exception 'TEST FAILED: stranger table access';
+exception when insufficient_privilege then null; end $$;
+reset role;
+do $$ declare lid uuid; begin
+  select c.id into lid from public.guardian_consents c where c.guardian_id = 'cccccccc-0000-0000-0000-000000000001' and c.child_id is null and c.expires_at > now() limit 1;
+  perform pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000002', null);
+  begin
+    perform public.cancel_guardian_link(lid);
+    raise exception 'TEST FAILED: stranger canceled link';
+  exception when raise_exception then
+    if sqlerrm not like '%찾을 수 없어요%' then raise; end if;
+  end;
+  reset role;
+  perform pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000001', null);
+  perform public.cancel_guardian_link(lid);
+  if (select count(*) from public.my_guardian_links()) <> 4 then raise exception 'TEST FAILED: cancel link'; end if;
+  reset role;
+end $$;
+
+-- 두 번째 아이 가입 (보호자 탈퇴 테스트용)
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('cccccccc-0000-0000-0000-000000000012', 'k4@x.com',
+   json_build_object('nickname', '꼬마사', 'under_14_with_guardian', true,
+     'guardian_token', (select c.token from public.guardian_consents c where c.guardian_id = 'cccccccc-0000-0000-0000-000000000001' and c.child_id is null and c.expires_at > now() limit 1))::jsonb);
+
+-- 보호자: 동의 철회 = 첫째 아이 계정 삭제
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000001', null);
+select public.delete_child_account('cccccccc-0000-0000-0000-000000000011');
+select pg_temp.assert((select count(*) from public.my_children()) = 1, 'one child left after delete');
+reset role;
+select pg_temp.assert(not exists (select 1 from auth.users where id = 'cccccccc-0000-0000-0000-000000000011'), 'child user deleted');
+select pg_temp.assert(not exists (select 1 from public.guardian_consents where child_id = 'cccccccc-0000-0000-0000-000000000011'), 'child consent record deleted');
+
+-- 보호자 탈퇴: 안 쓴 링크는 지워지고, 이미 가입한 아이의 동의 기록은 남음(보호자 칸만 비움)
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000001', null);
+select public.delete_my_account();
+reset role;
+select pg_temp.assert(not exists (select 1 from public.guardian_consents where child_id is null and guardian_id is null), 'unused links removed with guardian');
+select pg_temp.assert(public.is_child_account('cccccccc-0000-0000-0000-000000000012'), 'second child still has consent record');
+select pg_temp.as_user_pw('cccccccc-0000-0000-0000-000000000012', null);
+select pg_temp.assert((select guardian_nickname from public.my_guardian_info()) is null, 'guardian gone');
+reset role;
+select set_config('request.jwt.claims', '', false);
+
 select 'ALL RLS TESTS PASSED' as result;

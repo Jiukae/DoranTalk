@@ -6,7 +6,7 @@ import { go } from '../router.js';
 import { friendlyError } from '../errors.js';
 import { el, render, appBar, backButton, brandHeader, messageBox, setBusy, toast } from '../ui.js';
 import {
-  SERVICE_NAME, SERVICE_URL, PRIVACY_OFFICER, CONTACT_EMAIL, EFFECTIVE_DATE, consentRecord,
+  SERVICE_NAME, SERVICE_URL, PRIVACY_OFFICER, CONTACT_EMAIL, EFFECTIVE_DATE, consentRecord, isChildUser,
 } from '../legal.js';
 
 // ------------------------------------------------------------------
@@ -39,7 +39,8 @@ function legalPage(title, intro, ...articles) {
         el('p', { class: 'muted' }, intro),
         ...articles,
         el('p', { class: 'muted small legal-date' }, `시행일: ${EFFECTIVE_DATE}`),
-        title === '개인정보처리방침' && el('p', { class: 'muted small' }, '개정: 2026년 10월 15일 — 휴대폰 알림(선택 기능) 관련 내용 추가 / 2026년 10월 16일 — 가입 경로 항목 추가'),
+        title === '개인정보처리방침' && el('p', { class: 'muted small' }, '개정: 2026년 10월 15일 — 휴대폰 알림(선택 기능) 관련 내용 추가 / 2026년 10월 16일 — 가입 경로 항목 추가, 만 14세 미만 보호자 동의 가입 추가(8조), 웹사이트 전송 업체 변경(Netlify → Vercel)'),
+        title === '이용약관' && el('p', { class: 'muted small' }, '개정: 2026년 10월 16일 — 만 14세 미만 보호자 동의 가입(제4조), 보호자의 자녀 계정 삭제(제11조) 추가'),
       ),
     ),
   );
@@ -64,6 +65,7 @@ export function renderPrivacy() {
     article('2. 수집하는 개인정보 항목',
       table(['구분', '항목', '수집 방법'], [
         ['필수 (가입할 때)', '이메일 주소, 비밀번호(암호화되어 저장), 닉네임, 만 14세 이상 확인 및 약관 동의 기록', '회원가입 화면'],
+        ['만 14세 미만 회원 (보호자 동의로 가입한 경우)', '보호자 동의 기록(동의한 보호자 계정, 동의 시각, 동의한 약관 버전)', '보호자의 동의 화면 · 보호자가 보낸 가입 링크'],
         ['서비스 이용 중 만들어지는 정보', '가족 그룹 이름, 그룹 참여·초대 기록, 글·댓글·하트, 채팅 메시지, 사진, 메시지를 읽은 시각', '이용자가 직접 입력·업로드'],
         ['선택 (알림을 켠 경우)', '이 기기의 알림 받을 주소(웹 푸시 구독 정보), 기기 종류(안드로이드·아이폰·컴퓨터)', '"알림 켜기"를 누를 때'],
         ['자동으로 생기는 정보', '접속 IP 주소, 접속 시각, 브라우저·기기 정보(서버 기록), 가입 경로(홍보 링크로 들어온 경우, 예: 인스타그램)', '서비스 이용 과정에서 자동 생성'],
@@ -77,6 +79,7 @@ export function renderPrivacy() {
         '탈퇴하면 내 닉네임·이메일과 내가 쓴 글·댓글·하트·채팅·사진이 함께 삭제됩니다.',
         '내가 혼자 남아 있던 가족 그룹은 그룹 전체가 삭제됩니다.',
         '알림 받을 주소는 알림을 끄거나, 그 기기에서 로그아웃하거나, 탈퇴하면 바로 삭제됩니다.',
+        '만 14세 미만 회원의 보호자 동의 기록은 그 회원이 탈퇴하거나 보호자가 자녀 계정을 지울 때까지 보관합니다. 쓰지 않은 가입 링크는 만료(7일) 뒤 하루 안에 삭제합니다.',
         '서버 접속 기록과 시스템 백업에 남은 정보는 아래 업체의 보관 주기가 지나면 자동으로 삭제됩니다.',
         '다른 법령에서 보관을 요구하는 경우에는 그 기간 동안만 따로 보관합니다.',
       ),
@@ -94,8 +97,8 @@ export function renderPrivacy() {
       p('서비스 운영을 위해 아래 업체에 개인정보 처리를 맡기고 있으며, 이 과정에서 개인정보가 국외로 전송·보관될 수 있습니다. 개인정보는 서비스를 이용하는 동안 인터넷(암호화 통신)으로 수시로 전송됩니다.'),
       table(['받는 업체 (국가)', '맡기는 일', '이전되는 항목', '보관 위치·기간'], [
         ['Supabase Inc. (미국)', '회원 인증, 데이터베이스, 사진 저장, 실시간 전송', '가입 정보, 서비스 이용 중 만들어지는 정보 전부', '대한민국(서울) 데이터센터 · 회원 탈퇴 또는 위탁 종료 시까지'],
-        ['Netlify, Inc. (미국)', '웹사이트(앱 화면) 전송', '접속 IP 주소, 접속 기록', '전 세계 전송망 · 업체 보관 주기에 따름'],
-        ['Resend (미국)', '비밀번호 재설정 메일 발송', '이메일 주소', '일본(도쿄) 발송 서버 · 업체 보관 주기에 따름'],
+        ['Vercel Inc. (미국)', '웹사이트(앱 화면) 전송', '접속 IP 주소, 접속 기록', '전 세계 전송망 · 업체 보관 주기에 따름'],
+        ['Resend (미국)', '가입 확인 · 비밀번호 재설정 메일 발송', '이메일 주소', '일본(도쿄) 발송 서버 · 업체 보관 주기에 따름'],
         ['ImprovMX (미국)', '문의 메일 전달', '문의 메일을 보낸 분의 이메일 주소와 메일 내용', '업체 보관 주기에 따름'],
         ['Google · Apple · Mozilla (미국) — 알림을 켠 경우', '휴대폰 알림 전달 (각 휴대폰 · 브라우저의 기본 알림 서버)', '암호화된 알림 내용 (업체는 내용을 열어 볼 수 없음), 알림 받을 주소', '전달될 때까지 최대 1일'],
       ]),
@@ -109,10 +112,21 @@ export function renderPrivacy() {
         [b('삭제'), ': 내 글·댓글은 언제든 지울 수 있고, ', b('내 정보 → 회원 탈퇴'), '로 계정과 모든 정보를 지울 수 있습니다.'],
         ['그 밖의 요청은 ', mail(), ' 으로 보내 주시면 지체 없이 처리합니다.'],
       ),
-      p(b('만 14세 미만 아동은 가입할 수 없습니다.'), ' 만 14세 미만의 개인정보가 수집된 사실을 알게 되면 즉시 삭제합니다.'),
     ),
 
-    article('8. 개인정보를 안전하게 지키는 방법',
+    article('8. 만 14세 미만 아동의 개인정보',
+      p('만 14세 미만 아동은 ', b('법정대리인(부모 등)의 동의'), '를 받은 경우에만 가입할 수 있습니다.'),
+      ul(
+        [b('동의 받는 방법'), ': 보호자가 도란톡에 로그인한 뒤 ', b('비밀번호를 다시 입력해 본인임을 확인'), '하고, 자녀에 대한 이용약관과 개인정보 수집·이용 내용을 읽고 직접 동의합니다. 동의하면 7일 동안 한 번만 쓸 수 있는 가입 링크가 만들어지고, 자녀는 그 링크로만 가입할 수 있습니다.'],
+        [b('자녀에게서 받는 정보'), ': 이메일, 비밀번호, 닉네임 (어른 회원과 같음). 보호자의 동의를 받기 전에는 자녀의 정보를 받지 않습니다.'],
+        [b('보호 장치'), ': 자녀 계정은 보호자가 들어 있는 가족 그룹에만 초대받을 수 있고, 가족 그룹을 직접 만들 수 없습니다.'],
+        [b('보호자의 권리'), ': 보호자는 자녀의 개인정보를 열람·정정·삭제하거나 처리 정지를 요구하고, 동의를 철회할 수 있습니다. ', b('내 정보 → 자녀 계정'), '에서 자녀 계정을 바로 지울 수 있고(동의 철회), 그 밖의 요청은 ', mail(), ' 으로 보내 주세요.'],
+        '자녀에게는 가입 화면에서 이해하기 쉬운 말로 개인정보 안내를 보여 줍니다.',
+        '보호자 동의 없이 만 14세 미만의 개인정보가 수집된 사실을 알게 되면 즉시 삭제합니다.',
+      ),
+    ),
+
+    article('9. 개인정보를 안전하게 지키는 방법',
       ul(
         '모든 통신은 암호화(HTTPS)됩니다.',
         '비밀번호는 원래 글자를 알 수 없는 방식(단방향 암호화)으로 저장합니다.',
@@ -122,11 +136,11 @@ export function renderPrivacy() {
       ),
     ),
 
-    article('9. 자동으로 정보를 모으는 장치(쿠키 등)',
+    article('10. 자동으로 정보를 모으는 장치(쿠키 등)',
       p('광고나 분석을 위한 쿠키를 쓰지 않습니다. 로그인 유지와 화면 테마 설정을 위해 이용자 기기의 브라우저 저장소를 사용하며, 브라우저 설정에서 사이트 데이터를 지우면 삭제됩니다(이 경우 다시 로그인해야 합니다).'),
     ),
 
-    article('10. 개인정보 보호책임자',
+    article('11. 개인정보 보호책임자',
       table(['구분', '내용'], [
         ['성명', PRIVACY_OFFICER],
         ['직위', `${SERVICE_NAME} 운영자`],
@@ -135,7 +149,7 @@ export function renderPrivacy() {
       p('개인정보와 관련한 문의·불만·피해 구제 요청은 위 연락처로 보내 주세요. 지체 없이 답변하고 처리하겠습니다.'),
     ),
 
-    article('11. 권익 침해 구제 방법',
+    article('12. 권익 침해 구제 방법',
       p('개인정보 침해에 대한 신고나 상담이 필요하시면 아래 기관에 문의하실 수 있습니다.'),
       ul(
         '개인정보침해신고센터: (국번 없이) 118 · privacy.kisa.or.kr',
@@ -145,7 +159,7 @@ export function renderPrivacy() {
       ),
     ),
 
-    article('12. 방침의 변경',
+    article('13. 방침의 변경',
       p('이 방침이 바뀌면 시행 7일 전부터 앱에서 알리고, 중요한 변경은 다시 동의를 받습니다.'),
     ),
   );
@@ -175,7 +189,8 @@ export function renderTerms() {
     article('제4조 (회원가입)',
       ul(
         '가입하려는 사람이 약관과 개인정보 수집·이용에 동의하고 가입 정보를 입력하면 가입이 이루어집니다.',
-        [b('만 14세 미만은 가입할 수 없습니다.')],
+        [b('만 14세 미만'), '은 법정대리인(부모 등)이 도란톡에서 먼저 동의한 뒤, 보호자가 보내 준 가입 링크로 가입할 수 있습니다.'],
+        '만 14세 미만 회원은 보호자가 들어 있는 가족 그룹에만 초대받을 수 있고, 가족 그룹을 직접 만들 수 없습니다.',
         '다른 사람의 이메일을 도용하거나 거짓 정보로 가입하면 이용이 제한될 수 있습니다.',
       )),
 
@@ -214,7 +229,8 @@ export function renderTerms() {
       p('회원이 제9조를 어기면 운영자는 경고, 일시 이용 정지, 계정 삭제 등의 조치를 할 수 있습니다. 회원은 이에 대해 운영자에게 이의를 제기할 수 있습니다.')),
 
     article('제11조 (회원 탈퇴)',
-      p('회원은 언제든지 ', b('내 정보 → 회원 탈퇴'), '에서 탈퇴할 수 있습니다. 탈퇴하면 계정과 게시물이 바로 삭제되며 되돌릴 수 없습니다.')),
+      p('회원은 언제든지 ', b('내 정보 → 회원 탈퇴'), '에서 탈퇴할 수 있습니다. 탈퇴하면 계정과 게시물이 바로 삭제되며 되돌릴 수 없습니다.'),
+      p('만 14세 미만 회원의 보호자는 ', b('내 정보 → 자녀 계정'), '에서 동의를 철회하고 자녀 계정을 삭제할 수 있습니다.')),
 
     article('제12조 (책임의 제한)',
       ul(
@@ -233,8 +249,21 @@ export function renderTerms() {
 // ------------------------------------------------------------------
 // 동의 체크 묶음 (회원가입 화면, 약관 동의 화면에서 사용)
 // ------------------------------------------------------------------
-export function consentChecklist() {
-  const items = [
+// child: 보호자가 이미 동의한 만 14세 미만 (아이가 이해하기 쉬운 말로 안내하고, 읽었는지 확인)
+// childHint: 어른용 목록 아래에 "만 14세 미만이라면?" 안내 (회원가입 화면)
+export function consentChecklist({ child = false, childHint = false } = {}) {
+  const items = child ? [
+    { key: 'terms', label: '[필수] 이용약관을 보호자와 함께 읽었어요', link: '#/terms' },
+    {
+      key: 'privacy', label: '[필수] 아래 개인정보 안내를 읽었어요', link: '#/privacy',
+      summary: [
+        '도란톡은 가족끼리만 글·사진·채팅을 나누는 곳이에요.',
+        '네 이메일과 비밀번호는 로그인할 때만, 닉네임은 가족이 너를 알아볼 때만 써요.',
+        '보호자가 있는 가족 그룹에만 들어갈 수 있어요. 모르는 사람은 너를 초대할 수 없어요.',
+        '그만 쓰고 싶으면 언제든 탈퇴할 수 있고, 보호자도 네 계정을 지울 수 있어요. 그러면 네 글과 사진도 모두 지워져요.',
+      ],
+    },
+  ] : [
     { key: 'age', label: '[필수] 만 14세 이상이에요' },
     { key: 'terms', label: '[필수] 이용약관에 동의해요', link: '#/terms' },
     {
@@ -262,8 +291,11 @@ export function consentChecklist() {
   all.addEventListener('change', () => { Object.values(boxes).forEach((x) => { x.checked = all.checked; }); });
 
   const root = el('div', { class: 'consent' },
-    el('label', { class: 'consent-label consent-all', for: all.id }, all, el('span', {}, '모두 동의해요')),
+    el('label', { class: 'consent-label consent-all', for: all.id }, all, el('span', {}, child ? '모두 확인했어요' : '모두 동의해요')),
     ...rows,
+    childHint && el('p', { class: 'consent-hint' },
+      el('strong', {}, '만 14세 미만인가요? '),
+      '보호자(부모님)가 먼저 도란톡에 가입한 뒤, ', el('strong', {}, '내 정보 → 자녀 계정'), '에서 동의하고 보내 주는 가입 링크로 가입할 수 있어요.'),
   );
   root.isComplete = () => Object.values(boxes).every((x) => x.checked);
   return root;
@@ -273,7 +305,8 @@ export function consentChecklist() {
 // 약관 동의 화면 (이미 가입한 회원이 아직 동의하지 않은 경우, 로그인 후 한 번)
 // ------------------------------------------------------------------
 export function renderConsent() {
-  const checklist = consentChecklist();
+  const child = isChildUser(state.session?.user);
+  const checklist = consentChecklist({ child });
   const msg = messageBox();
   const submit = el('button', { class: 'btn btn-block', type: 'submit' }, '동의하고 계속하기');
   const form = el('form', {
@@ -283,7 +316,7 @@ export function renderConsent() {
       msg.clear();
       if (!checklist.isComplete()) return msg.show('필수 항목에 모두 동의해 주세요.');
       setBusy(submit, true, '저장하는 중…');
-      const { data, error } = await sb.auth.updateUser({ data: consentRecord() });
+      const { data, error } = await sb.auth.updateUser({ data: consentRecord({ child }) });
       setBusy(submit, false);
       if (error) return msg.show(friendlyError(error));
       if (data?.user) state.session = { ...state.session, user: data.user };

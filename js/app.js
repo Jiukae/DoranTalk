@@ -5,7 +5,8 @@ import { route, setGuard, startRouter, go, currentPath } from './router.js';
 import { el, render, brandHeader, loadingScreen, toast, trackKeyboard } from './ui.js';
 import { friendlyError } from './errors.js';
 import { renderCheck } from './pages/check.js';
-import { renderLogin, renderSignup, renderForgot, renderNewPassword } from './pages/auth.js';
+import { renderLogin, renderSignup, renderChildSignup, renderForgot, renderNewPassword } from './pages/auth.js';
+import { renderChildren, renderGuardianConsent } from './pages/guardian.js';
 import { renderHome, renderMe, renderNewGroup } from './pages/home.js';
 import { renderGroup } from './pages/group.js';
 import { renderHelp } from './pages/help.js';
@@ -81,10 +82,14 @@ route('/consent', needsProfile(renderConsent, { skipConsent: true }));
 route('/me/delete', needsProfile(renderDeleteAccount, { skipConsent: true }));
 route('/login', renderLogin, { access: 'guest' });
 route('/signup', renderSignup, { access: 'guest' });
+// 만 14세 미만: 보호자가 보낸 가입 링크 (로그인된 기기에서 열면 로그아웃할지 물어봐요)
+route('/signup/child/:token', renderChildSignup, { access: 'any' });
 route('/forgot', renderForgot, { access: 'guest' });
 route('/new-password', renderNewPassword, { access: 'auth' });
 route('/home', needsProfile(renderHome));
 route('/me', needsProfile(renderMe));
+route('/me/children', needsProfile(renderChildren));
+route('/me/children/consent', needsProfile(renderGuardianConsent));
 route('/groups/new', needsProfile(renderNewGroup));
 // 더 구체적인 주소를 먼저 등록해야 해요 (/group/:id/write 가 :tab 으로 잡히지 않게)
 route('/group/:id/write', needsProfile(renderWrite));
@@ -113,7 +118,9 @@ function listenAuthChanges() {
       } else if (event === 'SIGNED_OUT') {
         state.profile = null;
         state.recovery = false;
-        go('/login', { replace: true });
+        // 자녀 가입 링크에서 로그아웃한 경우처럼, 로그아웃 뒤 갈 화면이 정해져 있으면 그리로
+        go(state.afterSignOut || '/login', { replace: true });
+        state.afterSignOut = null;
       } else if (event === 'SIGNED_IN' && !wasLoggedIn) {
         state.profile = null;
         state.autoOpen = true;

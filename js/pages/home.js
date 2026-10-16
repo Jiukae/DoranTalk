@@ -14,6 +14,7 @@ import {
 import { timeAgo } from '../format.js';
 import { fetchUnreadCounts, watchNewMessages } from '../chat.js';
 import { APP_VERSION } from '../version.js';
+import { isChildUser } from '../legal.js';
 import { installBanner, inAppBrowserNotice } from '../install.js';
 import { THEMES, getTheme, setTheme } from '../theme.js';
 import { CONTACT_EMAIL } from '../legal.js';
@@ -286,6 +287,15 @@ export function renderNewGroup() {
 // ------------------------------------------------------------------
 export function renderMe() {
   const profile = state.profile;
+  const child = isChildUser(state.session?.user);
+  // 만 14세 미만 회원: 보호자 안내 (보호자 닉네임은 불러와서 채움)
+  const guardianLine = child ? el('p', { class: 'guardian-line' }, icon('shield', { size: 18 }), '보호자 동의로 가입한 계정이에요') : null;
+  if (child) {
+    sb.rpc('my_guardian_info').then(({ data }) => {
+      const g = data?.[0];
+      if (g?.guardian_nickname) guardianLine.lastChild.textContent = `보호자 동의로 가입한 계정이에요 · 보호자: ${g.guardian_nickname}`;
+    });
+  }
   const nick = el('input', {
     class: 'input', type: 'text', value: profile?.nickname || '', maxlength: 12,
     autocapitalize: 'off', spellcheck: 'false', required: true,
@@ -357,6 +367,7 @@ export function renderMe() {
         el('div', { style: 'min-width:0' },
           headerName,
           el('p', { class: 'muted' }, state.session?.user?.email || ''),
+          guardianLine,
         ),
       ),
       pushCard(),
@@ -364,6 +375,7 @@ export function renderMe() {
       themePicker(),
       el('h2', { class: 'section-title' }, '도움말 · 안내'),
       el('section', { class: 'card list-card' },
+        !child && listRow({ icon: 'family', label: '자녀 계정 (만 14세 미만)', sub: '자녀 가입 동의 · 자녀 계정 관리', href: '#/me/children' }),
         listRow({ icon: 'help', label: '사용 방법', sub: '홈 화면에 추가, 글 쓰기, 채팅', href: '#/help', tone: 'blue' }),
         listRow({ icon: 'activity', label: '연결 점검', sub: '잘 안 될 때 확인해 보세요', href: '#/check', tone: 'green' }),
         listRow({ icon: 'mail', label: '문의하기', sub: CONTACT_EMAIL, href: `mailto:${CONTACT_EMAIL}`, tone: 'violet' }),

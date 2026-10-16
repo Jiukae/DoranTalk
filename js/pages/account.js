@@ -24,6 +24,13 @@ export function renderDeleteAccount() {
   const confirmBox = el('input', { type: 'checkbox', class: 'check-input', id: 'delete-confirm' });
   const msg = messageBox();
   const submit = el('button', { class: 'btn btn-danger btn-block', type: 'submit' }, '회원 탈퇴하기');
+  // 내가 보호자로 동의해 가입한 자녀 계정이 있으면 알려 줌 (자녀 계정은 자동으로 지워지지 않아요)
+  const kidsNote = el('p', { class: 'form-msg info', hidden: true });
+  sb.rpc('my_children').then(({ data }) => {
+    if (!data?.length) return;
+    kidsNote.textContent = `보호자로 동의한 자녀 계정(${data.map((k) => k.nickname).join(', ')})은 그대로 남아요. 함께 지우려면 내 정보 → 자녀 계정에서 먼저 지워 주세요.`;
+    kidsNote.hidden = false;
+  });
 
   const form = el('form', {
     class: 'card', novalidate: true,
@@ -66,6 +73,7 @@ export function renderDeleteAccount() {
     ),
     el('p', { class: 'muted' }, '다른 가족이 있는 그룹은 그대로 남아요. 내가 방장이었다면 가장 먼저 들어온 가족이 방장이 돼요.'),
     el('p', { class: 'muted' }, '간직하고 싶은 사진은 탈퇴 전에 휴대폰에 저장해 두세요.'),
+    kidsNote,
     el('label', { class: 'consent-label consent-all', for: confirmBox.id }, confirmBox, el('span', {}, '위 내용을 모두 확인했어요')),
     msg,
     submit,

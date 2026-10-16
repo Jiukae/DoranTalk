@@ -24,6 +24,7 @@
 | - | 사이트 올리는 곳을 Netlify → Vercel(무료)로 옮김 | ✅ 완료 → [안내서](docs/hosting-vercel.md) |
 | - | 문의 메일 admin@dorantalk.com 을 윈도우 새 Outlook에서 받고 답장하기 | 📖 [안내서](docs/outlook-mail.md) |
 | 10 | 다른 가족들에게 공개 · 홍보: 소개 화면 · 링크 미리보기 · 가입 경로 · 장난 방지 제한(DB 7) · 홍보 이미지와 문구 | ✅ 준비 완료 → [안내서](docs/step10-launch.md) · [홍보 문구](marketing/promo-texts.md) |
+| 11 | 만 14세 미만 자녀: 보호자 동의 → 자녀 가입 링크 → 보호자가 있는 그룹에만 초대 (DB 8) | ✅ 완료 → [안내서](docs/step11-children.md) |
 
 ## 폴더 구조
 
@@ -47,7 +48,7 @@ js/state.js             로그인 정보와 내 닉네임 보관
 js/errors.js            서버 오류를 쉬운 한국어로 바꾸기
 js/ui.js                화면 그리기 도우미: 확인 창, 아래 메뉴, 불러오는 중 틀, 프로필 색 (사용자 글은 항상 텍스트로만 표시)
 js/icons.js             선 아이콘 모음 (Lucide 모양, icons/LICENSE-lucide.txt)
-js/pages/auth.js        로그인 · 회원가입 · 비밀번호 찾기/재설정
+js/pages/auth.js        로그인 · 회원가입 · 자녀 회원가입(#/signup/child/…) · 비밀번호 찾기/재설정
 js/pages/home.js        홈(받은 초대, 그룹 목록) · 그룹 만들기 · 내 정보
 js/pages/group.js       그룹 화면(소식·채팅·가족 탭), 초대·멤버·나가기
 js/groups.js            그룹·초대 관련 서버 요청과 실시간 알림
@@ -67,6 +68,7 @@ js/pages/check.js       연결 점검 화면 (#/check)
 js/legal.js             약관 버전 · 보호책임자 · 문의 메일 + 동의 기록 확인
 js/pages/legal.js       개인정보처리방침(#/privacy) · 이용약관(#/terms) · 약관 동의 화면 · 동의 체크 칸
 js/pages/account.js     회원 탈퇴 (#/me/delete): 내 사진 파일 → 계정 순서로 삭제
+js/pages/guardian.js    자녀 계정 (#/me/children): 보호자 동의 · 자녀 가입 링크 · 동의 철회(자녀 계정 삭제)
 js/push.js              휴대폰 알림: 켜기 · 끄기 · 가족에게 알리기 · 앱 아이콘 숫자
 js/pages/pushsetup.js   알림 열쇠(VAPID) 만들기 · 알림 서버 확인 (관리자용, #/push-setup)
 vendor/supabase.js      Supabase 공식 라이브러리 v2.117.1 (MIT 라이선스)
@@ -86,6 +88,7 @@ netlify.toml            (예전) Netlify 배포 설정 — 다시 돌아갈 때�
 - 그룹 생성·초대·수락은 서버 함수(RPC)로만 가능 → 스스로 남의 그룹에 들어가는 것 불가.
 - 초대를 **수락하기 전에는** 그룹 이름과 초대한 사람 닉네임 외에는 아무것도 안 보임.
 - 사진은 비공개 버킷 `family-photos/{그룹ID}/...` 에 저장, 멤버만 서명된 임시 주소로 열람.
+- 만 14세 미만은 보호자가 비밀번호를 다시 확인하고 동의해 만든 링크로만 가입, 보호자가 있는 그룹에만 초대 가능.
 - 프론트엔드에는 공개 키만 사용. secret / service_role 키는 코드에 절대 넣지 않음.
 
 ## 개발자용: 보안 규칙 테스트
