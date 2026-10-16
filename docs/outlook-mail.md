@@ -11,7 +11,7 @@ admin@dorantalk.com 은 메일함이 따로 없는 **전달 주소**예요. (8�
 | 하는 일 | 방법 |
 |---|---|
 | **받기** | Outlook에 **지메일 계정(gjiukae@gmail.com)** 을 **구글 로그인**으로 추가 (앱 비밀번호 필요 없음) |
-| **admin@ 으로 답장** | 지메일에 **"다른 주소에서 메일 보내기"** 로 admin@dorantalk.com 을 등록 (보내기는 Resend) → Outlook에서 **보낸 사람**을 admin@ 으로 |
+| **admin@ 으로 답장** | 지메일에 **"다른 주소에서 메일 보내기"** 로 admin@dorantalk.com 을 등록 (보내기는 Resend) → **답장은 지메일(웹 · 휴대폰 앱)에서** |
 
 - ⚠️ Outlook에는 **gjiukae@gmail.com 으로 오는 메일이 모두** 보여요. (admin@ 문의 메일도 여기로 전달되니까요)
 
@@ -57,7 +57,10 @@ admin@dorantalk.com 은 메일함이 따로 없는 **전달 주소**예요. (8�
    → 받은 메일의 **확인 링크**를 누르거나 **확인 코드**를 입력 → 완료
 6. (확인) 같은 화면 **"메일에 답장할 때:"** 가 **"메일을 받은 주소에서 답장하기"** 로 되어 있으면 좋아요.
 
-## C. Outlook에서 admin@ 으로 답장 · 시험
+## C. Outlook에서 admin@ 으로 답장 · 시험 (선택 — 추천은 지메일에서 답장)
+> 새 Outlook에서 보낸 사람을 admin@ 으로 바꿔 보내면, 받는 쪽에 **"gmail.com 경유(via gmail.com)"** 표시나 구글 계정 이름이 붙을 수 있어요.
+> 깔끔하게 **도란톡 &lt;admin@dorantalk.com&gt;** 으로 보내려면 **읽기는 Outlook, 답장은 지메일**에서 하세요. (B-6 덕분에 admin@ 으로 온 메일에 답장하면 자동으로 admin@ 으로 나가요)
+
 1. Outlook에서 A-4의 시험 메일을 열고 **회신**
 2. 위쪽에 **보낸 사람** 칸이 보이면 → 눌러서 **admin@dorantalk.com** 선택 (목록에 없으면 **다른 전자 메일 주소** → `admin@dorantalk.com` 입력)
    - **보낸 사람** 칸이 안 보이면: 메일 쓰는 화면 위쪽 **옵션** → **보낸 사람 표시**
@@ -79,4 +82,4 @@ admin@dorantalk.com 은 메일함이 따로 없는 **전달 주소**예요. (8�
 - [ ] A. 새 Outlook → 계정 추가 → gjiukae@gmail.com → Google 로그인 → 허용 → admin@ 시험 메일 도착
 - [ ] (A) 앞에서 만든 앱 비밀번호(Outlook) 삭제
 - [ ] B. 지메일 → 다른 주소에서 메일 보내기 → admin@dorantalk.com (smtp.resend.com · 587 · resend · re_ 키) → 확인
-- [ ] C. Outlook에서 회신 → 보낸 사람 admin@ → 도착 확인 (안 되면 답장은 지메일에서)
+- [ ] C. 답장은 지메일에서 → 받는 쪽에 "도란톡 <admin@dorantalk.com>" 확인 (Outlook에서 보내기는 선택)
