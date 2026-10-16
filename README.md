@@ -22,7 +22,7 @@
 | 8 | 개인정보처리방침 · 이용약관 · 가입 동의 · 회원 탈퇴 · 문의 메일 | ✅ 완료 → [안내서](docs/step8-legal.md) |
 | 9 | 휴대폰 알림 (채팅 · 새 소식 · 댓글 · 초대, 앱을 닫아도) | ✅ 완료 → [안내서](docs/step9-push.md) |
 | - | 사이트 올리는 곳을 Netlify → Vercel(무료)로 옮김 | ✅ 완료 → [안내서](docs/hosting-vercel.md) |
-| - | 문의 메일 admin@dorantalk.com 을 윈도우 새 Outlook에서 받고 답장하기 (IMAP) | 📖 [안내서](docs/outlook-mail.md) |
+| - | 문의 메일 admin@dorantalk.com 을 윈도우 새 Outlook에서 받고 답장하기 | 📖 [안내서](docs/outlook-mail.md) |
 | 10 | 다른 가족들에게 공개 · 홍보: 소개 화면 · 링크 미리보기 · 가입 경로 · 장난 방지 제한(DB 7) · 홍보 이미지와 문구 | ✅ 준비 완료 → [안내서](docs/step10-launch.md) · [홍보 문구](marketing/promo-texts.md) |
 
 ## 폴더 구조
