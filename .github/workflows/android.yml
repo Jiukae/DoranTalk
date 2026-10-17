@@ -37,7 +37,22 @@ jobs:
 
       - name: AAB 만들기
         working-directory: android
-        run: ./gradlew --no-daemon --stacktrace bundleRelease
+        run: ./gradlew --no-daemon --stacktrace bundleRelease assembleRelease
+
+      - name: 시험용 APK 만들기 (에뮬레이터 실행 시험용 · 임시 열쇠로 서명)
+        run: |
+          BT="$ANDROID_HOME/build-tools/36.0.0"
+          mkdir -p apk
+          keytool -genkeypair -keystore "$RUNNER_TEMP/smoke.jks" -storepass smoketest -keypass smoketest \
+            -alias smoke -keyalg RSA -keysize 2048 -validity 2 -dname CN=smoke > /dev/null 2>&1
+          "$BT/zipalign" -p -f 4 android/app/build/outputs/apk/release/app-release-unsigned.apk "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/smoke.jks" --ks-pass pass:smoketest --out apk/dorantalk-smoke.apk "$RUNNER_TEMP/aligned.apk"
+          ls -la apk android/app/build/outputs/bundle/release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dorantalk-smoke-apk
+          path: apk/*.apk
 
       - name: 라이브러리 정보 (문제 생겼을 때 참고용)
         continue-on-error: true
@@ -72,6 +87,38 @@ jobs:
           name: dorantalk-aab
           path: out/*.aab
           if-no-files-found: error
+
+  # 에뮬레이터(안드로이드 14 + 크롬)에서 설치 · 실행해 보고 화면을 찍어요
+  smoke-test:
+    needs: bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: dorantalk-smoke-apk
+          path: apk
+      - name: KVM 켜기 (에뮬레이터 속도)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis_playstore
+          arch: x86_64
+          disable-animations: true
+          script: bash android/smoke-test.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-screenshot
+          path: smoke.png
+          if-no-files-found: ignore
 
   # 서명 안 된 AAB 를 글자(base64)로 로그에 적어 둬요.
   # Artifacts 를 내려받을 수 없는 곳(예: Claude 작업 환경)에서 이 로그만 읽어 파일을 되살릴 수 있게.

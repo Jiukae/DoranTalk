@@ -27,6 +27,7 @@
 | 11 | 만 14세 미만 자녀: 보호자 동의 → 자녀 가입 링크 → 보호자가 있는 그룹에만 초대 (DB 8) | ✅ 완료 → [안내서](docs/step11-children.md) |
 | 12 | 아이디(한글 가능, 닉네임은 겹쳐도 됨) · 아이디로 초대 + 초대 메일 · 자녀 그룹 만들기는 보호자 승인 · "가족 그룹"→"그룹" (DB 9) | ✅ 완료 → [안내서](docs/step12-handle-mail.md) |
 | 13 | 연결 점검은 운영자(admin@dorantalk.com)만 · "도란톡" · "관리자" 같은 이름은 운영자만 (DB 10) | ✅ 완료 → [안내서](docs/step13-admin.md) |
+| 14 | Play 스토어용 Android 앱(TWA, AAB) · 스토어 등록 그림 · 계정 삭제 안내 페이지 | ✅ 완료 → [안내서](docs/step14-playstore.md) |
 
 ## 폴더 구조
 
@@ -37,6 +38,10 @@ robots.txt, sitemap.xml 검색 사이트 안내 (소개 화면을 찾을 수 있
 assets/                 소개 화면 사진(앱 화면 예시) · 링크 미리보기 그림(og-image.png)
 marketing/              홍보 이미지(인스타 · 쇼츠 · 배너) + 홍보 문구 모음(promo-texts.md)
 marketing/video/        광고 동영상 20초 (세로 9:16 릴스 · 쇼츠용, 정사각 1:1 피드용) + 표지
+marketing/play-store/   Play 스토어 등록 그림(아이콘 · 그래픽 이미지 · 스크린샷 4장) + 등록 문구(listing.md)
+android/                Play 스토어용 Android 앱 (dorantalk.com 을 앱 화면으로 여는 TWA, com.dorantalk.app)
+.github/workflows/      android.yml: GitHub Actions 에서 Android 앱 파일(AAB) 만들기
+.well-known/            assetlinks.json: 이 웹사이트와 Android 앱이 한 주인이라는 증명 (주소창 숨기기)
 manifest.webmanifest    홈 화면 앱 정보(이름, 아이콘, 색)
 sw.js                   서비스 워커: 앱 화면 저장(인터넷이 약해도 열림), 항상 최신 파일 우선, 알림 띄우기 · 누르면 그 화면 열기
 icons/                  앱 아이콘 (주황색 집 + 하트)

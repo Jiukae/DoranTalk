@@ -17,7 +17,10 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            // 쓰지 않는 코드 · 그림을 빼서 앱 크기를 줄여요
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 
