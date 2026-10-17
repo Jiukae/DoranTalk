@@ -8,7 +8,7 @@ import {
   icon, iconTile, brandMark, listRow, skeletonRows, colorIndex, confirmDialog,
 } from '../ui.js';
 import {
-  nicknameFormatError, NICKNAME_HINT, handleField, handleFormatError, checkHandleAvailable,
+  nicknameFormatError, NICKNAME_HINT, handleField, handleFormatError, checkHandleAvailable, reservedNameError,
 } from './auth.js';
 import {
   fetchMyGroups, fetchMyInvitations, respondInvitation, createGroup, watchMyInvitations,
@@ -17,7 +17,7 @@ import {
 import { timeAgo } from '../format.js';
 import { fetchUnreadCounts, watchNewMessages } from '../chat.js';
 import { APP_VERSION } from '../version.js';
-import { isChildUser } from '../legal.js';
+import { isChildUser, isAdminUser } from '../legal.js';
 import { installBanner, inAppBrowserNotice } from '../install.js';
 import { THEMES, getTheme, setTheme } from '../theme.js';
 import { CONTACT_EMAIL } from '../legal.js';
@@ -390,9 +390,9 @@ export function renderMe() {
       if (hasHandle && handle !== profile.handle) changes.handle = handle;
       if (nickname !== profile.nickname) changes.nickname = nickname;
       if (!Object.keys(changes).length) return msg.show('바뀐 내용이 없어요.', 'info');
-      const handleError = changes.handle !== undefined && handleFormatError(handle);
+      const handleError = changes.handle !== undefined && (handleFormatError(handle) || reservedNameError(handle));
       if (handleError) return msg.show(handleError);
-      const formatError = changes.nickname !== undefined && nicknameFormatError(nickname);
+      const formatError = changes.nickname !== undefined && (nicknameFormatError(nickname) || reservedNameError(nickname));
       if (formatError) return msg.show(formatError);
 
       setBusy(save, true, '저장하는 중…');
@@ -462,7 +462,7 @@ export function renderMe() {
       el('section', { class: 'card list-card' },
         !child && listRow({ icon: 'family', label: '자녀 계정 (만 14세 미만)', sub: '자녀 가입 동의 · 자녀 계정 관리', href: '#/me/children' }),
         listRow({ icon: 'help', label: '사용 방법', sub: '홈 화면에 추가, 글 쓰기, 채팅', href: '#/help', tone: 'blue' }),
-        listRow({ icon: 'activity', label: '연결 점검', sub: '잘 안 될 때 확인해 보세요', href: '#/check', tone: 'green' }),
+        isAdminUser(state.session?.user) && listRow({ icon: 'activity', label: '연결 점검 (운영자)', sub: '서버 · 데이터베이스 · 알림 · 메일 상태', href: '#/check', tone: 'green' }),
         listRow({ icon: 'mail', label: '문의하기', sub: CONTACT_EMAIL, href: `mailto:${CONTACT_EMAIL}`, tone: 'violet' }),
         listRow({ icon: 'document', label: '이용약관', href: '#/terms', tone: 'gray' }),
         listRow({ icon: 'shield', label: '개인정보처리방침', href: '#/privacy', tone: 'gray' }),

@@ -14,7 +14,7 @@ import { setupInstall, isStandalone } from './install.js';
 import { renderWrite, renderPostDetail } from './pages/feed.js';
 import { renderPrivacy, renderTerms, renderConsent } from './pages/legal.js';
 import { renderDeleteAccount } from './pages/account.js';
-import { hasConsented } from './legal.js';
+import { hasConsented, isAdminUser } from './legal.js';
 import { renderPushSetup } from './pages/pushsetup.js';
 import { refreshPush, listenNotificationClicks, forgetThisDevice } from './push.js';
 import { captureSource } from './source.js';
@@ -57,6 +57,22 @@ function needsProfile(renderPage, { skipConsent = false } = {}) {
   };
 }
 
+// 운영자 계정만 볼 수 있는 화면
+function adminOnly(renderPage) {
+  return (params) => {
+    if (isAdminUser(state.session?.user)) return renderPage(params);
+    render(el('main', { class: 'page' },
+      brandHeader(),
+      el('section', { class: 'card center stack' },
+        el('h1', {}, '운영자만 볼 수 있는 화면이에요'),
+        el('p', { class: 'muted' }, '잘 안 되는 게 있으면 화면을 캡처해 내 정보 → 문의하기로 보내 주세요.'),
+        el('a', { href: '#/home', class: 'btn btn-block' }, '홈으로'),
+      ),
+    ));
+    return null;
+  };
+}
+
 function renderProfileError(message) {
   render(el('main', { class: 'page' },
     brandHeader(),
@@ -72,7 +88,8 @@ function renderProfileError(message) {
   ));
 }
 
-route('/check', renderCheck, { access: 'any' });
+// 연결 점검은 운영자(admin@dorantalk.com)만
+route('/check', needsProfile(adminOnly(renderCheck), { skipConsent: true }));
 route('/help', renderHelp, { access: 'any' });
 route('/privacy', renderPrivacy, { access: 'any' });
 route('/terms', renderTerms, { access: 'any' });

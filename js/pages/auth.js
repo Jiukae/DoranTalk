@@ -9,7 +9,7 @@ import {
 } from '../ui.js';
 import { inAppBrowserNotice } from '../install.js';
 import { consentChecklist, legalLinks } from './legal.js';
-import { consentRecord, isChildUser } from '../legal.js';
+import { consentRecord, isChildUser, isReservedName, isAdminUser, ADMIN_EMAIL } from '../legal.js';
 import { signupSource } from '../source.js';
 import { forgetThisDevice } from '../push.js';
 
@@ -36,6 +36,17 @@ export function nicknameFormatError(nick) {
   return null;
 }
 
+// 운영자인지: 로그인한 계정, 또는 가입할 때 적은 이메일이 운영자 이메일
+function isAdminContext(email) {
+  return isAdminUser(state.session?.user) || String(email || '').trim().toLowerCase() === ADMIN_EMAIL;
+}
+
+// "도란톡" · "관리자" 같은 이름은 운영자만 (가입 · 내 정보에서 이름을 정할 때)
+export function reservedNameError(name, email) {
+  if (!isReservedName(name) || isAdminContext(email)) return null;
+  return '"도란톡" · "관리자" 같은 이름은 운영자만 쓸 수 있어요. 다른 이름을 골라 주세요.';
+}
+
 // 아이디 형식 검사 (서버에 묻기 전)
 export function handleFormatError(h) {
   if (!h) return '아이디를 입력해 주세요.';
@@ -47,7 +58,9 @@ export function handleFormatError(h) {
   return null;
 }
 
-export async function checkHandleAvailable(h) {
+export async function checkHandleAvailable(h, email) {
+  // 운영자 이름은 "쓸 수 없음"으로 나오지만, 운영자 본인은 써도 돼요 (겹치는지는 저장할 때 서버가 확인)
+  if (isReservedName(h) && isAdminContext(email)) return true;
   const { data, error } = await sb.rpc('is_handle_available', { p_handle: h });
   // 예전 데이터베이스(버전 9 전)에는 아이디 확인 기능이 없어요 → 가입할 때 서버가 확인해요
   if (error?.code === 'PGRST202') return true;
@@ -73,7 +86,7 @@ export function handleField({ id, value = '', current = '' }) {
     clearTimeout(timer);
     const value = input.value.trim();
     if (!value || (current && value.toLowerCase() === current.toLowerCase())) return setStatus('', '');
-    const formatError = handleFormatError(value);
+    const formatError = handleFormatError(value) || reservedNameError(value);
     if (formatError) return setStatus(formatError, 'bad');
     setStatus('확인하는 중…', '');
     const mine = ++seq;
@@ -176,9 +189,9 @@ export function renderSignup(_params, child = null) {
       const emailValue = email.value.trim();
       const password = pw.input.value;
 
-      const handleError = handleFormatError(handle);
+      const handleError = handleFormatError(handle) || reservedNameError(handle, emailValue);
       if (handleError) return msg.show(handleError);
-      const formatError = nicknameFormatError(nickname);
+      const formatError = nicknameFormatError(nickname) || reservedNameError(nickname, emailValue);
       if (formatError) return msg.show(formatError);
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) return msg.show('이메일 주소를 정확히 입력해 주세요. (예: mom@naver.com)');
       if (password.length < 6) return msg.show('비밀번호는 6자 이상으로 정해 주세요.');
@@ -191,7 +204,7 @@ export function renderSignup(_params, child = null) {
 
       setBusy(submit, true, '가입하는 중…');
       try {
-        if (!(await checkHandleAvailable(handle))) {
+        if (!(await checkHandleAvailable(handle, emailValue))) {
           handleBox.setStatus('이미 다른 사람이 쓰고 있어요. 다른 아이디를 골라 주세요.', 'bad');
           throw new Error('이미 다른 사람이 쓰고 있는 아이디예요. 다른 아이디를 골라 주세요.');
         }
@@ -499,8 +512,7 @@ export function renderNewPassword() {
 function footerLinks() {
   return el('div', {},
     el('p', { class: 'center small muted', style: 'margin-top:8px' },
-      el('a', { href: '#/help', class: 'link-strong' }, '사용 방법'), ' · ',
-      el('a', { href: '#/check', class: 'muted' }, '연결 점검')),
+      el('a', { href: '#/help', class: 'link-strong' }, '사용 방법')),
     legalLinks(),
   );
 }

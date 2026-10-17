@@ -1,6 +1,6 @@
 -- =====================================================================
 --  TalkFeed 데이터베이스 설계 (테이블 + 보안 규칙 RLS + 사진 저장소)
---  ★ 버전 9 (아이디 · 초대 메일 · 자녀 그룹 승인) ★
+--  ★ 버전 10 (운영자 이름 보호 · 아이디 · 초대 메일 · 자녀 그룹 승인) ★
 --    앱 주소 뒤에 #/check 를 붙여 열면 DB 버전이 최신인지 확인할 수 있어요.
 -- ---------------------------------------------------------------------
 --  사용법: Supabase 대시보드 → SQL Editor → 이 파일 내용을 전부 붙여넣고 Run
@@ -305,7 +305,7 @@ create trigger on_auth_user_created
 create or replace function public.talkfeed_schema_version()
 returns integer
 language sql immutable set search_path = ''
-as $$ select 9 $$;
+as $$ select 10 $$;
 
 -- 닉네임 형식 확인 (버전 9부터 닉네임은 겹쳐도 돼요 — 예전 앱 호환용)
 create or replace function public.is_nickname_available(nick text)
@@ -315,12 +315,22 @@ as $$
   select btrim(coalesce(nick, '')) ~ '^[가-힣a-zA-Z0-9_]{2,12}$';
 $$;
 
+-- (버전 10) 운영자만 쓸 수 있는 이름인지 ("도란톡" · "관리자" 같은 이름 — 13번 참고)
+create or replace function public.is_reserved_name(t text)
+returns boolean
+language sql immutable set search_path = ''
+as $$
+  select lower(coalesce(t, '')) ~ '(도란톡|dorantalk)'
+      or lower(coalesce(t, '')) in ('admin', 'administrator', '관리자', '운영자', '운영진');
+$$;
+
 -- (버전 9) 아이디 사용 가능 여부 (가입 · 아이디 바꾸기 화면에서 확인)
 create or replace function public.is_handle_available(p_handle text)
 returns boolean
 language sql stable security definer set search_path = ''
 as $$
   select btrim(coalesce(p_handle, '')) ~ '^[가-힣a-zA-Z0-9_]{2,20}$'
+     and not public.is_reserved_name(btrim(p_handle))   -- (버전 10) 운영자 이름은 쓸 수 없어요
      and not exists (
        select 1 from public.profiles p
        where lower(p.handle) = lower(btrim(p_handle))
@@ -1759,6 +1769,37 @@ grant execute on function
   public.children_group_requests(),
   public.decide_group_request(uuid, boolean)
   to authenticated;
+
+
+-- ---------------------------------------------------------------------
+-- 13. (버전 10) 운영자 이름 보호
+--   "도란톡" · "dorantalk" 이 들어간 이름, "관리자" · "운영자" · "admin" 같은 이름은
+--   운영자 계정(admin@dorantalk.com)만 아이디 · 닉네임으로 쓸 수 있어요. (운영자인 척 초대하는 것 방지)
+-- ---------------------------------------------------------------------
+create or replace function public.guard_reserved_names()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if (tg_op = 'INSERT'
+      or new.nickname is distinct from old.nickname
+      or new.handle is distinct from old.handle)
+     and (public.is_reserved_name(new.nickname) or public.is_reserved_name(new.handle))
+     and not exists (select 1 from auth.users u
+                     where u.id = new.id and lower(u.email) = 'admin@dorantalk.com') then
+    raise exception '"도란톡" · "관리자" 같은 이름은 운영자만 쓸 수 있어요. 다른 이름을 골라 주세요.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists guard_reserved_names on public.profiles;
+create trigger guard_reserved_names
+  before insert or update of nickname, handle on public.profiles
+  for each row execute function public.guard_reserved_names();
+
+revoke execute on function public.is_reserved_name(text), public.guard_reserved_names()
+  from public, anon, authenticated;
 
 
 -- 끝! 아래 "Success. No rows returned" 가 보이면 성공입니다.

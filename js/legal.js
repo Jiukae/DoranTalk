@@ -5,6 +5,18 @@ export const SERVICE_NAME = '도란톡';
 export const SERVICE_URL = 'https://dorantalk.com';
 export const PRIVACY_OFFICER = '한지욱';
 export const CONTACT_EMAIL = 'admin@dorantalk.com';
+// 운영자(관리자) 계정: 로그인 이메일로 확인해요 (닉네임 · 아이디는 바꿀 수 있어서 기준으로 쓰지 않아요)
+export const ADMIN_EMAIL = 'admin@dorantalk.com';
+
+export function isAdminUser(user) {
+  return String(user?.email || '').toLowerCase() === ADMIN_EMAIL;
+}
+
+// 운영자인 척하지 못하게, 운영자만 쓸 수 있는 이름 (데이터베이스도 같은 규칙으로 막아요)
+export function isReservedName(name) {
+  const s = String(name || '').toLowerCase();
+  return /(도란톡|dorantalk)/.test(s) || ['admin', 'administrator', '관리자', '운영자', '운영진'].includes(s);
+}
 export const TERMS_VERSION = '2026-10-14';
 export const EFFECTIVE_DATE = '2026년 10월 14일';
 

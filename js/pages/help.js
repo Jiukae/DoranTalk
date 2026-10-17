@@ -147,7 +147,7 @@ export function renderHelp() {
         el('ul', { class: 'bullets' },
           el('li', {}, '앱을 ', b('완전히 닫았다가'), ' 다시 열어 보세요'),
           el('li', {}, '와이파이나 데이터가 켜져 있는지 확인해 주세요'),
-          el('li', {}, el('a', { href: '#/check' }, '연결 점검'), ' 화면에서 빨간 표시가 있는지 확인하고, 화면을 캡처해 관리자에게 보내 주세요'),
+          el('li', {}, '그래도 안 되면 화면을 캡처해 ', b('내 정보 → 문의하기'), '로 보내 주세요'),
         ),
         el('p', { class: 'muted small' }, `앱 버전: ${APP_VERSION}`),
         el('p', { class: 'muted small' }, '글꼴: 네이버 나눔스퀘어 네오 (© NAVER Corp.)'),

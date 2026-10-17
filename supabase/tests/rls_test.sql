@@ -1023,4 +1023,42 @@ reset role;
 set role anon;
 select pg_temp.assert((select guardian_handle from public.guardian_link_info('nope')) is null, 'link info handle null for bad link');
 reset role;
+
+-- =====================================================================
+-- (버전 10) 운영자 이름 보호
+-- =====================================================================
+select pg_temp.assert(not public.is_handle_available('도란톡'), 'reserved handle not available');
+select pg_temp.assert(not public.is_handle_available('DoranTalk_official'), 'reserved handle (contains) not available');
+do $$ begin
+  insert into auth.users (email, raw_user_meta_data) values ('fake@x.com', '{"nickname":"도란톡","handle":"doran_fake"}');
+  raise exception 'TEST FAILED: reserved nickname signup';
+exception when raise_exception then
+  if sqlerrm not like '%운영자만%' then raise; end if;
+end $$;
+do $$ begin
+  insert into auth.users (email, raw_user_meta_data) values ('fake2@x.com', '{"nickname":"가짜","handle":"관리자"}');
+  raise exception 'TEST FAILED: reserved handle signup';
+exception when raise_exception then
+  if sqlerrm not like '%운영자만%' then raise; end if;
+end $$;
+-- 운영자 이메일이면 됨
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('ffffffff-0000-0000-0000-000000000001', 'admin@dorantalk.com', '{"nickname":"도란톡","handle":"도란톡"}');
+select pg_temp.assert((select handle from public.profiles where id = 'ffffffff-0000-0000-0000-000000000001') = '도란톡', 'admin got reserved name');
+-- 일반 회원이 이름을 "도란톡"으로 바꾸려 하면 막힘, 다른 칸만 바꾸는 건 괜찮음
+select pg_temp.as_user('aaaaaaaa-0000-0000-0000-000000000002');
+do $$ begin
+  update public.profiles set nickname = '도란톡공식' where id = 'aaaaaaaa-0000-0000-0000-000000000002';
+  raise exception 'TEST FAILED: reserved nickname update';
+exception when raise_exception then
+  if sqlerrm not like '%운영자만%' then raise; end if;
+end $$;
+update public.profiles set nickname = '아빠곰' where id = 'aaaaaaaa-0000-0000-0000-000000000002';
+reset role;
+select pg_temp.assert((select nickname from public.profiles where id = 'aaaaaaaa-0000-0000-0000-000000000002') = '아빠곰', 'normal rename ok');
+-- 운영자는 초대받을 수 있음 (아이디 "도란톡"으로 찾기)
+select pg_temp.as_user('eeeeeeee-0000-0000-0000-000000000004');
+select public.invite_by_handle((select v from pg_temp.ids where k='mg'), '도란톡');
+reset role;
+select pg_temp.assert((select count(*) from public.group_invitations where invitee_id = 'ffffffff-0000-0000-0000-000000000001') = 1, 'can invite admin by handle');
 select 'ALL RLS TESTS PASSED' as result;
