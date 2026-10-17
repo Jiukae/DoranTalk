@@ -1,0 +1,66 @@
+# 도란톡 Android 앱(AAB) 만들기
+# android/ 폴더가 바뀌거나, Actions 탭에서 "Run workflow" 를 누르면 실행돼요.
+# 결과 파일은 실행 화면 아래 Artifacts 에서 받을 수 있어요.
+#  - 저장소 Secrets 에 ANDROID_UPLOAD_KEYSTORE_B64 · ANDROID_UPLOAD_KEYSTORE_PASSWORD 가 있으면
+#    업로드 키로 서명된 AAB(Play 스토어에 바로 올릴 수 있는 파일)를 만들어요.
+#  - 없으면 서명 안 된 AAB 만 만들어요.
+name: Android 앱 (AAB)
+
+on:
+  push:
+    paths:
+      - 'android/**'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK 준비
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" --install "platforms;android-36" "build-tools;36.0.0" > /dev/null
+          ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools"
+
+      - name: AAB 만들기
+        working-directory: android
+        run: ./gradlew --no-daemon --stacktrace bundleRelease
+
+      - name: 업로드 키로 서명 (Secrets 가 있을 때만)
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+        run: |
+          AAB=android/app/build/outputs/bundle/release/app-release.aab
+          mkdir -p out
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            jarsigner -sigalg SHA256withRSA -digestalg SHA-256 \
+              -keystore "$RUNNER_TEMP/upload.jks" -storepass:env KEYSTORE_PASSWORD \
+              -signedjar out/dorantalk.aab "$AAB" upload
+            rm -f "$RUNNER_TEMP/upload.jks"
+            jarsigner -verify out/dorantalk.aab | tail -1
+          else
+            cp "$AAB" out/dorantalk-unsigned.aab
+            echo "서명 열쇠가 없어서 서명 안 된 AAB 를 만들었어요."
+          fi
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dorantalk-aab
+          path: out/*.aab
+          if-no-files-found: error

@@ -3,3 +3,6 @@ node_modules/
 .env
 .env.*
 *.log
+# 앱 서명 열쇠(키스토어)는 절대 올리지 않아요
+*.jks
+*.keystore

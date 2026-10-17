@@ -1,0 +1,38 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.dorantalk.app'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.dorantalk.app'
+        minSdk 21
+        targetSdk 36
+        // 새 버전을 Play 스토어에 올릴 때마다 versionCode 를 1씩 올려요
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        // 웹앱을 여는 껍데기라, 빌드를 막는 검사는 끄고 경고만 봐요
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+}

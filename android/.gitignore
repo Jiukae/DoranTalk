@@ -1,0 +1,11 @@
+# 빌드 결과물 · 내 컴퓨터 설정
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+# 서명 열쇠(키스토어)와 앱 파일은 절대 저장소에 올리지 않아요
+*.jks
+*.keystore
+*.aab
+*.apk

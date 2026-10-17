@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appName">도란톡</string>
+    <string name="launcherName">도란톡</string>
+    <string name="launchUrl">https://dorantalk.com/?from=playstore</string>
+    <string name="providerAuthority">com.dorantalk.app.fileprovider</string>
+    <string name="assetStatements" translatable="false">
+        [{ \"relation\": [\"delegate_permission/common.handle_all_urls\"],
+           \"target\": {\"namespace\": \"web\", \"site\": \"https://dorantalk.com\"}}]
+    </string>
+</resources>
