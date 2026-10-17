@@ -102,9 +102,9 @@
                 android:resource="@xml/filepaths" />
         </provider>
 
-        <!-- 웹 알림을 이 앱의 알림으로 보여 주기 (앱 아이콘 · 이름으로) -->
+        <!-- 웹 알림을 이 앱의 알림으로 보여 주기 (앱 아이콘 · 이름으로, 위에 팝업으로 뜨게 DelegationService.java) -->
         <service
-            android:name="com.google.androidbrowserhelper.trusted.DelegationService"
+            android:name=".DelegationService"
             android:enabled="true"
             android:exported="true">
             <meta-data

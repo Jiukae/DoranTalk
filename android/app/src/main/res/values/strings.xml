@@ -2,7 +2,7 @@
 <resources>
     <string name="appName">도란톡</string>
     <string name="launcherName">도란톡</string>
-    <string name="launchUrl">https://www.dorantalk.com/?from=playstore</string>
+    <string name="launchUrl">https://www.dorantalk.com/?from=app</string>
     <string name="providerAuthority">com.dorantalk.app.fileprovider</string>
     <string name="assetStatements" translatable="false">
         [{ \"relation\": [\"delegate_permission/common.handle_all_urls\"],
