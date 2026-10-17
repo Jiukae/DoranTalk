@@ -29,8 +29,9 @@ python3 - <<'PY'
 import json, urllib.request, websocket, time, subprocess, re
 
 def tap_allow():
-    # 알림 허용 창이 뜨면 "Allow"(허용)를 눌러요
-    for _ in range(6):
+    # 알림 허용 창(사이트 → 안드로이드 순서로 여러 번 뜰 수 있어요)에서 "Allow"(허용)를 모두 눌러요
+    tapped = 0
+    for _ in range(8):
         time.sleep(2)
         subprocess.run(['adb', 'shell', 'uiautomator', 'dump', '/sdcard/ui.xml'], capture_output=True)
         xml = subprocess.run(['adb', 'shell', 'cat', '/sdcard/ui.xml'], capture_output=True, text=True).stdout
@@ -38,9 +39,12 @@ def tap_allow():
         if m:
             x1, y1, x2, y2 = map(int, m.groups())
             subprocess.run(['adb', 'shell', 'input', 'tap', str((x1 + x2) // 2), str((y1 + y2) // 2)])
-            print('TAPPED Allow')
+            tapped += 1
+            print('TAPPED Allow', tapped)
+        elif tapped:
             return
-    print('NO Allow button')
+    print('Allow taps:', tapped)
+
 targets = json.load(urllib.request.urlopen('http://127.0.0.1:9222/json'))
 page = next((t for t in targets if t.get('type') == 'page' and 'dorantalk' in t.get('url', '')), None)
 print('PAGE', page and page['url'])
@@ -61,6 +65,8 @@ time.sleep(2)
 ws.close()
 PY
 adb exec-out screencap -p > popup.png
+echo "--- 로그 (알림 위임) ---"
+adb logcat -d | grep -iE "TrustedWebActivity|DelegationService|TwaLauncher|NotificationPermission|dorantalk" | tail -30 || true
 echo "--- 알림 기록 ---"
 adb shell dumpsys notification --noredact | grep -E "NotificationRecord.*pkg=com\.(dorantalk\.app|android\.chrome)" | head -5
 adb shell dumpsys notification --noredact | grep -A2 -E "pkg=com.dorantalk.app" | grep -iE "channel|importance" | head -8

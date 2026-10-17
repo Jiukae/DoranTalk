@@ -114,7 +114,7 @@ jobs:
           curl -fsS --max-redirs 0 https://www.dorantalk.com/.well-known/assetlinks.json | python3 -c "import json,sys; d=json.load(sys.stdin); t=d[0]['target']; assert t['package_name']=='com.dorantalk.app'; print('OK 지문', len(t['sha256_cert_fingerprints']), '개')"
           grep -q 'com.dorantalk.app' dal.json && echo "OK Google 확인"
 
-  # 에뮬레이터(안드로이드 14 + 크롬)에서 설치 · 실행해 보고 화면을 찍어요
+  # 에뮬레이터(안드로이드 16 + 크롬)에서 설치 · 실행해 보고, 알림이 위에 팝업으로 뜨는지 화면을 찍어요
   smoke-test:
     needs: bundle
     runs-on: ubuntu-latest
@@ -134,7 +134,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: 36
           target: google_apis_playstore
           arch: x86_64
           profile: pixel_6
