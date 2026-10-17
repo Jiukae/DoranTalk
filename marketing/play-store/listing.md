@@ -62,6 +62,8 @@
 ## 앱 카테고리 · 연락처
 - 앱 또는 게임: **앱** · 카테고리: **소셜**
 - 이메일: `admin@dorantalk.com`
-- 웹사이트: `https://dorantalk.com`
-- 개인정보처리방침: `https://dorantalk.com/privacy`
-- 계정 삭제 안내 (데이터 보안 섹션에서 물어봐요): `https://dorantalk.com/delete-account`
+- 웹사이트: `https://www.dorantalk.com`
+- 개인정보처리방침: `https://www.dorantalk.com/privacy`
+- 계정 삭제 안내 (데이터 보안 섹션에서 물어봐요): `https://www.dorantalk.com/delete-account`
+
+> 주소는 `www.` 가 붙은 걸 써요. (dorantalk.com 은 자동으로 www.dorantalk.com 으로 넘어가요)

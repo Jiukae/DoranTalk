@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 도란톡 앱: 실행하면 https://dorantalk.com 을 주소창 없이 앱 화면으로 열어요 (Trusted Web Activity).
-     dorantalk.com/.well-known/assetlinks.json 에 이 앱의 서명 지문이 있어야 주소창이 숨겨져요. -->
+<!-- 도란톡 앱: 실행하면 https://www.dorantalk.com 을 주소창 없이 앱 화면으로 열어요 (Trusted Web Activity).
+     www.dorantalk.com/.well-known/assetlinks.json 에 이 앱의 서명 지문이 있어야 주소창이 숨겨져요. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -30,7 +30,7 @@
             android:resource="@string/assetStatements" />
         <meta-data
             android:name="web_manifest_url"
-            android:value="https://dorantalk.com/manifest.webmanifest" />
+            android:value="https://www.dorantalk.com/manifest.webmanifest" />
 
         <activity android:name="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity">
             <meta-data
@@ -72,13 +72,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- dorantalk.com 링크를 누르면 앱으로 열기 -->
+            <!-- www.dorantalk.com 링크를 누르면 앱으로 열기 (dorantalk.com 은 www 로 넘어가서 자동 확인이 안 돼요) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:host="dorantalk.com"
+                    android:host="www.dorantalk.com"
                     android:scheme="https" />
             </intent-filter>
         </activity>

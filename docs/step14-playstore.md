@@ -3,7 +3,8 @@
 > 소요 시간: 등록 1~2시간 + **비공개 테스트 14일** + 심사 며칠 · 비용: **25달러 (한 번만)**
 
 ## 어떻게 만들었나요?
-- 도란톡 Android 앱은 **dorantalk.com 을 주소창 없이 앱 화면으로 여는 앱**이에요. (TWA: Trusted Web Activity)
+- 도란톡 Android 앱은 **www.dorantalk.com 을 주소창 없이 앱 화면으로 여는 앱**이에요. (TWA: Trusted Web Activity)
+  - dorantalk.com 은 자동으로 www.dorantalk.com 으로 넘어가서, 앱은 처음부터 www 주소를 열어요.
   - 웹사이트를 고치면 **앱도 바로 같이 바뀌어요.** 앱을 다시 올릴 필요가 없어요.
   - 휴대폰의 크롬으로 열려서 로그인 · 알림 · 사진 올리기가 웹과 똑같이 돼요.
 - 앱 이름 **도란톡** · 패키지 이름 **`com.dorantalk.app`** (한 번 정하면 못 바꿔요) · 안드로이드 7.0 이상
@@ -42,7 +43,7 @@ Google Play 개발자 계정은 **만 18세 이상**만 만들 수 있어요. �
 ## 3. 앱 콘텐츠 (정책 질문들) — 왼쪽 메뉴 **정책 및 프로그램 → 앱 콘텐츠**
 | 항목 | 답 |
 |---|---|
-| 개인정보처리방침 | `https://dorantalk.com/privacy` |
+| 개인정보처리방침 | `https://www.dorantalk.com/privacy` |
 | 앱 액세스 권한 | **일부 기능이 제한됨** → 심사용 계정 적기 (아래 3-1) |
 | 광고 | **아니요, 광고 없음** |
 | 콘텐츠 등급 | 설문 작성 (아래 3-2) |
@@ -52,7 +53,7 @@ Google Play 개발자 계정은 **만 18세 이상**만 만들 수 있어요. �
 
 ### 3-1. 심사용 계정
 심사하는 사람이 로그인해서 앱을 볼 수 있게 계정을 하나 만들어 줘요.
-1. dorantalk.com 에서 새로 가입: 이메일 예) `playreview@dorantalk.com` (받을 수 있는 메일) · 아이디 `플레이심사`
+1. www.dorantalk.com 에서 새로 가입: 이메일 예) `playreview@dorantalk.com` (받을 수 있는 메일) · 아이디 `플레이심사`
 2. 그 계정으로 그룹을 하나 만들고 글 · 사진을 두세 개 올려 두기
 3. Play Console 에 이메일 · 비밀번호 · 설명 적기: `로그인 후 "플레이심사 그룹"을 누르면 소식 · 채팅 · 멤버 탭을 볼 수 있어요.`
 
@@ -71,7 +72,7 @@ Google Play 개발자 계정은 **만 18세 이상**만 만들 수 있어요. �
 
 ### 3-4. 데이터 보안
 - 데이터를 수집하나요? **예** · 전송 중 암호화? **예** (https) · 사용자가 삭제 요청 가능? **예**
-- 계정 삭제 URL: `https://dorantalk.com/delete-account`
+- 계정 삭제 URL: `https://www.dorantalk.com/delete-account`
 - 수집하는 데이터 (모두 **공유 안 함** · 목적은 **앱 기능 · 계정 관리**):
   | 종류 | 항목 |
   |---|---|
@@ -98,13 +99,14 @@ Google Play 개발자 계정은 **만 18세 이상**만 만들 수 있어요. �
 8. 14일 뒤 **대시보드 → 프로덕션 액세스 신청** → 테스트 소감 질문에 답하기 → 승인되면 **프로덕션**에 같은 AAB 로 출시
 
 ## 6. ⭐ 주소창 없애기 — Play 앱 서명 지문 알려 주기
-Play 스토어에서 받은 앱은 **Google 의 앱 서명 키**로 다시 서명돼요. 이 지문을 `dorantalk.com` 에 등록해야 **위쪽 주소창이 사라져요.**
+Play 스토어에서 받은 앱은 **Google 의 앱 서명 키**로 다시 서명돼요. 이 지문을 웹사이트에 등록해야 **위쪽 주소창이 사라져요.**
 (등록 전에는 앱 위쪽에 `dorantalk.com` 주소 줄이 보여요. 앱은 정상으로 돼요.)
 1. Play Console → **테스트 및 출시 → 설정 → 앱 서명** (또는 **앱 무결성 → 앱 서명**)
 2. **앱 서명 키 인증서** 의 **SHA-256 인증서 지문** 복사 (`AB:CD:12:...` 처럼 생긴 긴 글자)
 3. 그 글자를 Claude 에게 보내 주세요 → `.well-known/assetlinks.json` 에 추가해 드려요
    - 직접 하려면: GitHub → `.well-known/assetlinks.json` → ✏️ → `sha256_cert_fingerprints` 안에 `,` 를 찍고 `"복사한 지문"` 한 줄 추가 → Commit
-4. 확인: **https://dorantalk.com/.well-known/assetlinks.json** 에 지문 2개가 보이면 끝 → 앱을 지웠다가 다시 설치하면 주소창이 사라져요
+4. 확인: **https://www.dorantalk.com/.well-known/assetlinks.json** 에 지문 2개가 보이면 끝 → 앱을 지웠다가 다시 설치하면 주소창이 사라져요
+   - GitHub **Actions → Android 앱 (AAB) → assetlinks-check** 가 초록색이면 Google 도 제대로 읽은 거예요
 
 ## 7. 다음에 앱을 업데이트할 때
 - 화면 · 기능 수정은 **웹만 고치면 앱에 바로 반영**돼요. 앱을 다시 올릴 일은 거의 없어요.
