@@ -34,15 +34,17 @@ if not page:
     raise SystemExit(0)
 ws = websocket.create_connection(page['webSocketDebuggerUrl'], timeout=20, suppress_origin=True)
 expr = """(async () => {
-  const perm = Notification.permission;
+  const before = Notification.permission;
+  const perm = await Notification.requestPermission();
   const reg = await navigator.serviceWorker.ready;
   await reg.showNotification('도란톡', { body: '팝업 시험 알림이에요 🔔', tag: 'smoke', icon: '/icons/icon-192.png', badge: '/icons/badge-96.png' });
-  return 'permission=' + perm + ' referrer=' + document.referrer;
+  return 'permission ' + before + ' -> ' + perm + ' referrer=' + document.referrer;
 })()"""
-ws.send(json.dumps({'id': 1, 'method': 'Runtime.evaluate', 'params': {'expression': expr, 'awaitPromise': True, 'returnByValue': True}}))
+ws.send(json.dumps({'id': 1, 'method': 'Runtime.evaluate', 'params': {'expression': expr, 'awaitPromise': True, 'returnByValue': True, 'userGesture': True}}))
 print('EVAL', ws.recv()[:400])
+time.sleep(2)
+ws.close()
 PY
-sleep 1.5
 adb exec-out screencap -p > popup.png
 echo "--- 알림 기록 ---"
 adb shell dumpsys notification --noredact | grep -E "NotificationRecord.*pkg=com\.(dorantalk\.app|android\.chrome)" | head -5
