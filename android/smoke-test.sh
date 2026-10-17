@@ -5,6 +5,10 @@ set -u
 APK=$(ls apk/*.apk | head -1)
 echo "Chrome: $(adb shell dumpsys package com.android.chrome | grep -m1 versionName)"
 adb install -r "$APK" || exit 1
+# 새 에뮬레이터의 크롬은 "Welcome to Chrome" 첫 화면이 떠서, 시험할 때만 건너뛰어요 (실제 폰은 이미 크롬을 쓰고 있어요)
+adb shell am set-debug-app --persistent com.android.chrome
+adb shell 'echo "_ --disable-fre --no-default-browser-check --no-first-run" > /data/local/tmp/chrome-command-line'
+adb shell am force-stop com.android.chrome
 adb logcat -c
 adb shell am start -W -n com.dorantalk.app/com.google.androidbrowserhelper.trusted.LauncherActivity
 sleep 30

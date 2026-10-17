@@ -40,8 +40,21 @@ export function setupInstall() {
   }
 }
 
+// Play 스토어 앱(TWA)으로 열면 처음 주소의 referrer 가 android-app://com.dorantalk.app 이에요.
+// 화면을 옮기면 referrer 가 사라져서 이 탭(sessionStorage)에만 기억해요. (크롬과 저장소를 같이 써서 localStorage 는 안 돼요)
+const PLAY_APP_KEY = 'talkfeed.playapp';
+function isPlayStoreApp() {
+  const fromApp = document.referrer.startsWith('android-app://com.dorantalk.app');
+  try {
+    if (fromApp) sessionStorage.setItem(PLAY_APP_KEY, '1');
+    return sessionStorage.getItem(PLAY_APP_KEY) === '1';
+  } catch {
+    return fromApp;
+  }
+}
+
 export function isStandalone() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true || isPlayStoreApp();
 }
 
 export function platform() {
