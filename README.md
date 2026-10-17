@@ -36,6 +36,7 @@ welcome.html            소개 화면 (dorantalk.com/welcome) — 처음 온 사
 robots.txt, sitemap.xml 검색 사이트 안내 (소개 화면을 찾을 수 있게)
 assets/                 소개 화면 사진(앱 화면 예시) · 링크 미리보기 그림(og-image.png)
 marketing/              홍보 이미지(인스타 · 쇼츠 · 배너) + 홍보 문구 모음(promo-texts.md)
+marketing/video/        광고 동영상 20초 (세로 9:16 릴스 · 쇼츠용, 정사각 1:1 피드용) + 표지
 manifest.webmanifest    홈 화면 앱 정보(이름, 아이콘, 색)
 sw.js                   서비스 워커: 앱 화면 저장(인터넷이 약해도 열림), 항상 최신 파일 우선, 알림 띄우기 · 누르면 그 화면 열기
 icons/                  앱 아이콘 (주황색 집 + 하트)
