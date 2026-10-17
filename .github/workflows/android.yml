@@ -88,6 +88,23 @@ jobs:
           path: out/*.aab
           if-no-files-found: error
 
+  # dorantalk.com 이 앱 서명 지문(assetlinks.json)을 제대로 내보내는지 확인해요 (주소창 숨기기에 필요)
+  assetlinks-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: assetlinks.json 확인
+        run: |
+          URL=https://dorantalk.com/.well-known/assetlinks.json
+          curl -fsS -D headers.txt "$URL" -o assetlinks.json
+          grep -i '^content-type' headers.txt
+          cat assetlinks.json
+          python3 -c "import json; d=json.load(open('assetlinks.json')); t=d[0]['target']; assert t['package_name']=='com.dorantalk.app'; print('지문', len(t['sha256_cert_fingerprints']), '개')"
+          echo "--- Google Digital Asset Links API ---"
+          curl -fsS "https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://dorantalk.com&relation=delegate_permission/common.handle_all_urls" | head -c 2000
+
   # 에뮬레이터(안드로이드 14 + 크롬)에서 설치 · 실행해 보고 화면을 찍어요
   smoke-test:
     needs: bundle
