@@ -26,13 +26,27 @@ echo "SMOKE_OK: 앱이 꺼지지 않았어요"
 adb forward tcp:9222 localabstract:chrome_devtools_remote
 pip3 install -q websocket-client > /dev/null 2>&1 || true
 python3 - <<'PY'
-import json, urllib.request, websocket, time
+import json, urllib.request, websocket, time, subprocess, re
+
+def tap_allow():
+    # 알림 허용 창이 뜨면 "Allow"(허용)를 눌러요
+    for _ in range(6):
+        time.sleep(2)
+        subprocess.run(['adb', 'shell', 'uiautomator', 'dump', '/sdcard/ui.xml'], capture_output=True)
+        xml = subprocess.run(['adb', 'shell', 'cat', '/sdcard/ui.xml'], capture_output=True, text=True).stdout
+        m = re.search(r'text="(?:Allow|허용)"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', xml)
+        if m:
+            x1, y1, x2, y2 = map(int, m.groups())
+            subprocess.run(['adb', 'shell', 'input', 'tap', str((x1 + x2) // 2), str((y1 + y2) // 2)])
+            print('TAPPED Allow')
+            return
+    print('NO Allow button')
 targets = json.load(urllib.request.urlopen('http://127.0.0.1:9222/json'))
 page = next((t for t in targets if t.get('type') == 'page' and 'dorantalk' in t.get('url', '')), None)
 print('PAGE', page and page['url'])
 if not page:
     raise SystemExit(0)
-ws = websocket.create_connection(page['webSocketDebuggerUrl'], timeout=20, suppress_origin=True)
+ws = websocket.create_connection(page['webSocketDebuggerUrl'], timeout=40, suppress_origin=True)
 expr = """(async () => {
   const before = Notification.permission;
   const perm = await Notification.requestPermission();
@@ -41,6 +55,7 @@ expr = """(async () => {
   return 'permission ' + before + ' -> ' + perm + ' referrer=' + document.referrer;
 })()"""
 ws.send(json.dumps({'id': 1, 'method': 'Runtime.evaluate', 'params': {'expression': expr, 'awaitPromise': True, 'returnByValue': True, 'userGesture': True}}))
+tap_allow()
 print('EVAL', ws.recv()[:400])
 time.sleep(2)
 ws.close()
