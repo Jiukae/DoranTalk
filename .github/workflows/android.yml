@@ -45,7 +45,7 @@ jobs:
           curl -fsS https://dl.google.com/android/maven2/com/google/androidbrowserhelper/androidbrowserhelper/maven-metadata.xml | grep -oE '<version>[^<]+' | tail -5 || true
           AAR=$(find ~/.gradle/caches -name 'androidbrowserhelper-*.aar' | head -1)
           echo "$AAR"
-          if [ -n "$AAR" ]; then unzip -p "$AAR" classes.jar > "$RUNNER_TEMP/abh.jar" && unzip -l "$RUNNER_TEMP/abh.jar" | grep -iE 'notification|DelegationService' || true; fi
+          if [ -n "$AAR" ]; then unzip -p "$AAR" classes.jar > "$RUNNER_TEMP/abh.jar" && unzip -l "$RUNNER_TEMP/abh.jar" | grep -E 'trusted/(LauncherActivity|ManageDataLauncherActivity|FocusActivity|WebViewFallbackActivity|NotificationPermissionRequestActivity|DelegationService|NotificationDelegationExtraCommandHandler)\.class' || true; fi
 
       - name: 업로드 키로 서명 (Secrets 가 있을 때만)
         env:
