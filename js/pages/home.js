@@ -26,6 +26,7 @@ import {
   shouldPromptPush, dismissPushPrompt, forgetThisDevice,
 } from '../push.js';
 import { platform } from '../install.js';
+import { popupHelp } from './help.js';
 
 function meButton() {
   return el('button', { class: 'btn btn-ghost btn-small me-btn', type: 'button', onclick: () => go('/me') },
@@ -536,7 +537,10 @@ function pushCard() {
         toast('이 기기에서 알림을 껐어요.');
         paint();
       });
-      body = [el('p', { class: 'form-msg success' }, '✓ 이 기기에서 알림을 받고 있어요'), msg, test, off];
+      body = [
+        el('p', { class: 'form-msg success' }, '✓ 이 기기에서 알림을 받고 있어요'), msg, test, off,
+        platform() === 'android' && popupHelp(),
+      ].filter(Boolean);
     } else {
       const info = await pushServerInfo();
       if (!info.ready) {

@@ -454,6 +454,15 @@ img.brand-logo { object-fit: cover; }
 .form-msg.error { background: var(--danger-soft); color: var(--danger); }
 .form-msg.success { background: var(--ok-soft); color: var(--ok); }
 .form-msg.info { background: var(--fill); color: var(--muted); }
+/* 접었다 펴는 도움말 (예: 알림 팝업 켜는 법) */
+.tip-box { margin: 14px 0 0; border-radius: var(--radius-sm); background: var(--fill); }
+.tip-box summary { cursor: pointer; list-style: none; padding: 12px 40px 12px 14px; font-weight: 800; position: relative; }
+.tip-box summary::-webkit-details-marker { display: none; }
+.tip-box summary::after { content: '+'; position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-size: 1.3rem; color: var(--accent-text); }
+.tip-box[open] summary::after { content: '−'; }
+.tip-box > :not(summary) { margin-left: 14px; margin-right: 14px; }
+.tip-box > :last-child { padding-bottom: 14px; margin-bottom: 0; }
+.tip-box h3 { margin-top: 12px; }
 .note-box { margin: 12px 0; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--fill); color: var(--muted); font-size: 0.95rem; }
 
 .nick-status { margin: 8px 2px 0; font-weight: 800; font-size: 0.95rem; min-height: 0; }

@@ -4,7 +4,7 @@
 // - Supabase(글·채팅·사진) 요청은 건드리지 않아요. 가족 데이터는 휴대폰에 따로 저장하지 않아요.
 // - 알림: 앱이 꺼져 있어도 알림 서버가 보낸 알림을 띄우고, 누르면 그 화면을 열어요.
 
-const VERSION = 'talkfeed-v22-playapp';
+const VERSION = 'talkfeed-v23-popup';
 // 글꼴은 앱이 업데이트돼도 다시 받지 않도록 따로 보관 (글꼴 파일을 바꿀 때만 이름을 올려요)
 const FONT_CACHE = 'talkfeed-fonts-v1';
 const APP_SHELL = [
