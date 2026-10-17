@@ -39,6 +39,14 @@ jobs:
         working-directory: android
         run: ./gradlew --no-daemon --stacktrace bundleRelease
 
+      - name: 라이브러리 정보 (문제 생겼을 때 참고용)
+        continue-on-error: true
+        run: |
+          curl -fsS https://dl.google.com/android/maven2/com/google/androidbrowserhelper/androidbrowserhelper/maven-metadata.xml | grep -oE '<version>[^<]+' | tail -5 || true
+          AAR=$(find ~/.gradle/caches -name 'androidbrowserhelper-*.aar' | head -1)
+          echo "$AAR"
+          if [ -n "$AAR" ]; then unzip -p "$AAR" classes.jar > "$RUNNER_TEMP/abh.jar" && unzip -l "$RUNNER_TEMP/abh.jar" | grep -iE 'notification|DelegationService' || true; fi
+
       - name: 업로드 키로 서명 (Secrets 가 있을 때만)
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_B64 }}
@@ -64,3 +72,24 @@ jobs:
           name: dorantalk-aab
           path: out/*.aab
           if-no-files-found: error
+
+  # 서명 안 된 AAB 를 글자(base64)로 로그에 적어 둬요.
+  # Artifacts 를 내려받을 수 없는 곳(예: Claude 작업 환경)에서 이 로그만 읽어 파일을 되살릴 수 있게.
+  export-log:
+    needs: bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dorantalk-aab
+      - name: AAB 를 base64 로 출력
+        run: |
+          F=$(ls *.aab | head -1)
+          echo "AAB_FILE $F"
+          echo "AAB_SHA256 $(sha256sum "$F" | cut -d' ' -f1)"
+          echo "AAB_BEGIN"
+          base64 -w 3000 "$F"
+          echo "AAB_END"

@@ -104,7 +104,7 @@
 
         <!-- 웹 알림을 이 앱의 알림으로 보여 주기 (앱 아이콘 · 이름으로) -->
         <service
-            android:name=".DelegationService"
+            android:name="com.google.androidbrowserhelper.trusted.DelegationService"
             android:enabled="true"
             android:exported="true">
             <meta-data

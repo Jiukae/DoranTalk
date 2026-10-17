@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.dorantalk.app",
+      "sha256_cert_fingerprints": [
+        "3A:1A:44:E5:BC:01:4E:5F:60:C8:C4:28:E8:C7:41:EB:DE:C9:DF:B5:D7:64:3C:1A:19:75:DD:13:05:80:A1:17"
+      ]
+    }
+  }
+]
