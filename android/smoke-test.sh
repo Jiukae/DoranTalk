@@ -8,7 +8,7 @@ echo "Chrome: $(adb shell dumpsys package com.android.chrome | grep -m1 versionN
 adb install -r "$APK" || exit 1
 # 시험할 때만: 크롬 첫 화면 건너뛰기 + 임시 열쇠로 서명한 앱도 www.dorantalk.com 주인으로 인정 (알림 위임 시험용)
 adb shell am set-debug-app --persistent com.android.chrome
-adb shell 'echo "_ --disable-fre --no-default-browser-check --no-first-run --disable-digital-asset-link-verification-for-url=https://www.dorantalk.com" > /data/local/tmp/chrome-command-line'
+adb shell 'echo "_ --disable-fre --no-default-browser-check --no-first-run --disable-digital-asset-link-verification-for-url=https://www.dorantalk.com --remote-allow-origins=*" > /data/local/tmp/chrome-command-line'
 adb shell am force-stop com.android.chrome
 adb shell pm grant com.dorantalk.app android.permission.POST_NOTIFICATIONS || true
 adb logcat -c
@@ -32,7 +32,7 @@ page = next((t for t in targets if t.get('type') == 'page' and 'dorantalk' in t.
 print('PAGE', page and page['url'])
 if not page:
     raise SystemExit(0)
-ws = websocket.create_connection(page['webSocketDebuggerUrl'], timeout=20)
+ws = websocket.create_connection(page['webSocketDebuggerUrl'], timeout=20, suppress_origin=True)
 expr = """(async () => {
   const perm = Notification.permission;
   const reg = await navigator.serviceWorker.ready;
