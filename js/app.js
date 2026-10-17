@@ -9,7 +9,7 @@ import { renderLogin, renderSignup, renderChildSignup, renderForgot, renderNewPa
 import { renderChildren, renderGuardianConsent } from './pages/guardian.js';
 import { renderHome, renderMe, renderNewGroup } from './pages/home.js';
 import { renderGroup } from './pages/group.js';
-import { renderHelp } from './pages/help.js';
+import { renderHelp, renderDeleteGuide } from './pages/help.js';
 import { setupInstall, isStandalone } from './install.js';
 import { renderWrite, renderPostDetail } from './pages/feed.js';
 import { renderPrivacy, renderTerms, renderConsent } from './pages/legal.js';
@@ -91,6 +91,7 @@ function renderProfileError(message) {
 // 연결 점검은 운영자(admin@dorantalk.com)만
 route('/check', needsProfile(adminOnly(renderCheck), { skipConsent: true }));
 route('/help', renderHelp, { access: 'any' });
+route('/delete-account', renderDeleteGuide, { access: 'any' });
 route('/privacy', renderPrivacy, { access: 'any' });
 route('/terms', renderTerms, { access: 'any' });
 route('/push-setup', renderPushSetup, { access: 'any' });

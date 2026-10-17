@@ -74,6 +74,33 @@ function installSection() {
   );
 }
 
+// 계정 지우기(탈퇴) 방법 — 도움말과 #/delete-account(Play 스토어 "계정 삭제 안내" 주소)에서 함께 써요
+function deleteSection() {
+  return section('trash', '계정 지우기 (회원 탈퇴)',
+    steps(
+      ['도란톡에 로그인해요'],
+      ['오른쪽 위 ', b('내 정보'), ' → 맨 아래 ', b('회원 탈퇴'), ' 를 눌러요'],
+      ['안내를 읽고 확인 칸에 체크한 뒤 ', b('회원 탈퇴하기'), ' → ', b('탈퇴하기'), ' 를 누르면 끝이에요'],
+    ),
+    el('p', {}, '탈퇴하면 아이디·닉네임·이메일과 내가 쓴 글·댓글·하트·채팅·사진이 ', b('바로 삭제'), '되고 되돌릴 수 없어요. 혼자 남아 있던 그룹도 함께 지워져요.'),
+    el('p', { class: 'muted' }, '로그인이 안 되면 가입한 이메일로 ', el('a', { href: `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('도란톡 계정 삭제 요청')}` }, CONTACT_EMAIL),
+      ' 에 "계정 삭제 요청"이라고 보내 주세요. 본인 확인 뒤 7일 안에 지워 드려요. 만 14세 미만 회원은 보호자가 ', b('내 정보 → 자녀 계정'), '에서 바로 지울 수도 있어요.'),
+    isLoggedIn() && el('a', { href: '#/me/delete', class: 'btn btn-ghost btn-block btn-danger-text' }, '회원 탈퇴 화면으로 가기'),
+  );
+}
+
+export function renderDeleteGuide() {
+  const back = backButton(() => (history.length > 1 ? history.back() : go(isLoggedIn() ? '/home' : '/login')));
+  render(
+    appBar('계정 삭제 안내', { left: back }),
+    el('main', { class: 'page' },
+      deleteSection(),
+      el('p', { class: 'muted small' }, '도란톡 · 문의: ', el('a', { href: `mailto:${CONTACT_EMAIL}` }, CONTACT_EMAIL)),
+      legalLinks(),
+    ),
+  );
+}
+
 export function renderHelp() {
   const back = backButton(() => (history.length > 1 ? history.back() : go(isLoggedIn() ? '/home' : '/login')));
   render(
@@ -142,6 +169,8 @@ export function renderHelp() {
         el('p', {}, '로그인 화면의 ', b('"비밀번호를 잊으셨나요?"'), ' → 가입한 이메일 입력 → 메일의 버튼을 누르면 새 비밀번호를 정할 수 있어요.'),
         el('p', { class: 'muted' }, '메일이 안 오면 스팸함을 확인하고, 그래도 없으면 가족 중 앱 관리자에게 알려 주세요.'),
       ),
+
+      deleteSection(),
 
       section('wrench', '잘 안 될 때',
         el('ul', { class: 'bullets' },
