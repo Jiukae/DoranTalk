@@ -26,7 +26,7 @@ echo "SMOKE_OK: 앱이 꺼지지 않았어요"
 # 참고: 시험용 APK 는 임시 열쇠라서 크롬이 알림을 앱에 넘기지 않고 크롬 자체 알림(채널 web:..., 중요도 3 = 보통)으로 띄워요.
 #       그래서 여기서는 팝업이 안 뜨는 게 정상이에요. (웹 앱 · PWA 에서 팝업이 안 뜨던 이유와 같아요)
 #       업로드 키로 서명한 진짜 APK 는 www.dorantalk.com 주인으로 확인돼서, 알림이 도란톡 앱으로 넘어와
-#       DelegationService.java 가 만든 "높음" 중요도 채널로 위에 팝업이 떠요.
+#       USE_HIGH_PRI_NOTIFICATIONS(AndroidManifest.xml) 로 만든 "높음" 중요도 채널로 위에 팝업이 떠요.
 adb forward tcp:9222 localabstract:chrome_devtools_remote
 pip3 install -q websocket-client > /dev/null 2>&1 || true
 python3 - <<'PY'

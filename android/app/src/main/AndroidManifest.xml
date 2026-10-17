@@ -102,14 +102,19 @@
                 android:resource="@xml/filepaths" />
         </provider>
 
-        <!-- 웹 알림을 이 앱의 알림으로 보여 주기 (앱 아이콘 · 이름으로, 위에 팝업으로 뜨게 DelegationService.java) -->
+        <!-- 웹 알림을 이 앱의 알림으로 보여 주기 (앱 아이콘 · 이름으로).
+             USE_HIGH_PRI_NOTIFICATIONS: 알림 종류(채널)를 "높음" 중요도로 만들어 카카오톡처럼 위에 팝업으로 떠요.
+             (웹 앱 · PWA 의 알림은 크롬이 "보통" 중요도로 만들어서 아이콘만 떠요) -->
         <service
-            android:name=".DelegationService"
+            android:name="com.google.androidbrowserhelper.trusted.DelegationService"
             android:enabled="true"
             android:exported="true">
             <meta-data
                 android:name="android.support.customtabs.trusted.SMALL_ICON"
                 android:resource="@drawable/ic_notification_icon" />
+            <meta-data
+                android:name="androidx.browser.trusted.USE_HIGH_PRI_NOTIFICATIONS"
+                android:value="true" />
             <intent-filter>
                 <action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE" />
                 <category android:name="android.intent.category.DEFAULT" />
