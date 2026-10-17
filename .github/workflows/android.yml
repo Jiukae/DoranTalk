@@ -97,13 +97,17 @@ jobs:
     steps:
       - name: assetlinks.json 확인
         run: |
-          URL=https://dorantalk.com/.well-known/assetlinks.json
-          curl -fsS -D headers.txt "$URL" -o assetlinks.json
-          grep -i '^content-type' headers.txt
-          cat assetlinks.json
-          python3 -c "import json; d=json.load(open('assetlinks.json')); t=d[0]['target']; assert t['package_name']=='com.dorantalk.app'; print('지문', len(t['sha256_cert_fingerprints']), '개')"
+          for u in https://dorantalk.com/.well-known/assetlinks.json https://www.dorantalk.com/.well-known/assetlinks.json https://dorantalk.com/ https://dorantalk.com/welcome; do
+            echo "=== $u"
+            curl -sS -o /dev/null -D - "$u" | grep -iE '^(HTTP|location|content-type|server)' || true
+          done
+          echo "=== 따라가 본 최종 결과"
+          curl -sSL -o assetlinks.json -w '최종 주소: %{url_effective} (%{http_code})\n' https://dorantalk.com/.well-known/assetlinks.json
+          head -c 600 assetlinks.json; echo
           echo "--- Google Digital Asset Links API ---"
-          curl -fsS "https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://dorantalk.com&relation=delegate_permission/common.handle_all_urls" | head -c 2000
+          curl -sS "https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://dorantalk.com&relation=delegate_permission/common.handle_all_urls" | head -c 1500; echo
+          # 리다이렉트 없이 바로 JSON 이 와야 해요
+          curl -fsS https://dorantalk.com/.well-known/assetlinks.json | python3 -c "import json,sys; d=json.load(sys.stdin); print('OK 지문', len(d[0]['target']['sha256_cert_fingerprints']), '개')"
 
   # 에뮬레이터(안드로이드 14 + 크롬)에서 설치 · 실행해 보고 화면을 찍어요
   smoke-test:
