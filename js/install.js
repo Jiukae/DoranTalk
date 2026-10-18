@@ -1,10 +1,14 @@
-// 앱 설치(홈 화면에 추가) 도우미
+// 앱 설치 도우미
 // - 서비스 워커 등록 (인터넷이 약해도 앱 화면이 열리게)
-// - 안드로이드 크롬/컴퓨터: "홈 화면에 추가" 버튼을 앱 안에서 바로 띄울 수 있음
-// - 아이폰: 버튼을 띄울 수 없어서 방법을 안내
+// - 안드로이드: 도란톡 안드로이드 앱(APK)을 내려받아 설치 (알림이 위에 팝업으로 떠요)
+// - 컴퓨터 크롬/엣지: "설치" 버튼을 앱 안에서 바로 띄울 수 있음
+// - 아이폰: 버튼을 띄울 수 없어서 "홈 화면에 추가" 방법을 안내
 // - 카카오톡·네이버 앱 안에서 열린 경우: 기본 브라우저로 열도록 안내
 import { el, iconTile } from './ui.js';
 import { reloadOnNextNavigation } from './router.js';
+
+// 도란톡 안드로이드 앱(APK). android/ 를 고쳐 새로 서명하면 download/dorantalk.apk 파일과 아래 버전을 함께 바꿔요
+export const ANDROID_APP = { url: '/download/dorantalk.apk', version: '1.0.0', size: '0.9MB' };
 
 let deferredPrompt = null;
 const listeners = new Set();
@@ -40,10 +44,10 @@ export function setupInstall() {
   }
 }
 
-// Play 스토어 앱(TWA)으로 열면 처음 주소의 referrer 가 android-app://com.dorantalk.app 이에요.
+// 도란톡 안드로이드 앱(TWA)으로 열면 처음 주소의 referrer 가 android-app://com.dorantalk.app 이에요.
 // 화면을 옮기면 referrer 가 사라져서 이 탭(sessionStorage)에만 기억해요. (크롬과 저장소를 같이 써서 localStorage 는 안 돼요)
 const PLAY_APP_KEY = 'talkfeed.playapp';
-function isPlayStoreApp() {
+export function isAndroidApp() {
   const fromApp = document.referrer.startsWith('android-app://com.dorantalk.app');
   try {
     if (fromApp) sessionStorage.setItem(PLAY_APP_KEY, '1');
@@ -54,7 +58,7 @@ function isPlayStoreApp() {
 }
 
 export function isStandalone() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true || isPlayStoreApp();
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true || isAndroidApp();
 }
 
 export function platform() {
@@ -104,7 +108,7 @@ export function inAppBrowserNotice() {
   if (p === 'kakao') {
     return el('div', { class: 'notice notice-warn' },
       el('p', { class: 'notice-title' }, '카카오톡 안에서 열려 있어요'),
-      el('p', {}, '홈 화면에 앱으로 추가하고 로그인을 유지하려면 크롬이나 사파리에서 열어 주세요.'),
+      el('p', {}, '앱을 설치하고 로그인을 유지하려면 크롬이나 사파리에서 열어 주세요.'),
       el('button', { class: 'btn btn-block', type: 'button', onclick: openInExternalBrowser }, '크롬/사파리로 열기'),
     );
   }
@@ -120,7 +124,7 @@ export function inAppBrowserNotice() {
 // 홈 화면에 보여 주는 "앱으로 설치" 안내 (이미 설치했거나, 최근에 "나중에"를 누르면 안 보임)
 export function installBanner() {
   const p = platform();
-  if (isStandalone() || dismissedRecently() || p === 'kakao' || p === 'inapp') return null;
+  if (dismissedRecently() || p === 'kakao' || p === 'inapp') return null;
 
   const box = el('div', { class: 'notice notice-install' });
   const later = el('button', {
@@ -130,6 +134,18 @@ export function installBanner() {
       box.remove();
     },
   }, '나중에');
+
+  // 안드로이드: 도란톡 앱(APK) 받기 — 홈 화면 앱(PWA)으로 쓰는 중이어도 알림 팝업 때문에 안내해요
+  if (p === 'android') {
+    if (isAndroidApp()) return null;
+    box.append(
+      el('div', { class: 'notice-head' }, iconTile('download'), el('p', { class: 'notice-title' }, '도란톡 안드로이드 앱 받기')),
+      el('p', {}, '앱을 설치하면 알림이 카카오톡처럼 ', el('strong', {}, '위에 팝업'), '으로 떠요.'),
+      el('div', { class: 'btn-row' }, el('a', { href: '#/help', class: 'btn' }, '앱 받기'), later),
+    );
+    return box;
+  }
+  if (isStandalone()) return null;
 
   let painted = false;
   let stop = () => {};

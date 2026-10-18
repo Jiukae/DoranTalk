@@ -1,8 +1,8 @@
-// 사용 방법 화면 (#/help): 홈 화면 추가 · 처음 시작 · 소식 · 채팅 · 비밀번호 · 문제 해결
+// 사용 방법 화면 (#/help): 앱 설치(안드로이드 APK · 아이폰 홈 화면 추가) · 처음 시작 · 소식 · 채팅 · 비밀번호 · 문제 해결
 import { el, render, appBar, backButton, toast, icon, iconTile } from '../ui.js';
 import { isLoggedIn } from '../state.js';
 import { go } from '../router.js';
-import { platform, isStandalone, canPromptInstall, promptInstall } from '../install.js';
+import { platform, isStandalone, isAndroidApp, canPromptInstall, promptInstall, ANDROID_APP } from '../install.js';
 import { APP_VERSION } from '../version.js';
 import { CONTACT_EMAIL } from '../legal.js';
 import { legalLinks } from './legal.js';
@@ -27,7 +27,9 @@ function b(text) {
 export function popupHelp() {
   return el('details', { class: 'tip-box' },
     el('summary', {}, '알림이 위에 팝업으로 안 뜨나요? (안드로이드)'),
-    el('p', {}, '안드로이드는 홈 화면에 추가한 앱의 알림을 처음에 ', b('아이콘만 조용히'), ' 보여 주도록 정해 둬요. 휴대폰 설정에서 한 번만 바꾸면 카카오톡처럼 위에 팝업으로 떠요.'),
+    !isAndroidApp() && el('p', {}, b('가장 확실한 방법: 도란톡 안드로이드 앱'), '을 설치하세요. 앱은 알림이 처음부터 위에 팝업으로 떠요. (홈 화면에 추가한 도란톡은 크롬이 알림을 "보통"으로 정해서 아이콘만 떠요)'),
+    !isAndroidApp() && el('a', { class: 'btn btn-secondary btn-block', href: '#/help' }, icon('download', { size: 20 }), '안드로이드 앱 받는 방법'),
+    el('p', {}, isAndroidApp() ? '휴대폰 설정에서 알림 팝업이 꺼져 있으면 아래처럼 켜 주세요.' : '앱을 설치하지 않고 바꾸려면, 휴대폰 설정에서 아래처럼 켜 보세요. (휴대폰에 따라 안 될 수도 있어요)'),
     el('h3', {}, '갤럭시'),
     el('p', {}, '앱 화면의 "알림 팝업"에 체크해도 진동만 오면, 알림 ', b('종류(카테고리)'), '가 아직 "보통"이에요. 그것까지 바꿔 줘야 해요.'),
     steps(
@@ -45,17 +47,38 @@ export function popupHelp() {
   );
 }
 
+// 안드로이드 앱(APK) 받기 버튼 + 설치 방법
+function androidAppBlock() {
+  return [
+    el('a', { class: 'btn btn-block', href: ANDROID_APP.url, download: 'dorantalk.apk' },
+      icon('download', { size: 22 }), '안드로이드 앱 받기'),
+    el('p', { class: 'muted small center' }, `버전 ${ANDROID_APP.version} · 약 ${ANDROID_APP.size} · 안드로이드 7.0 이상`),
+    steps(
+      ['위 버튼을 눌러 파일을 받아요 (크롬이 "위험할 수 있는 파일"이라고 물으면 ', b('다운로드'), ')'],
+      ['예전에 홈 화면에 추가한 도란톡이 있으면 ', b('먼저 지워요'), ' (그 아이콘을 길게 누르기 → ', b('삭제'), '). 이름이 같아서 헷갈리지 않게요'],
+      ['받은 파일을 열어요: 알림창의 ', b('다운로드 완료'), ' 또는 ', b('내 파일 → 다운로드 → dorantalk.apk')],
+      [b('"출처를 알 수 없는 앱"'), ' 안내가 나오면 ', b('설정'), ' → ', b('이 출처 허용'), ' 켜기 → 뒤로'],
+      [b('설치'), ' → ', b('열기'), ' (Play 프로텍트가 물으면 ', b('세부정보 더보기 → 무시하고 설치'), ')'],
+    ),
+    el('p', { class: 'muted small' }, '앱을 쓰면 알림이 카카오톡처럼 위에 팝업으로 떠요. 로그인은 보통 그대로 유지돼요.'),
+  ];
+}
+
 function installSection() {
   const p = platform();
   const blocks = [];
 
-  if (isStandalone()) {
+  if (isAndroidApp()) {
+    blocks.push(el('p', { class: 'form-msg success' }, '✓ 지금 도란톡 안드로이드 앱으로 쓰고 계세요!'));
+  } else if (isStandalone() && p === 'android') {
+    blocks.push(el('p', { class: 'note-box' }, '지금은 홈 화면에 추가한 도란톡이에요. 아래 ', b('안드로이드 앱'), '으로 바꾸면 알림이 위에 팝업으로 떠요.'));
+  } else if (isStandalone()) {
     blocks.push(el('p', { class: 'form-msg success' }, '✓ 지금 홈 화면 앱으로 쓰고 계세요!'));
-  } else if (canPromptInstall()) {
+  } else if (canPromptInstall() && p !== 'android') {
     blocks.push(el('button', {
       class: 'btn btn-block', type: 'button',
-      onclick: async () => { if (await promptInstall()) toast('홈 화면에 추가했어요!'); },
-    }, icon('download', { size: 22 }), '지금 홈 화면에 추가하기'));
+      onclick: async () => { if (await promptInstall()) toast('설치했어요!'); },
+    }, icon('download', { size: 22 }), '지금 이 컴퓨터에 설치하기'));
   }
 
   const iphone = [
@@ -69,12 +92,7 @@ function installSection() {
   ];
   const android = [
     el('h3', {}, '갤럭시 · 안드로이드'),
-    steps(
-      [b('크롬(Chrome)'), ' 으로 ', b(location.host), ' 에 들어가요'],
-      ['오른쪽 위 ', b('⋮'), ' (점 세 개)를 눌러요'],
-      [b('"홈 화면에 추가"'), ' 또는 ', b('"앱 설치"'), ' 를 누르고 ', b('"설치"'), ' 를 눌러요'],
-    ),
-    el('p', { class: 'muted small' }, '삼성 인터넷이라면: 아래 ≡ 메뉴 → "현재 페이지 추가" → "홈 화면"'),
+    ...(isAndroidApp() ? [el('p', { class: 'muted' }, '이미 설치되어 있어요. 가족에게 이 화면(사용 방법)을 알려 주면 같은 방법으로 받을 수 있어요.')] : androidAppBlock()),
   ];
   const desktop = [
     el('h3', {}, '컴퓨터 (크롬·엣지)'),
@@ -83,7 +101,7 @@ function installSection() {
   const kakao = [
     el('h3', {}, '카카오톡으로 링크를 받았다면'),
     el('p', {}, '링크를 누르면 카카오톡 안에서 열려요. 오른쪽 아래(또는 위) ', b('⋮'), ' 를 눌러 ',
-      b('"다른 브라우저로 열기"'), ' 를 고른 뒤, 위 방법대로 추가해 주세요.'),
+      b('"다른 브라우저로 열기"'), ' 를 고른 뒤, 위 방법대로 설치해 주세요.'),
   ];
 
   // 지금 쓰는 기기에 맞는 방법을 맨 위에
@@ -91,8 +109,8 @@ function installSection() {
   if (p === 'kakao' || p === 'inapp') order.unshift(kakao);
   else order.push(kakao);
 
-  return section('phone', '홈 화면에 앱으로 추가하기',
-    el('p', {}, '한 번 추가해 두면 다른 앱처럼 아이콘을 눌러 바로 열 수 있고, 로그인도 계속 유지돼요.'),
+  return section('phone', '앱 설치하기',
+    el('p', {}, '한 번 설치해 두면 다른 앱처럼 아이콘을 눌러 바로 열 수 있고, 로그인도 계속 유지돼요.'),
     ...blocks,
     ...order.flat(),
   );

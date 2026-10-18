@@ -40,7 +40,8 @@ assets/                 소개 화면 사진(앱 화면 예시) · 링크 미리
 marketing/              홍보 이미지(인스타 · 쇼츠 · 배너) + 홍보 문구 모음(promo-texts.md)
 marketing/video/        광고 동영상 20초 (세로 9:16 릴스 · 쇼츠용, 정사각 1:1 피드용) + 표지
 marketing/play-store/   Play 스토어 등록 그림(아이콘 · 그래픽 이미지 · 스크린샷 4장) + 등록 문구(listing.md)
-android/                Play 스토어용 Android 앱 (dorantalk.com 을 앱 화면으로 여는 TWA, com.dorantalk.app)
+android/                안드로이드 앱 (www.dorantalk.com 을 앱 화면으로 여는 TWA, com.dorantalk.app, 알림 팝업)
+download/               dorantalk.apk: 사용 방법 → "안드로이드 앱 받기"로 내려받는 앱 파일 (업로드 키로 서명)
 .github/workflows/      android.yml: GitHub Actions 에서 Android 앱 파일(AAB) 만들기
 .well-known/            assetlinks.json: 이 웹사이트와 Android 앱이 한 주인이라는 증명 (주소창 숨기기)
 manifest.webmanifest    홈 화면 앱 정보(이름, 아이콘, 색)

@@ -4,7 +4,7 @@
 // - Supabase(글·채팅·사진) 요청은 건드리지 않아요. 가족 데이터는 휴대폰에 따로 저장하지 않아요.
 // - 알림: 앱이 꺼져 있어도 알림 서버가 보낸 알림을 띄우고, 누르면 그 화면을 열어요.
 
-const VERSION = 'talkfeed-v24-popup2';
+const VERSION = 'talkfeed-v25-apk';
 // 글꼴은 앱이 업데이트돼도 다시 받지 않도록 따로 보관 (글꼴 파일을 바꿀 때만 이름을 올려요)
 const FONT_CACHE = 'talkfeed-fonts-v1';
 const APP_SHELL = [
@@ -73,6 +73,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   // 우리 사이트 파일만 (Supabase 등 다른 주소는 그대로 통과)
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;
+  // 안드로이드 앱(APK) 내려받기는 저장하지 않고 그대로
+  if (url.pathname.startsWith('/download/')) return;
   // 글꼴은 바뀌지 않으니 저장본 먼저 (처음 한 번만 내려받음)
   if (url.pathname.startsWith('/fonts/')) {
     event.respondWith(cacheFirst(req));
