@@ -18,6 +18,7 @@ import { hasConsented, isAdminUser } from './legal.js';
 import { renderPushSetup } from './pages/pushsetup.js';
 import { refreshPush, listenNotificationClicks, forgetThisDevice } from './push.js';
 import { captureSource } from './source.js';
+import { forgetAvatars } from './avatars.js';
 
 // 홍보 링크(?from=insta 등)로 들어왔다면 기억해 두기 (가입할 때 함께 저장)
 captureSource();
@@ -135,12 +136,14 @@ function listenAuthChanges() {
         go('/new-password', { replace: true });
       } else if (event === 'SIGNED_OUT') {
         state.profile = null;
+        forgetAvatars();
         state.recovery = false;
         // 자녀 가입 링크에서 로그아웃한 경우처럼, 로그아웃 뒤 갈 화면이 정해져 있으면 그리로
         go(state.afterSignOut || '/login', { replace: true });
         state.afterSignOut = null;
       } else if (event === 'SIGNED_IN' && !wasLoggedIn) {
         state.profile = null;
+        forgetAvatars();
         state.autoOpen = true;
         refreshPush();
         go(state.recovery ? '/new-password' : '/home', { replace: true });

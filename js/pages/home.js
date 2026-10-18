@@ -8,6 +8,10 @@ import {
   icon, iconTile, brandMark, listRow, skeletonRows, colorIndex, confirmDialog,
 } from '../ui.js';
 import {
+  avatarsSupported, renameMyAvatars, lookColor, saveAvatarPhoto, removeAvatarPhoto, saveAvatarColor, AVATAR_COLOR_COUNT,
+} from '../avatars.js';
+import { pickImages } from '../images.js';
+import {
   nicknameFormatError, NICKNAME_HINT, handleField, handleFormatError, checkHandleAvailable, reservedNameError,
 } from './auth.js';
 import {
@@ -30,7 +34,7 @@ import { popupHelp } from './help.js';
 
 function meButton() {
   return el('button', { class: 'btn btn-ghost btn-small me-btn', type: 'button', onclick: () => go('/me') },
-    avatar(state.profile?.nickname, 'avatar-sm'), '내 정보');
+    avatar(state.profile?.nickname, 'avatar-sm', state.session?.user?.id), '내 정보');
 }
 
 // 그룹 이름 첫 글자가 들어간 둥근 네모 (그룹마다 다른 색)
@@ -359,14 +363,8 @@ export function renderNewGroup() {
 export function renderMe() {
   const profile = state.profile;
   const child = isChildUser(state.session?.user);
-  // 만 14세 미만 회원: 보호자 안내 (보호자 닉네임은 불러와서 채움)
-  const guardianLine = child ? el('p', { class: 'guardian-line' }, icon('shield', { size: 18 }), '보호자 동의로 가입한 계정이에요') : null;
-  if (child) {
-    sb.rpc('my_guardian_info').then(({ data }) => {
-      const g = data?.[0];
-      if (g?.guardian_nickname) guardianLine.lastChild.textContent = `보호자 동의로 가입한 계정이에요 · 보호자: ${g.guardian_nickname}`;
-    });
-  }
+  // 나이: 가입할 때 고른 대로 (만 14세 미만은 보호자 동의로 가입)
+  const ageBadge = el('span', { class: `badge age-badge ${child ? 'age-child' : ''}` }, child ? '만 14세 미만' : '만 14세 이상');
   // 데이터베이스가 버전 9 전이면 아이디 칸이 없어요 → 닉네임만
   const hasHandle = Boolean(profile?.handle);
   const handleBox = hasHandle ? handleField({ id: 'me-handle', value: profile.handle, current: profile.handle }) : null;
@@ -376,7 +374,16 @@ export function renderMe() {
   });
   const msg = messageBox();
   const save = el('button', { class: 'btn btn-block', type: 'submit' }, '저장');
-  const headerAvatar = avatar(profile?.nickname, 'avatar-lg');
+  const photoOk = avatarsSupported();
+  const headerAvatar = avatar(profile?.nickname, 'avatar-lg', state.session?.user?.id);
+  // 큰 동그라미를 누르면 아래 "프로필 사진" 칸으로
+  const photoCard = photoOk ? avatarCard() : null;
+  const headerPhoto = photoOk
+    ? el('button', {
+      class: 'avatar-button', type: 'button', 'aria-label': '프로필 사진 바꾸기',
+      onclick: () => photoCard.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+    }, headerAvatar, el('span', { class: 'avatar-camera', 'aria-hidden': 'true' }, icon('camera', { size: 16 })))
+    : headerAvatar;
   const headerName = el('p', { class: 'welcome-hello' }, profile?.nickname || '');
   const headerHandle = hasHandle ? el('p', { class: 'my-handle' }, `아이디 ${profile.handle}`) : null;
 
@@ -409,11 +416,10 @@ export function renderMe() {
           .select(hasHandle ? 'id, nickname, handle, created_at' : 'id, nickname, created_at')
           .single();
         if (error) throw error;
-        state.profile = data;
+        state.profile = { ...state.profile, ...data };
         headerName.textContent = data.nickname;
         if (headerHandle) headerHandle.textContent = `아이디 ${data.handle}`;
-        headerAvatar.textContent = data.nickname.slice(0, 1);
-        headerAvatar.className = `avatar avatar-lg av-${colorIndex(data.nickname)}`;
+        renameMyAvatars(data.nickname); // 동그라미의 첫 글자 · 자동 색도 새 닉네임으로
         msg.show(changes.handle !== undefined
           ? '저장했어요. 이제 새 아이디로 초대받을 수 있어요.'
           : '닉네임을 바꿨어요.', 'success');
@@ -448,15 +454,16 @@ export function renderMe() {
     appBar('내 정보', { left: backButton(() => go('/home')) }),
     el('main', { class: 'page' },
       el('section', { class: 'card profile-card' },
-        headerAvatar,
+        headerPhoto,
         el('div', { style: 'min-width:0' },
           headerName,
           headerHandle,
           el('p', { class: 'muted' }, state.session?.user?.email || ''),
-          guardianLine,
+          ageBadge,
         ),
       ),
       pushCard(),
+      photoCard,
       nickForm,
       themePicker(),
       el('h2', { class: 'section-title' }, '도움말 · 안내'),
@@ -476,6 +483,97 @@ export function renderMe() {
       ),
       el('p', { class: 'app-version' }, `앱 버전: ${APP_VERSION}`),
     ),
+  );
+}
+
+// 프로필 사진 · 동그라미 색 (데이터베이스 버전 11부터)
+function avatarCard() {
+  const me = state.session.user.id;
+  const preview = avatar(state.profile.nickname, 'avatar-xl', me);
+  const msg = messageBox();
+  const upload = el('button', { class: 'btn btn-secondary', type: 'button' }, icon('camera', { size: 22 }), '사진 올리기');
+  const remove = el('button', { class: 'btn btn-ghost btn-danger-text', type: 'button' }, icon('trash', { size: 20 }), '사진 지우기');
+  const colorHint = el('p', { class: 'muted small color-hint' });
+  const swatches = [];
+
+  const refresh = () => {
+    const hasPhoto = Boolean(state.profile.avatar_path);
+    remove.hidden = !hasPhoto;
+    upload.lastChild.textContent = hasPhoto ? '사진 바꾸기' : '사진 올리기';
+    colorHint.textContent = hasPhoto
+      ? '사진을 지우면 고른 색 동그라미에 닉네임 첫 글자가 보여요.'
+      : '사진이 없으면 이 색 동그라미에 닉네임 첫 글자가 보여요.';
+    const chosen = state.profile.avatar_color ?? null;
+    for (const b of swatches) {
+      const on = b.dataset.color === String(chosen);
+      b.classList.toggle('selected', on);
+      b.setAttribute('aria-checked', String(on));
+    }
+  };
+
+  // 바꾸는 동안 버튼을 잠시 멈춰요 (아이콘이 있는 버튼이라 내용을 그대로 돌려놔요)
+  const busy = async (button, text, job, done) => {
+    msg.clear();
+    const all = [upload, remove, ...swatches];
+    all.forEach((b) => { b.disabled = true; });
+    const kept = button ? [...button.childNodes] : [];
+    if (button) button.replaceChildren(el('span', { class: 'spinner spinner-sm', 'aria-hidden': 'true' }), text);
+    try {
+      await job();
+      toast(done);
+    } catch (err) {
+      msg.show(friendlyError(err));
+    } finally {
+      if (button) button.replaceChildren(...kept);
+      all.forEach((b) => { b.disabled = false; });
+      refresh();
+    }
+  };
+
+  upload.addEventListener('click', async () => {
+    const [file] = await pickImages({ multiple: false });
+    if (!file) return;
+    busy(upload, '사진 올리는 중…', () => saveAvatarPhoto(file), '프로필 사진을 바꿨어요.');
+  });
+  remove.addEventListener('click', async () => {
+    if (!(await confirmDialog({ title: '프로필 사진을 지울까요?', message: '색 동그라미로 돌아가요.', confirmText: '지우기' }))) return;
+    busy(remove, '지우는 중…', removeAvatarPhoto, '프로필 사진을 지웠어요.');
+  });
+
+  const auto = lookColor(null, state.profile.nickname);
+  const colorButton = (color, label, extra) => {
+    const b = el('button', {
+      class: `color-option ${extra || ''}`, type: 'button', role: 'radio', 'data-color': String(color), 'aria-label': label,
+      onclick: () => {
+        if (b.classList.contains('selected')) return;
+        busy(null, '', () => saveAvatarColor(color), color === null ? '색을 자동으로 바꿨어요.' : '동그라미 색을 바꿨어요.');
+      },
+    },
+      el('span', { class: `color-dot av-${color ?? auto}`, 'aria-hidden': 'true' }, icon('check', { size: 18 })),
+      color === null && el('span', { class: 'color-label' }, '자동'),
+    );
+    swatches.push(b);
+    return b;
+  };
+  const grid = el('div', { class: 'color-grid', role: 'radiogroup', 'aria-label': '동그라미 색' },
+    colorButton(null, '자동 (닉네임에 따라)', 'color-auto'),
+    ...Array.from({ length: AVATAR_COLOR_COUNT }, (_, i) => colorButton(i, `${i + 1}번 색`)),
+  );
+  refresh();
+
+  return el('section', { class: 'card avatar-card' },
+    el('div', { class: 'card-head' },
+      iconTile('user'),
+      el('div', {}, el('h2', {}, '프로필 사진'), el('p', { class: 'muted' }, '같은 그룹 가족에게 보여요')),
+    ),
+    el('div', { class: 'avatar-edit' },
+      preview,
+      el('div', { class: 'avatar-edit-buttons' }, upload, remove),
+    ),
+    el('h3', { class: 'color-title' }, '동그라미 색'),
+    grid,
+    colorHint,
+    msg,
   );
 }
 

@@ -152,9 +152,15 @@ export function colorIndex(text = '') {
 }
 
 // 닉네임 첫 글자가 들어간 동그라미
-export function avatar(nickname, size = '') {
-  return el('div', { class: `avatar ${size} av-${colorIndex(nickname)}`, 'aria-hidden': 'true' },
+// userId 를 주면 그 사람이 고른 프로필 사진 · 색으로 바뀌어요 (avatars.js)
+let avatarHook = null;
+export function setAvatarHook(fn) { avatarHook = fn; }
+
+export function avatar(nickname, size = '', userId = null) {
+  const node = el('div', { class: `avatar ${size} av-${colorIndex(nickname)}`, 'aria-hidden': 'true' },
     (nickname || '?').slice(0, 1));
+  if (userId && avatarHook) avatarHook(node, userId, nickname);
+  return node;
 }
 
 // 둥근 네모 안의 아이콘 (목록 · 안내 상자 앞에)

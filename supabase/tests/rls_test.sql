@@ -1061,4 +1061,102 @@ select pg_temp.as_user('eeeeeeee-0000-0000-0000-000000000004');
 select public.invite_by_handle((select v from pg_temp.ids where k='mg'), '도란톡');
 reset role;
 select pg_temp.assert((select count(*) from public.group_invitations where invitee_id = 'ffffffff-0000-0000-0000-000000000001') = 1, 'can invite admin by handle');
+-- =====================================================================
+-- (버전 11) 프로필 사진 · 색
+-- =====================================================================
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('11111111-0000-0000-0000-000000000001', 'p1@x.com', '{"nickname":"사진엄마","handle":"photo_mom"}'),
+  ('11111111-0000-0000-0000-000000000002', 'p2@x.com', '{"nickname":"사진아빠","handle":"photo_dad"}'),
+  ('11111111-0000-0000-0000-000000000003', 'p3@x.com', '{"nickname":"사진남","handle":"photo_x"}');
+select pg_temp.as_user('11111111-0000-0000-0000-000000000001');
+insert into pg_temp.ids values ('avg', public.create_group('사진 가족'));
+select public.invite_by_handle((select v from pg_temp.ids where k='avg'), 'photo_dad');
+reset role;
+insert into pg_temp.ids values ('avinv', (select id from public.group_invitations
+  where invitee_id = '11111111-0000-0000-0000-000000000002' and status = 'pending'));
+select pg_temp.as_user('11111111-0000-0000-0000-000000000002');
+select public.respond_invitation((select v from pg_temp.ids where k='avinv'), true);
+reset role;
+
+select pg_temp.as_user('11111111-0000-0000-0000-000000000001');
+-- 색: 0~7 만
+update public.profiles set avatar_color = 3 where id = '11111111-0000-0000-0000-000000000001';
+do $$ begin
+  update public.profiles set avatar_color = 8 where id = '11111111-0000-0000-0000-000000000001';
+  raise exception 'TEST FAILED: avatar_color 8 accepted';
+exception when check_violation then null; end $$;
+-- 사진 경로: 내 폴더(avatars/내id/파일)만
+do $$ begin
+  update public.profiles set avatar_path = 'avatars/11111111-0000-0000-0000-000000000002/a.jpg'
+  where id = '11111111-0000-0000-0000-000000000001';
+  raise exception 'TEST FAILED: avatar_path in other folder accepted';
+exception when check_violation then null; end $$;
+do $$ begin
+  update public.profiles set avatar_path = 'avatars/11111111-0000-0000-0000-000000000001/../x.jpg'
+  where id = '11111111-0000-0000-0000-000000000001';
+  raise exception 'TEST FAILED: avatar_path with .. accepted';
+exception when check_violation then null; end $$;
+do $$ begin
+  update public.profiles set avatar_path = 'avatars/11111111-0000-0000-0000-000000000001/a/b.jpg'
+  where id = '11111111-0000-0000-0000-000000000001';
+  raise exception 'TEST FAILED: nested avatar_path accepted';
+exception when check_violation then null; end $$;
+do $$ begin
+  update public.profiles set avatar_path = (select v from pg_temp.ids where k='avg')::text || '/posts/a.jpg' where id = '11111111-0000-0000-0000-000000000001';
+  raise exception 'TEST FAILED: post photo as avatar accepted';
+exception when check_violation then null; end $$;
+update public.profiles set avatar_path = 'avatars/11111111-0000-0000-0000-000000000001/a.jpg'
+where id = '11111111-0000-0000-0000-000000000001';
+-- 남의 프로필은 못 바꿈
+update public.profiles set avatar_color = 1 where id = '11111111-0000-0000-0000-000000000002';
+-- 사진 올리기: 내 폴더에만, 한 단계만
+insert into storage.objects (bucket_id, name) values ('family-photos', 'avatars/11111111-0000-0000-0000-000000000001/a.jpg');
+do $$ begin
+  insert into storage.objects (bucket_id, name) values ('family-photos', 'avatars/11111111-0000-0000-0000-000000000002/b.jpg');
+  raise exception 'TEST FAILED: upload to other avatar folder';
+exception when insufficient_privilege then null; end $$;
+do $$ begin
+  insert into storage.objects (bucket_id, name) values ('family-photos', 'avatars/11111111-0000-0000-0000-000000000001/x/c.jpg');
+  raise exception 'TEST FAILED: nested avatar upload';
+exception when insufficient_privilege then null; end $$;
+do $$ begin
+  insert into storage.objects (bucket_id, name) values ('family-photos', 'avatars/c.jpg');
+  raise exception 'TEST FAILED: avatar upload without owner folder';
+exception when insufficient_privilege then null; end $$;
+reset role;
+select pg_temp.assert((select avatar_color from public.profiles where id = '11111111-0000-0000-0000-000000000001') = 3, 'own avatar color saved');
+select pg_temp.assert((select avatar_path from public.profiles where id = '11111111-0000-0000-0000-000000000001')
+  = 'avatars/11111111-0000-0000-0000-000000000001/a.jpg', 'own avatar path saved');
+select pg_temp.assert((select avatar_color from public.profiles where id = '11111111-0000-0000-0000-000000000002') is null, 'cannot change other profile color');
+
+-- 같은 그룹 가족은 사진 · 색을 볼 수 있음
+select pg_temp.as_user('11111111-0000-0000-0000-000000000002');
+select pg_temp.assert((select avatar_color from public.profiles where id = '11111111-0000-0000-0000-000000000001') = 3, 'group-mate sees avatar color');
+select pg_temp.assert((select count(*) from storage.objects where name = 'avatars/11111111-0000-0000-0000-000000000001/a.jpg') = 1, 'group-mate sees avatar photo');
+-- 가족이라도 남의 사진은 못 지움
+delete from storage.objects where name = 'avatars/11111111-0000-0000-0000-000000000001/a.jpg';
+reset role;
+select pg_temp.assert((select count(*) from storage.objects where name = 'avatars/11111111-0000-0000-0000-000000000001/a.jpg') = 1, 'group-mate cannot delete avatar');
+
+-- 모르는 사람은 못 봄
+select pg_temp.as_user('11111111-0000-0000-0000-000000000003');
+select pg_temp.assert((select count(*) from public.profiles where id = '11111111-0000-0000-0000-000000000001') = 0, 'stranger cannot see profile');
+select pg_temp.assert((select count(*) from storage.objects where name like 'avatars/%') = 0, 'stranger cannot see avatar photo');
+select pg_temp.assert(not public.can_see_avatar('11111111-0000-0000-0000-000000000001'), 'stranger can_see_avatar false');
+select pg_temp.assert(not public.can_see_avatar('not-a-uuid'), 'can_see_avatar rejects junk');
+reset role;
+set role anon;
+do $$ begin
+  perform public.can_see_avatar('11111111-0000-0000-0000-000000000001');
+  raise exception 'TEST FAILED: anon can_see_avatar';
+exception when insufficient_privilege then null; end $$;
+reset role;
+
+-- 내 사진은 내가 지울 수 있고, 탈퇴할 때 지울 목록(my_photo_paths)에도 들어가요
+select pg_temp.as_user('11111111-0000-0000-0000-000000000001');
+select pg_temp.assert('avatars/11111111-0000-0000-0000-000000000001/a.jpg' in (select * from public.my_photo_paths()), 'avatar in my_photo_paths');
+delete from storage.objects where name = 'avatars/11111111-0000-0000-0000-000000000001/a.jpg';
+update public.profiles set avatar_path = null, avatar_color = null where id = '11111111-0000-0000-0000-000000000001';
+reset role;
+select pg_temp.assert((select count(*) from storage.objects where name like 'avatars/11111111-0000-0000-0000-000000000001/%') = 0, 'owner deleted avatar');
 select 'ALL RLS TESTS PASSED' as result;

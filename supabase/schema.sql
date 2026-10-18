@@ -1,6 +1,6 @@
 -- =====================================================================
 --  TalkFeed 데이터베이스 설계 (테이블 + 보안 규칙 RLS + 사진 저장소)
---  ★ 버전 10 (운영자 이름 보호 · 아이디 · 초대 메일 · 자녀 그룹 승인) ★
+--  ★ 버전 11 (프로필 사진 · 운영자 이름 보호 · 아이디 · 초대 메일 · 자녀 그룹 승인) ★
 --    앱 주소 뒤에 #/check 를 붙여 열면 DB 버전이 최신인지 확인할 수 있어요.
 -- ---------------------------------------------------------------------
 --  사용법: Supabase 대시보드 → SQL Editor → 이 파일 내용을 전부 붙여넣고 Run
@@ -305,7 +305,7 @@ create trigger on_auth_user_created
 create or replace function public.talkfeed_schema_version()
 returns integer
 language sql immutable set search_path = ''
-as $$ select 10 $$;
+as $$ select 11 $$;
 
 -- 닉네임 형식 확인 (버전 9부터 닉네임은 겹쳐도 돼요 — 예전 앱 호환용)
 create or replace function public.is_nickname_available(nick text)
@@ -1800,6 +1800,62 @@ create trigger guard_reserved_names
 
 revoke execute on function public.is_reserved_name(text), public.guard_reserved_names()
   from public, anon, authenticated;
+
+
+-- ---------------------------------------------------------------------
+-- 14. (버전 11) 프로필 사진 · 색
+--   - avatar_color: 이름 동그라미 색 (0~7번, 비워 두면 닉네임에 따라 자동)
+--   - avatar_path : 프로필 사진 파일 경로 'avatars/{내 id}/{파일}' (사진 창고 family-photos 안)
+--   - 프로필 사진은 내 닉네임을 볼 수 있는 사람(같은 그룹 · 초대 관계 등)만 볼 수 있어요.
+--   - 사진은 내 폴더에만 올릴 수 있고, 지우기 · 탈퇴 정리는 기존 사진 규칙(내가 올린 것)을 그대로 써요.
+-- ---------------------------------------------------------------------
+alter table public.profiles add column if not exists avatar_color smallint;
+alter table public.profiles add column if not exists avatar_path text;
+do $$ begin
+  alter table public.profiles add constraint profiles_avatar_color_range
+    check (avatar_color between 0 and 7);
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter table public.profiles add constraint profiles_avatar_path_own
+    check (avatar_path is null
+           or (avatar_path like 'avatars/' || id::text || '/%'
+               and avatar_path !~ '\.\.' and avatar_path !~ '/.*/.*/' and length(avatar_path) <= 200));
+exception when duplicate_object then null; end $$;
+grant update (avatar_color, avatar_path) on public.profiles to authenticated;
+
+-- 이 사람의 프로필 사진을 볼 수 있는지 (경로의 두 번째 칸 = 주인 id, 이상한 값이면 false)
+create or replace function public.can_see_avatar(p_owner text)
+returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select case
+    when p_owner ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      then public.can_see_profile(p_owner::uuid)
+    else false
+  end;
+$$;
+revoke execute on function public.can_see_avatar(text) from public, anon, authenticated;
+grant execute on function public.can_see_avatar(text) to authenticated;
+
+drop policy if exists "avatars_select" on storage.objects;
+create policy "avatars_select" on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'family-photos'
+    and (storage.foldername(name))[1] = 'avatars'
+    and public.can_see_avatar((storage.foldername(name))[2])
+  );
+
+-- 올리기: avatars/{내 id}/{파일} 에만 (더 깊은 폴더 · 남의 폴더는 안 돼요)
+drop policy if exists "avatars_insert_own" on storage.objects;
+create policy "avatars_insert_own" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'family-photos'
+    and (storage.foldername(name))[1] = 'avatars'
+    and (storage.foldername(name))[2] = (select auth.uid())::text
+    and array_length(storage.foldername(name), 1) = 2
+  );
 
 
 -- 끝! 아래 "Success. No rows returned" 가 보이면 성공입니다.

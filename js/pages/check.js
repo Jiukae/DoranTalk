@@ -5,7 +5,7 @@ import { el, render, brandHeader } from '../ui.js';
 import { APP_VERSION } from '../version.js';
 
 // 앱이 기대하는 schema.sql 버전. SQL 파일 맨 위 "버전 N" 과 같아야 해요.
-export const REQUIRED_SCHEMA_VERSION = 10;
+export const REQUIRED_SCHEMA_VERSION = 11;
 
 const CHECKS = [
   { id: 'config', title: '설정 파일', run: checkConfigStep },
@@ -62,10 +62,12 @@ async function checkRealtimeStep() {
 
 async function checkVersionStep() {
   const { data, error } = await sb.rpc('talkfeed_schema_version');
+  // 1~3 버전 뒤처졌으면 짧은 업데이트 파일을 차례로, 더 오래됐으면 schema.sql 전체를 다시
+  const updateFiles = (found) => Array.from({ length: REQUIRED_SCHEMA_VERSION - found }, (_, i) => `v${found + i}_to_v${found + i + 1}.sql`);
   const outdated = (found) => ({
     status: 'fail',
-    detail: found === REQUIRED_SCHEMA_VERSION - 1
-      ? `데이터베이스가 예전 버전(${found})이에요. supabase/updates/v${found}_to_v${REQUIRED_SCHEMA_VERSION}.sql 을 SQL Editor에서 실행해 주세요.`
+    detail: found >= 3 && REQUIRED_SCHEMA_VERSION - found <= 3
+      ? `데이터베이스가 예전 버전(${found})이에요. supabase/updates/ 의 ${updateFiles(found).join(' → ')} 을 차례로 SQL Editor에서 실행해 주세요.`
       : `데이터베이스가 예전 버전${found ? `(${found})` : ''}이에요. 최신 schema.sql(버전 ${REQUIRED_SCHEMA_VERSION})을 SQL Editor에서 다시 실행해 주세요.`,
   });
   if (error && error.code === 'PGRST202') return outdated(null);

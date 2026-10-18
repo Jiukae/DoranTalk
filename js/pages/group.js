@@ -218,7 +218,7 @@ function pendingCard(pending, refresh) {
           refresh();
         });
         return el('li', { class: 'person' },
-          avatar(p.inviteeNickname),
+          avatar(p.inviteeNickname, '', p.inviteeId),
           el('div', { class: 'person-text' },
             el('p', { class: 'person-name' }, p.inviteeNickname, p.inviteeHandle && el('span', { class: 'person-handle' }, `@${p.inviteeHandle}`)),
             el('p', { class: 'muted small', style: 'margin:0' }, `${p.inviterNickname}님이 초대 · ${timeAgo(p.created_at)}`),
@@ -235,7 +235,7 @@ function membersCard(members, myId) {
     el('h2', {}, `멤버 ${members.length}명`),
     el('ul', { class: 'people' },
       ...members.map((m) => el('li', { class: 'person' },
-        avatar(m.nickname),
+        avatar(m.nickname, '', m.user_id),
         el('div', { class: 'person-text' },
           el('p', { class: 'person-name' },
             m.nickname,

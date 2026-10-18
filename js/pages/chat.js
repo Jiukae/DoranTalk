@@ -190,7 +190,7 @@ export async function renderChatTab(main, group, token) {
     }
 
     const row = el('div', { class: `chat-row ${m.isMine ? 'mine' : 'theirs'} ${continued ? 'continued' : ''}` },
-      !m.isMine && (continued ? el('div', { class: 'chat-avatar-space' }) : avatar(m.nickname, 'avatar-sm')),
+      !m.isMine && (continued ? el('div', { class: 'chat-avatar-space' }) : avatar(m.nickname, 'avatar-sm', m.sender_id)),
       el('div', { class: 'chat-col' },
         !m.isMine && !continued && el('p', { class: 'chat-name' }, m.nickname),
         el('div', { class: 'chat-line' }, bubble, meta),

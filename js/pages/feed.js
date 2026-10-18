@@ -114,7 +114,7 @@ async function confirmDeletePost(post) {
 
 function postHeader(post, menu) {
   return el('header', { class: 'post-head' },
-    avatar(post.nickname),
+    avatar(post.nickname, '', post.author_id),
     el('div', { class: 'post-meta' },
       el('p', { class: 'post-author' }, post.nickname),
       el('p', { class: 'post-time' }, timeAgo(post.created_at), post.edited ? ' · 수정됨' : ''),
@@ -193,7 +193,7 @@ export async function renderFeedTab(main, group, token) {
 
 function composePrompt(groupId) {
   return el('a', { href: `#/group/${groupId}/write`, class: 'card compose-prompt' },
-    avatar(state.profile?.nickname),
+    avatar(state.profile?.nickname, '', state.session.user.id),
     el('span', { class: 'compose-fake-input' }, '소식을 남겨 보세요'),
     el('span', { class: 'compose-photo' }, iconTile('image')),
   );
@@ -361,7 +361,7 @@ export async function renderWrite({ id: groupId, postId }) {
     },
   },
     el('div', { class: 'write-head' },
-      avatar(state.profile?.nickname),
+      avatar(state.profile?.nickname, '', state.session.user.id),
       el('p', {}, state.profile?.nickname || ''),
     ),
     textarea,
@@ -473,7 +473,7 @@ export async function renderPostDetail({ id: groupId, postId }) {
 function commentItem(c, refresh) {
   const text = el('p', { class: 'comment-text' }, c.content);
   const li = el('li', { class: 'comment' },
-    avatar(c.nickname, 'avatar-sm'),
+    avatar(c.nickname, 'avatar-sm', c.author_id),
     el('div', { class: 'comment-body' },
       el('p', { class: 'comment-meta' },
         el('strong', {}, c.nickname), ` · ${timeAgo(c.created_at)}`, c.edited ? ' · 수정됨' : ''),

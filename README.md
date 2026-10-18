@@ -29,6 +29,7 @@
 | 13 | 연결 점검은 운영자(admin@dorantalk.com)만 · "도란톡" · "관리자" 같은 이름은 운영자만 (DB 10) | ✅ 완료 → [안내서](docs/step13-admin.md) |
 | 14 | Play 스토어용 Android 앱(TWA, AAB) · 스토어 등록 그림 · 계정 삭제 안내 페이지 | ✅ 완료 → [안내서](docs/step14-playstore.md) |
 | 15 | 안드로이드 앱(APK) 직접 설치 — 알림이 카카오톡처럼 위에 팝업으로 | ✅ 완료 → [안내서](docs/step15-android-apk.md) |
+| 16 | 프로필 사진 · 동그라미 색 고르기 · 내 정보에 나이(만 14세 이상/미만) 표시 (DB 11) | ✅ 완료 → [안내서](docs/step16-profile-photo.md) |
 
 ## 폴더 구조
 

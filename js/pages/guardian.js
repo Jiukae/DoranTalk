@@ -71,7 +71,7 @@ export async function renderChildren() {
   }
 
   const kidRows = (kids.data || []).map((k) => el('div', { class: 'child-row' },
-    avatar(k.nickname),
+    avatar(k.nickname, '', k.child_id),
     el('div', { class: 'child-info' },
       el('p', { class: 'child-name' }, k.nickname),
       el('p', { class: 'muted small' }, k.handle ? `아이디 ${k.handle} · ` : '', `${day(k.joined_at)} 가입`, k.email_confirmed ? '' : ' · 이메일 확인 전'),

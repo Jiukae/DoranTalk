@@ -3,7 +3,7 @@ import { sb } from './supabase.js';
 
 export const state = {
   session: null,
-  profile: null, // { id, nickname, handle, created_at }
+  profile: null, // { id, nickname, handle, created_at, avatar_color, avatar_path }
 };
 
 // 데이터베이스가 버전 9 전이라 아이디(handle) 칸이 없다는 오류인지
@@ -22,8 +22,9 @@ export async function loadProfile() {
     return null;
   }
   const query = (fields) => sb.from('profiles').select(fields).eq('id', state.session.user.id).maybeSingle();
-  let { data, error } = await query('id, nickname, handle, created_at');
-  // 데이터베이스를 아직 버전 9로 올리기 전(아이디 칸이 없음)에도 앱이 열리도록
+  let { data, error } = await query('id, nickname, handle, created_at, avatar_color, avatar_path');
+  // 데이터베이스를 아직 버전 11(프로필 사진) · 버전 9(아이디)로 올리기 전에도 앱이 열리도록
+  if (error?.code === '42703') ({ data, error } = await query('id, nickname, handle, created_at'));
   if (error && isMissingHandle(error)) ({ data, error } = await query('id, nickname, created_at'));
   if (error) throw error;
   state.profile = data;

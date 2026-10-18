@@ -53,13 +53,14 @@ export async function fetchMembers(groupId) {
 export async function fetchPendingInvites(groupId) {
   const rows = check(await withHandle((h) => sb
     .from('group_invitations')
-    .select(`id, created_at, invitee:profiles!group_invitations_invitee_id_fkey(nickname${h}), inviter:profiles!group_invitations_inviter_id_fkey(nickname)`)
+    .select(`id, created_at, invitee_id, invitee:profiles!group_invitations_invitee_id_fkey(nickname${h}), inviter:profiles!group_invitations_inviter_id_fkey(nickname)`)
     .eq('group_id', groupId)
     .eq('status', 'pending')
     .order('created_at', { ascending: false })));
   return rows.map((i) => ({
     id: i.id,
     created_at: i.created_at,
+    inviteeId: i.invitee_id,
     inviteeNickname: i.invitee?.nickname ?? '(알 수 없음)',
     inviteeHandle: i.invitee?.handle ?? '',
     inviterNickname: i.inviter?.nickname ?? '(알 수 없음)',
