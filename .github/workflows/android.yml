@@ -101,6 +101,23 @@ jobs:
     permissions:
       contents: read
     steps:
+      - uses: actions/checkout@v4
+
+      - name: 안드로이드 앱(APK) 내려받기 확인
+        run: |
+          # 사이트(www.dorantalk.com/download/dorantalk.apk)의 파일이 저장소의 download/dorantalk.apk 와 같은지 (배포가 늦으면 3분까지 기다려요)
+          WANT=$(sha256sum download/dorantalk.apk | cut -d' ' -f1)
+          for i in $(seq 1 18); do
+            curl -sS -D headers.txt -o site.apk https://www.dorantalk.com/download/dorantalk.apk || true
+            GOT=$(sha256sum site.apk | cut -d' ' -f1)
+            [ "$GOT" = "$WANT" ] && break
+            sleep 10
+          done
+          grep -iE '^(HTTP|content-type|content-disposition|cache-control)' headers.txt
+          echo "저장소 $WANT"; echo "사이트 $GOT"
+          [ "$GOT" = "$WANT" ] && echo "OK APK 같음"
+          grep -qi 'application/vnd.android.package-archive' headers.txt && echo "OK 내려받기 형식"
+
       - name: assetlinks.json 확인
         run: |
           # dorantalk.com 은 www.dorantalk.com 으로 넘어가요(308). 앱은 www 주소를 열어요.
