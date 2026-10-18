@@ -1,8 +1,8 @@
 // 사용 방법 화면 (#/help): 앱 설치(안드로이드 APK · 아이폰 홈 화면 추가) · 처음 시작 · 소식 · 채팅 · 비밀번호 · 문제 해결
-import { el, render, appBar, backButton, toast, icon, iconTile } from '../ui.js';
+import { el, render, appBar, backButton, icon, iconTile } from '../ui.js';
 import { isLoggedIn } from '../state.js';
 import { go } from '../router.js';
-import { platform, isStandalone, isAndroidApp, canPromptInstall, promptInstall, ANDROID_APP } from '../install.js';
+import { platform, isStandalone, isAndroidApp, ANDROID_APP } from '../install.js';
 import { APP_VERSION } from '../version.js';
 import { CONTACT_EMAIL } from '../legal.js';
 import { legalLinks } from './legal.js';
@@ -74,13 +74,12 @@ function installSection() {
     blocks.push(el('p', { class: 'note-box' }, '지금은 홈 화면에 추가한 도란톡이에요. 아래 ', b('안드로이드 앱'), '으로 바꾸면 알림이 위에 팝업으로 떠요.'));
   } else if (isStandalone()) {
     blocks.push(el('p', { class: 'form-msg success' }, '✓ 지금 홈 화면 앱으로 쓰고 계세요!'));
-  } else if (canPromptInstall() && p !== 'android') {
-    blocks.push(el('button', {
-      class: 'btn btn-block', type: 'button',
-      onclick: async () => { if (await promptInstall()) toast('설치했어요!'); },
-    }, icon('download', { size: 22 }), '지금 이 컴퓨터에 설치하기'));
   }
 
+  const android = [
+    el('h3', {}, '갤럭시 · 안드로이드'),
+    ...(isAndroidApp() ? [el('p', { class: 'muted' }, '이미 설치되어 있어요. 가족에게 이 화면(사용 방법)을 알려 주면 같은 방법으로 받을 수 있어요.')] : androidAppBlock()),
+  ];
   const iphone = [
     el('h3', {}, '아이폰'),
     steps(
@@ -89,10 +88,7 @@ function installSection() {
       ['목록을 아래로 내려 ', b('"홈 화면에 추가"'), ' 를 눌러요'],
       ['오른쪽 위 ', b('"추가"'), ' 를 누르면 홈 화면에 도란톡 아이콘이 생겨요'],
     ),
-  ];
-  const android = [
-    el('h3', {}, '갤럭시 · 안드로이드'),
-    ...(isAndroidApp() ? [el('p', { class: 'muted' }, '이미 설치되어 있어요. 가족에게 이 화면(사용 방법)을 알려 주면 같은 방법으로 받을 수 있어요.')] : androidAppBlock()),
+    el('p', { class: 'muted small' }, '아이폰은 이렇게 홈 화면에 추가한 도란톡에서 알림을 받을 수 있어요. (iOS 16.4 이상)'),
   ];
   const desktop = [
     el('h3', {}, '컴퓨터 (크롬·엣지)'),
@@ -101,18 +97,25 @@ function installSection() {
   const kakao = [
     el('h3', {}, '카카오톡으로 링크를 받았다면'),
     el('p', {}, '링크를 누르면 카카오톡 안에서 열려요. 오른쪽 아래(또는 위) ', b('⋮'), ' 를 눌러 ',
-      b('"다른 브라우저로 열기"'), ' 를 고른 뒤, 위 방법대로 설치해 주세요.'),
+      b('"다른 브라우저로 열기"'), ' 를 고른 뒤, 아래 방법대로 설치해 주세요.'),
   ];
 
-  // 지금 쓰는 기기에 맞는 방법을 맨 위에
-  const order = p === 'ios' ? [iphone, android, desktop] : p === 'desktop' ? [desktop, android, iphone] : [android, iphone, desktop];
-  if (p === 'kakao' || p === 'inapp') order.unshift(kakao);
-  else order.push(kakao);
+  // 지금 쓰는 기기의 방법만 펼쳐 보여 주고, 다른 기기 방법은 접어 둬요
+  let main;
+  let others;
+  if (p === 'ios') { main = [iphone]; others = [android, desktop]; }
+  else if (p === 'desktop') { main = [desktop]; others = [android, iphone]; }
+  else if (p === 'kakao' || p === 'inapp') { main = [kakao, android, iphone]; others = [desktop]; }
+  else { main = [android]; others = [iphone, desktop]; }
 
   return section('phone', '앱 설치하기',
     el('p', {}, '한 번 설치해 두면 다른 앱처럼 아이콘을 눌러 바로 열 수 있고, 로그인도 계속 유지돼요.'),
     ...blocks,
-    ...order.flat(),
+    ...main.flat(),
+    el('details', { class: 'tip-box other-devices' },
+      el('summary', {}, p === 'desktop' ? '휴대폰에 설치하기' : '다른 기기에 설치하기'),
+      ...others.flat(),
+    ),
   );
 }
 

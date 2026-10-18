@@ -12,6 +12,10 @@
   "background_color": "#fff8f1",
   "theme_color": "#c9581f",
   "categories": ["social", "lifestyle"],
+  "related_applications": [
+    { "platform": "play", "id": "com.dorantalk.app", "url": "https://www.dorantalk.com/download/dorantalk.apk" }
+  ],
+  "prefer_related_applications": false,
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

@@ -1,8 +1,8 @@
 // 앱 설치 도우미
 // - 서비스 워커 등록 (인터넷이 약해도 앱 화면이 열리게)
-// - 안드로이드: 도란톡 안드로이드 앱(APK)을 내려받아 설치 (알림이 위에 팝업으로 떠요)
-// - 컴퓨터 크롬/엣지: "설치" 버튼을 앱 안에서 바로 띄울 수 있음
-// - 아이폰: 버튼을 띄울 수 없어서 "홈 화면에 추가" 방법을 안내
+// - 안드로이드: 홈 화면에서 "도란톡 안드로이드 앱을 설치할까요?"를 묻고 앱(APK)을 내려받아요 (알림이 위에 팝업으로 떠요)
+//   ("홈 화면에 추가"는 안내하지 않아요. 그렇게 만든 앱은 알림이 아이콘으로만 와서요)
+// - 아이폰: 홈 화면에 추가해야 알림을 받을 수 있어서 그 방법을 안내
 // - 카카오톡·네이버 앱 안에서 열린 경우: 기본 브라우저로 열도록 안내
 import { el, iconTile } from './ui.js';
 import { reloadOnNextNavigation } from './router.js';
@@ -10,20 +10,11 @@ import { reloadOnNextNavigation } from './router.js';
 // 도란톡 안드로이드 앱(APK). android/ 를 고쳐 새로 서명하면 download/dorantalk.apk 파일과 아래 버전을 함께 바꿔요
 export const ANDROID_APP = { url: '/download/dorantalk.apk', version: '1.0.0', size: '0.9MB' };
 
-let deferredPrompt = null;
-const listeners = new Set();
 const DISMISS_KEY = 'talkfeed.installDismissedAt';
 
 export function setupInstall() {
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault(); // 브라우저가 멋대로 띄우지 않게 하고, 우리 버튼으로 띄움
-    deferredPrompt = e;
-    listeners.forEach((fn) => fn());
-  });
-  window.addEventListener('appinstalled', () => {
-    deferredPrompt = null;
-    listeners.forEach((fn) => fn());
-  });
+  // 크롬이 스스로 "홈 화면에 추가" 안내를 띄우지 않게 해요 (안드로이드는 앱(APK)을 안내해요)
+  window.addEventListener('beforeinstallprompt', (e) => e.preventDefault());
   const secure = location.protocol === 'https:' || location.hostname === 'localhost';
   if ('serviceWorker' in navigator && secure) {
     // 이미 예전 버전이 있던 기기에서 새 버전이 자리를 잡으면 → 다음 화면 이동 때 새로 불러오기
@@ -70,22 +61,19 @@ export function platform() {
   return 'desktop';
 }
 
-export function canPromptInstall() {
-  return Boolean(deferredPrompt);
+// 이 휴대폰에 도란톡 안드로이드 앱이 이미 설치돼 있는지 (크롬이 알려 줄 때만 — manifest 의 related_applications)
+async function hasAndroidAppInstalled() {
+  try {
+    if (!('getInstalledRelatedApps' in navigator)) return false;
+    const apps = await navigator.getInstalledRelatedApps();
+    return apps.some((app) => app.id === 'com.dorantalk.app');
+  } catch {
+    return false;
+  }
 }
 
-export async function promptInstall() {
-  if (!deferredPrompt) return false;
-  deferredPrompt.prompt();
-  const { outcome } = await deferredPrompt.userChoice;
-  deferredPrompt = null;
-  listeners.forEach((fn) => fn());
-  return outcome === 'accepted';
-}
-
-export function onInstallChange(fn) {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
+function rememberDismiss() {
+  try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch { /* 무시 */ }
 }
 
 // 카카오톡 안에서 열린 링크를 기본 브라우저(크롬/사파리)로 다시 열기
@@ -121,69 +109,68 @@ export function inAppBrowserNotice() {
   return null;
 }
 
-// 홈 화면에 보여 주는 "앱으로 설치" 안내 (이미 설치했거나, 최근에 "나중에"를 누르면 안 보임)
+// 홈 화면 맨 위 안내 (이미 설치했거나, 최근 2주 안에 "나중에"를 누르면 안 보임)
+// - 안드로이드: "도란톡 안드로이드 앱을 설치할까요?" → 설치하기를 누르면 바로 내려받고 설치 방법을 보여 줘요
+// - 아이폰: 홈 화면에 추가해야 알림을 받을 수 있어서 그 방법
 export function installBanner() {
   const p = platform();
-  if (dismissedRecently() || p === 'kakao' || p === 'inapp') return null;
+  if (dismissedRecently()) return null;
+  if (p === 'android') return isAndroidApp() ? null : androidAppPrompt();
+  if (p === 'ios' && !isStandalone()) return iosHomeScreenTip();
+  return null;
+}
 
+function bannerHead(title) {
+  return el('div', { class: 'notice-head' }, iconTile('download'), el('p', { class: 'notice-title' }, title));
+}
+
+function androidAppPrompt() {
   const box = el('div', { class: 'notice notice-install' });
   const later = el('button', {
     class: 'btn btn-ghost btn-small', type: 'button',
-    onclick: () => {
-      try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch { /* 무시 */ }
-      box.remove();
-    },
+    onclick: () => { rememberDismiss(); box.remove(); },
   }, '나중에');
+  const install = el('a', {
+    class: 'btn', href: ANDROID_APP.url, download: 'dorantalk.apk',
+    // 링크가 내려받기를 시작하고, 이 안내는 설치 방법으로 바뀌어요
+    onclick: () => { rememberDismiss(); setTimeout(showSteps, 300); },
+  }, '설치하기');
+  box.append(
+    bannerHead('도란톡 안드로이드 앱을 설치할까요?'),
+    el('p', {}, '설치하면 알림이 카카오톡처럼 ', el('strong', {}, '위에 팝업'), '으로 떠요. (약 ', ANDROID_APP.size, ')'),
+    el('div', { class: 'btn-row' }, install, later),
+  );
+  // 이미 설치된 휴대폰이면 묻지 않아요
+  hasAndroidAppInstalled().then((yes) => { if (yes) box.remove(); });
 
-  // 안드로이드: 도란톡 앱(APK) 받기 — 홈 화면 앱(PWA)으로 쓰는 중이어도 알림 팝업 때문에 안내해요
-  if (p === 'android') {
-    if (isAndroidApp()) return null;
-    box.append(
-      el('div', { class: 'notice-head' }, iconTile('download'), el('p', { class: 'notice-title' }, '도란톡 안드로이드 앱 받기')),
-      el('p', {}, '앱을 설치하면 알림이 카카오톡처럼 ', el('strong', {}, '위에 팝업'), '으로 떠요.'),
-      el('div', { class: 'btn-row' }, el('a', { href: '#/help', class: 'btn' }, '앱 받기'), later),
-    );
-    return box;
-  }
-  if (isStandalone()) return null;
-
-  let painted = false;
-  let stop = () => {};
-  const paint = () => {
-    // 다른 화면으로 넘어가 배너가 사라졌으면 더 이상 신경 쓰지 않음
-    if (painted && !box.isConnected) {
-      stop();
-      return;
-    }
-    painted = true;
-    if (isStandalone()) {
-      box.remove();
-      return;
-    }
-    let body;
-    if (canPromptInstall()) {
-      body = [
-        el('p', {}, '홈 화면에 도란톡 아이콘을 만들어 두면 앱처럼 바로 열 수 있어요.'),
-        el('div', { class: 'btn-row' },
-          el('button', { class: 'btn', type: 'button', onclick: () => promptInstall() }, '홈 화면에 추가'),
-          later),
-      ];
-    } else if (p === 'ios') {
-      body = [
-        el('p', {}, '아래쪽(또는 위쪽) ', el('strong', {}, '공유 버튼 ⬆️'), ' → ', el('strong', {}, '"홈 화면에 추가"'), ' 를 누르면 앱처럼 쓸 수 있어요.'),
-        el('div', { class: 'btn-row' }, el('a', { href: '#/help', class: 'btn btn-secondary' }, '자세히 보기'), later),
-      ];
-    } else {
-      body = [
-        el('p', {}, '브라우저 메뉴(⋮)에서 ', el('strong', {}, '"홈 화면에 추가"'), ' 또는 ', el('strong', {}, '"앱 설치"'), ' 를 누르면 앱처럼 쓸 수 있어요.'),
-        el('div', { class: 'btn-row' }, el('a', { href: '#/help', class: 'btn btn-secondary' }, '자세히 보기'), later),
-      ];
-    }
+  function showSteps() {
+    const b = (text) => el('strong', {}, text);
     box.replaceChildren(
-      el('div', { class: 'notice-head' }, iconTile('download'), el('p', { class: 'notice-title' }, '휴대폰 홈 화면에 추가하기')),
-      ...body);
-  };
-  paint();
-  stop = onInstallChange(paint);
+      bannerHead('받은 파일을 열어 설치해 주세요'),
+      el('ol', { class: 'steps' },
+        el('li', {}, '예전에 홈 화면에 추가한 도란톡이 있으면 ', b('먼저 지워요'), ' (아이콘 길게 누르기 → 삭제)'),
+        el('li', {}, '알림창의 ', b('다운로드 완료'), ' 또는 ', b('내 파일 → 다운로드 → dorantalk.apk'), ' 를 눌러요'),
+        el('li', {}, b('"출처를 알 수 없는 앱"'), '이 나오면 ', b('설정 → 이 출처 허용'), ' → 뒤로'),
+        el('li', {}, b('설치'), ' → ', b('열기')),
+      ),
+      el('div', { class: 'btn-row' },
+        el('a', { href: '#/help', class: 'btn btn-secondary' }, '자세한 방법'),
+        el('button', { class: 'btn btn-ghost btn-small', type: 'button', onclick: () => box.remove() }, '닫기')),
+    );
+  }
+  return box;
+}
+
+function iosHomeScreenTip() {
+  const box = el('div', { class: 'notice notice-install' });
+  const later = el('button', {
+    class: 'btn btn-ghost btn-small', type: 'button',
+    onclick: () => { rememberDismiss(); box.remove(); },
+  }, '나중에');
+  box.append(
+    bannerHead('아이폰 홈 화면에 도란톡 놓기'),
+    el('p', {}, '아래쪽(또는 위쪽) ', el('strong', {}, '공유 버튼 ⬆️'), ' → ', el('strong', {}, '"홈 화면에 추가"'), ' 를 누르면 앱처럼 쓰고 알림도 받을 수 있어요.'),
+    el('div', { class: 'btn-row' }, el('a', { href: '#/help', class: 'btn btn-secondary' }, '자세히 보기'), later),
+  );
   return box;
 }
