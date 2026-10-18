@@ -1469,6 +1469,33 @@ body.typing .page-chat { padding-bottom: calc(100px + env(safe-area-inset-bottom
 .request-text { flex: 1; min-width: 0; }
 .request-text p { margin: 0; }
 .request-title { font-weight: 800; font-size: 1.08rem; }
+/* ---------- 운영자: 광고 성과 ---------- */
+.stat-intro { margin: 0 0 12px; font-size: 0.92rem; }
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stat-tile {
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--elev-1);
+  min-width: 0;
+}
+.stat-tile p { margin: 0; }
+.stat-label { color: var(--muted); font-weight: 700; font-size: 0.9rem; }
+.stat-value { font-size: 1.6rem; font-weight: 800; margin-top: 2px !important; }
+.stat-sub { color: var(--muted); font-size: 0.82rem; margin-top: 2px !important; overflow-wrap: anywhere; }
+.stat-list { list-style: none; margin: 0; padding: 0; }
+.stat-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+.stat-row + .stat-row { border-top: 1px solid var(--line); }
+.stat-row.compact { padding: 7px 0; }
+.stat-row p { margin: 0; }
+.stat-row-text { flex: 1; min-width: 0; }
+.stat-row-name { flex: 1; min-width: 0; font-weight: 800; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.stat-row-sub { color: var(--muted); font-size: 0.85rem; margin-top: 2px !important; }
+.stat-row-num { flex: none; font-weight: 800; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.stat-row-num.zero { color: var(--placeholder); font-weight: 700; }
+.stat-code { font-weight: 600; font-size: 0.8rem; color: var(--muted); background: var(--fill); padding: 0 8px; border-radius: 999px; }
+.stat-note { margin: 12px 0 0; }
+
 .age-badge { margin-top: 8px; font-size: 0.85rem; padding: 2px 10px; }
 .age-badge.age-child { background: var(--primary-soft); color: var(--accent-strong); }
 

@@ -470,6 +470,7 @@ export function renderMe() {
       el('section', { class: 'card list-card' },
         !child && listRow({ icon: 'family', label: '자녀 계정 (만 14세 미만)', sub: '자녀 가입 동의 · 자녀 계정 관리', href: '#/me/children' }),
         listRow({ icon: 'help', label: '사용 방법', sub: '홈 화면에 추가, 글 쓰기, 채팅', href: '#/help', tone: 'blue' }),
+        isAdminUser(state.session?.user) && listRow({ icon: 'sparkles', label: '광고 성과 (운영자)', sub: '가입 경로별 가입자 · 날짜별 가입 · 가족 활동', href: '#/stats', tone: 'blue' }),
         isAdminUser(state.session?.user) && listRow({ icon: 'activity', label: '연결 점검 (운영자)', sub: '서버 · 데이터베이스 · 알림 · 메일 상태', href: '#/check', tone: 'green' }),
         listRow({ icon: 'mail', label: '문의하기', sub: CONTACT_EMAIL, href: `mailto:${CONTACT_EMAIL}`, tone: 'violet' }),
         listRow({ icon: 'document', label: '이용약관', href: '#/terms', tone: 'gray' }),

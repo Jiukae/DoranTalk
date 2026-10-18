@@ -6,6 +6,7 @@
 // - 카카오톡·네이버 앱 안에서 열린 경우: 기본 브라우저로 열도록 안내
 import { el, iconTile } from './ui.js';
 import { reloadOnNextNavigation } from './router.js';
+import { KAKAO_UA, IN_APP_UA } from './source.js';
 
 // 도란톡 안드로이드 앱(APK). android/ 를 고쳐 새로 서명하면 download/dorantalk.apk 파일과 아래 버전을 함께 바꿔요
 export const ANDROID_APP = { url: '/download/dorantalk.apk', version: '1.0.1', size: '0.7MB' };
@@ -54,8 +55,8 @@ export function isStandalone() {
 
 export function platform() {
   const ua = navigator.userAgent;
-  if (/KAKAOTALK/i.test(ua)) return 'kakao';
-  if (/NAVER\(inapp|; NAVER|Instagram|FBAN|FBAV|Line\/|DaumApps|everytimeApp|BAND\//i.test(ua)) return 'inapp';
+  if (KAKAO_UA.test(ua)) return 'kakao';
+  if (IN_APP_UA.test(ua)) return 'inapp';
   if (/iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'ios';
   if (/Android/i.test(ua)) return 'android';
   return 'desktop';

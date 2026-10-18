@@ -1159,4 +1159,50 @@ delete from storage.objects where name = 'avatars/11111111-0000-0000-0000-000000
 update public.profiles set avatar_path = null, avatar_color = null where id = '11111111-0000-0000-0000-000000000001';
 reset role;
 select pg_temp.assert((select count(*) from storage.objects where name like 'avatars/11111111-0000-0000-0000-000000000001/%') = 0, 'owner deleted avatar');
+-- =====================================================================
+-- (버전 12) 운영자 화면: 광고 · 가입 성과
+-- =====================================================================
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('22222222-0000-0000-0000-000000000001', 'ad1@x.com', '{"nickname":"광고가입","handle":"ad_one","signup_from":"insta_ad"}');
+-- 운영자가 아니면 못 봐요
+select pg_temp.as_user('11111111-0000-0000-0000-000000000001');
+do $$ begin
+  perform public.admin_stats();
+  raise exception 'TEST FAILED: non-admin admin_stats';
+exception when insufficient_privilege then null; end $$;
+do $$ begin
+  perform public.is_admin();
+  raise exception 'TEST FAILED: is_admin callable';
+exception when insufficient_privilege then null; end $$;
+reset role;
+set role anon;
+do $$ begin
+  perform public.admin_stats();
+  raise exception 'TEST FAILED: anon admin_stats';
+exception when insufficient_privilege then null; end $$;
+reset role;
+-- 운영자 (admin@dorantalk.com)
+select pg_temp.as_user('ffffffff-0000-0000-0000-000000000001');
+create temp table st as select public.admin_stats() as j;
+reset role;
+select pg_temp.assert((select (j->'totals'->>'users')::int from st) = (select count(*) from auth.users), 'stats total users');
+select pg_temp.assert((select (j->'totals'->>'users_today')::int from st) = (select count(*) from auth.users), 'stats users today (all made now)');
+select pg_temp.assert((select (j->'totals'->>'groups')::int from st) = (select count(*) from public.family_groups), 'stats groups');
+select pg_temp.assert((select jsonb_array_length(j->'daily') from st) = 14, 'stats 14 days');
+select pg_temp.assert((select jsonb_array_length(j->'weekly') from st) = 8, 'stats 8 weeks');
+select pg_temp.assert((select (j->'daily'->0->>'signups')::int from st) = (select count(*) from auth.users), 'stats today first');
+select pg_temp.assert((select (e->>'total')::int from st, jsonb_array_elements(j->'sources') e where e->>'source' = 'insta_ad') = 1, 'stats source insta_ad');
+select pg_temp.assert((select (e->>'with_family')::int from st, jsonb_array_elements(j->'sources') e where e->>'source' = 'insta_ad') = 0, 'insta_ad not yet with family');
+-- 가족과 연결: 사진엄마 · 사진아빠는 둘이 있는 그룹에 있어요 (경로 없음 = '')
+select pg_temp.assert((select (e->>'with_family')::int from st, jsonb_array_elements(j->'sources') e where e->>'source' = '') >= 2, 'with_family counts group of two');
+select pg_temp.assert((select (j->'weekly'->0->>'active_groups')::int from st) >= 1, 'weekly active groups');
+-- 주 경계(월요일 0시, 한국 시간): 테스트 앞부분에서 며칠 전으로 돌려놓은 그룹들이 있어요
+select pg_temp.assert((select (j->'weekly'->0->>'new_groups')::int from st) = (select count(*) from public.family_groups
+  where created_at >= date_trunc('week', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul'), 'weekly new groups (this week)');
+select pg_temp.assert((select (j->'weekly'->1->>'new_groups')::int from st) = (select count(*) from public.family_groups
+  where created_at >= (date_trunc('week', now() at time zone 'Asia/Seoul') - interval '7 days') at time zone 'Asia/Seoul'
+    and created_at < date_trunc('week', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul'), 'weekly new groups (last week)');
+select pg_temp.assert((select sum((w->>'new_groups')::int) from st, jsonb_array_elements(j->'weekly') w) = (select count(*) from public.family_groups), 'all groups within 8 weeks');
+-- 이메일 · 이름은 들어 있지 않아요
+select pg_temp.assert((select j::text from st) !~ '@x\.com|사진엄마|광고가입', 'stats has no personal info');
 select 'ALL RLS TESTS PASSED' as result;

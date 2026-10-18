@@ -5,6 +5,7 @@ import { route, setGuard, startRouter, go, currentPath } from './router.js';
 import { el, render, brandHeader, loadingScreen, toast, trackKeyboard } from './ui.js';
 import { friendlyError } from './errors.js';
 import { renderCheck } from './pages/check.js';
+import { renderStats } from './pages/stats.js';
 import { renderLogin, renderSignup, renderChildSignup, renderForgot, renderNewPassword } from './pages/auth.js';
 import { renderChildren, renderGuardianConsent } from './pages/guardian.js';
 import { renderHome, renderMe, renderNewGroup } from './pages/home.js';
@@ -91,6 +92,7 @@ function renderProfileError(message) {
 
 // 연결 점검은 운영자(admin@dorantalk.com)만
 route('/check', needsProfile(adminOnly(renderCheck), { skipConsent: true }));
+route('/stats', needsProfile(adminOnly(renderStats)));
 route('/help', renderHelp, { access: 'any' });
 route('/delete-account', renderDeleteGuide, { access: 'any' });
 route('/privacy', renderPrivacy, { access: 'any' });

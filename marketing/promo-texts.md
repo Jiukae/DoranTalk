@@ -12,17 +12,19 @@
 
 | 올리는 곳 | 붙일 주소 |
 |---|---|
-| 인스타그램 프로필 · 게시물 | `https://dorantalk.com/welcome?from=insta` |
-| 인스타그램 · 페이스북 **유료 광고** | `https://dorantalk.com/welcome?from=insta_ad` |
-| 유튜브 쇼츠 설명란 · 고정 댓글 | `https://dorantalk.com/welcome?from=youtube` |
-| 유튜브 · 구글 **유료 광고** | `https://dorantalk.com/welcome?from=google_ad` |
-| 네이버 블로그 | `https://dorantalk.com/welcome?from=blog` |
-| 네이버 **검색 광고** | `https://dorantalk.com/welcome?from=naver_ad` |
-| 맘카페 · 커뮤니티 | `https://dorantalk.com/welcome?from=cafe` |
-| 당근 동네생활 | `https://dorantalk.com/welcome?from=daangn` |
+| 인스타그램 프로필 · 게시물 | `https://www.dorantalk.com/welcome?from=insta` |
+| 인스타그램 · 페이스북 **유료 광고** | `https://www.dorantalk.com/welcome?from=insta_ad` |
+| 유튜브 쇼츠 설명란 · 고정 댓글 | `https://www.dorantalk.com/welcome?from=youtube` |
+| 유튜브 · 구글 **유료 광고** | `https://www.dorantalk.com/welcome?from=google_ad` |
+| 네이버 블로그 | `https://www.dorantalk.com/welcome?from=blog` |
+| 네이버 **검색 광고** | `https://www.dorantalk.com/welcome?from=naver_ad` |
+| 맘카페 · 커뮤니티 | `https://www.dorantalk.com/welcome?from=cafe` |
+| 당근 동네생활 | `https://www.dorantalk.com/welcome?from=daangn` |
 
-- 앱의 "가족에게 도란톡 링크 보내기" 버튼은 자동으로 `?from=family` 가 붙어요.
-- 가입 경로 숫자는 `docs/step10-launch.md` 의 **D. 가입 경로 확인** 으로 볼 수 있어요.
+- 주소는 **`www.` 가 붙은 주소**를 써요. (`dorantalk.com` 도 되지만 한 번 더 넘어가서 조금 느려요)
+- 앱의 **도란톡 가입 링크 보내기** 버튼(그룹 → 멤버 탭)은 자동으로 `?from=family` 가 붙어요.
+- 가입 경로 숫자는 운영자 계정의 **내 정보 → 광고 성과** 에서 바로 볼 수 있어요. (`docs/step17-ads.md`)
+- 인스타 · 카톡 안에서 열렸다가 사파리 · 크롬으로 옮겨 가입해도 가입 경로가 그대로 남아요.
 
 > ⚠️ **직접 만든 서비스라는 걸 밝히고 홍보해 주세요.** 이용자인 척 쓰는 후기(바이럴)는 표시 · 광고 규정 위반이 될 수 있어요.
 > 카페는 대부분 **홍보 게시판**이 따로 있으니 규칙을 먼저 확인해 주세요.
@@ -40,12 +42,12 @@
 > - 사진과 소식을 올리면 가족만 볼 수 있어요 (초대받아 수락한 사람만)
 > - 하트 · 댓글, 가족 채팅, 앱을 닫아도 알림
 > - 글씨와 버튼이 커서 부모님도 쉽게 쓰세요
-> - **광고 없고 무료**, 앱 설치 없이 홈 화면에 추가하면 앱처럼 써요 (아이폰 · 안드로이드)
+> - **광고 없고 무료**, 앱 스토어 없이 바로 시작해요 (아이폰은 홈 화면에 추가, 안드로이드는 도란톡 앱)
 >
 > 저희 가족은 몇 주째 잘 쓰고 있어서, 필요하신 분들께도 나누고 싶어 소개드려요.
 > 써 보시고 불편한 점 알려 주시면 고쳐 볼게요 🙏
 >
-> 👉 https://dorantalk.com/welcome?from=cafe
+> 👉 https://www.dorantalk.com/welcome?from=cafe
 
 (이미지: `insta-1-intro-1080.png`, `insta-2-features-1080.png`)
 
@@ -72,22 +74,23 @@
 >
 > **③ 알림** — 앱을 닫아 두어도 카카오톡처럼 휴대폰에 알림이 와요.
 >
-> **④ 부모님도 쉽게** — 큰 글씨, 큰 버튼, 꼭 필요한 기능만. 화면 색도 4가지 중에 골라요.
+> **④ 부모님도 쉽게** — 큰 글씨, 큰 버튼, 꼭 필요한 기능만. 화면 색도 4가지 중에 골라요. 프로필 사진도 바꿀 수 있어요.
 > [사진: `insta-3-easy-1080.png`]
 >
 > ## 안심하고 쓰세요
 > - 가족 그룹에 **초대받아 수락한 사람만** 그 그룹의 글 · 사진 · 채팅을 볼 수 있어요.
 > - 앱 안에 **광고가 없고**, 지금은 모든 기능이 **무료**예요.
 > - 탈퇴하면 글 · 사진 · 채팅이 **바로 삭제**돼요.
+> - 만 14세 미만 자녀는 **보호자 동의**로 가입하고, 보호자가 있는 그룹에만 들어가요.
 >
 > ## 시작하는 방법 (3단계)
 > 1. dorantalk.com 에서 가입 (이메일 · 비밀번호 · 아이디 · 닉네임)
 > 2. 가족 그룹을 만들고 가족의 아이디로 초대
 > 3. 가족이 수락하면 끝!
 >
-> 아이폰은 사파리에서 **공유 → 홈 화면에 추가**, 안드로이드는 크롬 메뉴에서 **홈 화면에 추가**를 누르면 앱처럼 쓸 수 있어요.
+> 아이폰은 사파리에서 **공유 → 홈 화면에 추가**, 안드로이드는 도란톡 **사용 방법 → 안드로이드 앱 받기**로 설치하면 앱처럼 쓸 수 있어요. (안드로이드 앱은 알림이 카카오톡처럼 위에 떠요)
 >
-> 👉 **https://dorantalk.com/welcome?from=blog**
+> 👉 **https://www.dorantalk.com/welcome?from=blog**
 >
 > 직접 만든 서비스라 부족한 점이 있을 수 있어요. 써 보시고 댓글로 알려 주세요!
 
@@ -103,7 +106,7 @@
 > 가족끼리만 사진 · 소식 나누는 앱을 직접 만들었어요. 이름은 **도란톡**!
 > 단톡방에 사진이 묻히는 게 아쉬워서 만들었는데, 부모님도 글씨가 커서 잘 쓰세요.
 > 광고 없고 무료예요. 필요하신 분 써 보시고 의견 주시면 감사하겠습니다 🙏
-> 👉 https://dorantalk.com/welcome?from=daangn
+> 👉 https://www.dorantalk.com/welcome?from=daangn
 
 (이미지: `insta-1-intro-1080.png`)
 
@@ -133,7 +136,7 @@
 
 **해시태그:** #가족앱 #가족소식 #가족사진 #가족채팅 #부모님선물 #효도 #육아일기 #가족앨범 #도란톡 #가족소통
 
-**프로필 소개:** 우리 가족만의 소식방 🏡 사진 · 소식 · 채팅 · 무료 / 링크: `https://dorantalk.com/welcome?from=insta`
+**프로필 소개:** 우리 가족만의 소식방 🏡 사진 · 소식 · 채팅 · 무료 / 링크: `https://www.dorantalk.com/welcome?from=insta`
 
 ---
 
@@ -166,7 +169,7 @@
 | 17~20초 | 소개 화면(dorantalk.com/welcome) | 광고 없이 무료 · dorantalk.com | "광고 없이 무료! 프로필 링크에서 시작해 보세요." |
 
 **쇼츠 제목:** 가족 단톡방 대신 쓰는 가족 소식방 앱 (무료·광고 없음) #가족앱
-**설명란:** 우리 가족끼리만 사진 · 소식 · 채팅 👉 https://dorantalk.com/welcome?from=youtube
+**설명란:** 우리 가족끼리만 사진 · 소식 · 채팅 👉 https://www.dorantalk.com/welcome?from=youtube
 
 ---
 
@@ -181,7 +184,7 @@
 - **제목:** 우리 가족만의 소식방, 도란톡 / 부모님도 쉬운 무료 가족 앱 / 광고 없는 가족 소식방
 - **설명:** 광고 없이 무료 · 앱 설치 없이 바로
 - **버튼:** 가입하기 (또는 더 알아보기)
-- **웹사이트 주소:** `https://dorantalk.com/welcome?from=insta_ad`
+- **웹사이트 주소:** `https://www.dorantalk.com/welcome?from=insta_ad`
 
 ### 유튜브 · 구글 광고 (반응형 광고)
 **광고 제목 (한글 15자 안쪽, 10개까지):**
@@ -190,22 +193,24 @@
 **설명 (한글 45자 안쪽, 4개까지):**
 1. 사진·소식·채팅을 가족끼리만. 큰 글씨와 쉬운 화면이라 부모님도 편해요.
 2. 초대받아 수락한 가족만 볼 수 있어요. 광고 없이 무료로 시작하세요.
-3. 앱 설치 없이 홈 화면에 추가하면 끝. 아이폰·안드로이드 모두 돼요.
+3. 앱 스토어 없이 바로 시작해요. 아이폰·안드로이드 모두 돼요.
 4. 사진 10장, 하트와 댓글, 안 읽은 가족 수까지. 가족 소식이 묻히지 않아요.
 
-**최종 도착 주소:** `https://dorantalk.com/welcome?from=google_ad`
+**최종 도착 주소:** `https://www.dorantalk.com/welcome?from=google_ad`
 **이미지:** `banner-1200x630.png`, `insta-1-intro-1080.png`, 로고 `icons/icon-512.png`
 
 ### 네이버 검색 광고 (파워링크)
 - **제목 (15자):** 우리 가족만의 소식방
 - **설명 (45자):** 사진·소식·채팅을 가족끼리만. 큰 글씨와 쉬운 화면이라 부모님도 편해요.
-- **연결 주소:** `https://dorantalk.com/welcome?from=naver_ad`
+- **연결 주소:** `https://www.dorantalk.com/welcome?from=naver_ad`
 - **키워드 예시:** 가족앱, 가족 사진 공유, 가족 채팅 앱, 가족 앨범 앱, 가족 소식, 부모님 앱, 가족 단톡방, 사진 공유 앱
 
 ---
 
 ## 8. 처음 유료 광고를 한다면
+> 👉 **첫 2주 계획 · 인스타 광고 설정 · 매일 볼 숫자 · 7일 뒤 판단 기준**은 [17단계 안내서](../docs/step17-ads.md)에 있어요.
+
 - **작게 시작:** 하루 5천~1만 원으로 **1~2주** 해 보고, 가입 경로 숫자를 비교해요.
 - **누구에게:** 30~60대, 전국, 관심사 "가족 · 육아 · 부모님" 정도로 시작
-- **비교:** `insta_ad` · `google_ad` · `naver_ad` 중 **가입이 많이 나온 곳**에 예산을 옮겨요.
+- **비교:** `insta_ad` · `google_ad` · `naver_ad` 중 **가족과 연결이 많이 나온 곳**에 예산을 옮겨요. (내 정보 → 광고 성과)
 - **하지 말 것:** "100% 안전", "평생 무료"처럼 장담하는 말, 이용자인 척 쓴 후기, 동의 없이 보내는 문자 · 메일 홍보
