@@ -115,8 +115,10 @@ jobs:
           done
           grep -iE '^(HTTP|content-type|content-disposition|cache-control)' headers.txt
           echo "저장소 $WANT"; echo "사이트 $GOT"
-          [ "$GOT" = "$WANT" ] && echo "OK APK 같음"
-          grep -qi 'application/vnd.android.package-archive' headers.txt && echo "OK 내려받기 형식"
+          [ "$GOT" = "$WANT" ] || { echo "사이트의 APK 가 저장소와 달라요"; exit 1; }
+          echo "OK APK 같음"
+          grep -qi 'application/vnd.android.package-archive' headers.txt || { echo "내려받기 형식(Content-Type)이 달라요"; exit 1; }
+          echo "OK 내려받기 형식"
 
       - name: assetlinks.json 확인
         run: |
@@ -129,7 +131,8 @@ jobs:
           curl -fsS "https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://www.dorantalk.com&relation=delegate_permission/common.handle_all_urls" | tee dal.json | head -c 1500; echo
           # www 주소에서 리다이렉트 없이 바로 JSON 이 오고, Google 도 com.dorantalk.app 을 읽어야 해요
           curl -fsS --max-redirs 0 https://www.dorantalk.com/.well-known/assetlinks.json | python3 -c "import json,sys; d=json.load(sys.stdin); t=d[0]['target']; assert t['package_name']=='com.dorantalk.app'; print('OK 지문', len(t['sha256_cert_fingerprints']), '개')"
-          grep -q 'com.dorantalk.app' dal.json && echo "OK Google 확인"
+          grep -q 'com.dorantalk.app' dal.json || { echo "Google 이 앱 지문을 못 읽었어요"; exit 1; }
+          echo "OK Google 확인"
 
   # 에뮬레이터(안드로이드 16 + 크롬)에서 설치 · 실행해 보고, 알림이 위에 팝업으로 뜨는지 화면을 찍어요
   smoke-test:
