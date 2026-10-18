@@ -16,7 +16,7 @@
   - 바로 받는 주소: `https://www.dorantalk.com/download/dorantalk.apk`
 - 안드로이드에는 이제 **"홈 화면에 추가"를 안내하지 않아요.** (그렇게 만든 도란톡은 알림이 아이콘으로만 와서요)
   아이폰은 홈 화면에 추가해야 알림을 받을 수 있어서 그대로 안내해요.
-- 파일: `download/dorantalk.apk` (업로드 키로 서명됨, 안드로이드 7.0 이상, 약 0.9MB)
+- 파일: `download/dorantalk.apk` (업로드 키로 서명됨, 안드로이드 7.0 이상, 약 0.7MB)
 
 > 업로드 키(`dorantalk-upload-key.jks`)와 비밀번호는 14단계 때 받은 그대로예요. 다음에 앱을 고칠 때 필요하니 잘 보관해 주세요.
 

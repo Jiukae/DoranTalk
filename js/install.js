@@ -8,7 +8,7 @@ import { el, iconTile } from './ui.js';
 import { reloadOnNextNavigation } from './router.js';
 
 // 도란톡 안드로이드 앱(APK). android/ 를 고쳐 새로 서명하면 download/dorantalk.apk 파일과 아래 버전을 함께 바꿔요
-export const ANDROID_APP = { url: '/download/dorantalk.apk', version: '1.0.0', size: '0.9MB' };
+export const ANDROID_APP = { url: '/download/dorantalk.apk', version: '1.0.1', size: '0.7MB' };
 
 const DISMISS_KEY = 'talkfeed.installDismissedAt';
 
