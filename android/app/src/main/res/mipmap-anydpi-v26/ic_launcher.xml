@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 적응형 아이콘: 108dp 중 가운데 72dp 만 보여요. 집 · 하트(전경)는 안전 영역(66dp 원) 안에 들어가게 작게 그렸어요. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/backgroundColor" />
-    <foreground android:drawable="@mipmap/ic_maskable" />
+    <background android:drawable="@mipmap/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
 </adaptive-icon>

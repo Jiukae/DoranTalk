@@ -10,9 +10,9 @@ android {
         applicationId 'com.dorantalk.app'
         minSdk 24   // 안드로이드 7.0 이상 (androidbrowserhelper 2.7 이 요구)
         targetSdk 36
-        // 새 버전을 Play 스토어에 올릴 때마다 versionCode 를 1씩 올려요
-        versionCode 1
-        versionName '1.0.0'
+        // 새 APK 를 낼 때마다 versionCode 를 1씩 올려요 (같은 업로드 키로 서명해야 덮어 설치돼요)
+        versionCode 2
+        versionName '1.0.1'
     }
 
     buildTypes {
