@@ -461,6 +461,8 @@ img.brand-logo { object-fit: cover; }
 .tip-box summary::after { content: '+'; position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-size: 1.3rem; color: var(--accent-text); }
 .tip-box[open] summary::after { content: '−'; }
 .tip-box > :not(summary) { margin-left: 14px; margin-right: 14px; }
+/* 꽉 찬 버튼도 좌우 여백 안에 들어가게 (width:100% + 여백이면 오른쪽으로 삐져나와요) */
+.tip-box > .btn-block { width: auto; }
 .tip-box > :last-child { padding-bottom: 14px; margin-bottom: 0; }
 .tip-box h3 { margin-top: 12px; }
 .note-box { margin: 12px 0; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--fill); color: var(--muted); font-size: 0.95rem; }
