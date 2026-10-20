@@ -4,4 +4,4 @@ Allow: /
 Disallow: /supabase/
 Disallow: /docs/
 
-Sitemap: https://dorantalk.com/sitemap.xml
+Sitemap: https://www.dorantalk.com/sitemap.xml
