@@ -127,7 +127,7 @@
 
 ### (선택) 유튜브 쇼츠
 엄마 유튜브 계정이 있고 시간이 날 때만 해요. **안 해도 괜찮아요.**
-- 영상: GitHub `marketing/video/dorantalk-ad-20s-9x16.mp4` (소리 없는 영상이라 유튜브 앱의 **사운드 추가**로 음악 넣기)
+- 영상: GitHub `marketing/video/dorantalk-shorts-15s-9x16.mp4` (15초, 효과음 · 비트가 들어 있어서 그대로 올려도 돼요)
 - 유튜브 앱 → **+** → **Shorts** → 갤러리에서 영상 → 제목 `가족 단톡방 대신 쓰는 가족 소식방 앱 (무료·광고 없음) #가족앱`
 - 시청자층: **"아니요, 아동용이 아닙니다"** · 설명란과 고정 댓글에 `https://www.dorantalk.com/welcome?from=youtube`
 

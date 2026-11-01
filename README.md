@@ -40,7 +40,7 @@ welcome.html            소개 화면 (dorantalk.com/welcome) — 처음 온 사
 robots.txt, sitemap.xml 검색 사이트 안내 (소개 화면을 찾을 수 있게)
 assets/                 소개 화면 사진(앱 화면 예시) · 링크 미리보기 그림(og-image.png)
 marketing/              홍보 이미지(인스타 · 쇼츠 · 배너) + 홍보 문구 모음(promo-texts.md)
-marketing/video/        광고 동영상 20초 (세로 9:16 릴스 · 쇼츠용, 정사각 1:1 피드용) + 표지
+marketing/video/        쇼츠 스타일 광고 동영상 15초 (세로 9:16 쇼츠 · 릴스용, 가로 16:9 유튜브용, 소리 포함) + 표지
 marketing/play-store/   Play 스토어 등록 그림(아이콘 · 그래픽 이미지 · 스크린샷 4장) + 등록 문구(listing.md)
 android/                안드로이드 앱 (www.dorantalk.com 을 앱 화면으로 여는 TWA, com.dorantalk.app, 알림 팝업)
 download/               dorantalk.apk: 사용 방법 → "안드로이드 앱 받기"로 내려받는 앱 파일 (업로드 키로 서명)
