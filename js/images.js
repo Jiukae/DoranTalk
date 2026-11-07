@@ -116,9 +116,11 @@ export async function uploadImages(groupId, folder, items, onProgress = () => {}
         upsert: false,
       });
       if (error) {
-        // 동영상 하루 10개를 넘으면 보안 규칙이 막아요
-        if (it.type?.startsWith('video/') && /row-level security|policy|403|Unauthorized/i.test(String(error.message || error.statusCode || ''))) {
-          throw new Error('동영상은 한 사람이 하루에 10개까지 올릴 수 있어요. 내일 다시 올려 주세요.');
+        // 하루 한도를 넘으면 보안 규칙이 막아요 (동영상 10개 · 사진 300장 · 모두 합쳐 500MB, 버전 15)
+        if (/row-level security|policy|403|Unauthorized/i.test(String(error.message || error.statusCode || ''))) {
+          throw new Error(it.type?.startsWith('video/')
+            ? '동영상은 한 사람이 하루에 10개까지 올릴 수 있어요. 내일 다시 올려 주세요.'
+            : '오늘은 더 올릴 수 없어요. 한 사람이 하루에 사진 300장 · 모두 합쳐 500MB까지 올릴 수 있어요. 내일 다시 올려 주세요.');
         }
         throw error;
       }

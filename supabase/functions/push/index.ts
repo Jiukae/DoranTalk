@@ -13,6 +13,8 @@
 //    VAPID_PUBLIC_KEY   공개 열쇠 (앱 #/push-setup 화면에서 만들어요)
 //    VAPID_PRIVATE_KEY  비밀 열쇠 (위와 한 쌍)
 //    VAPID_SUBJECT      (선택) 연락처. 기본값 mailto:admin@dorantalk.com
+//    PUSH_DB_KEY        (선택, 버전 15) 알림 서버 전용 열쇠. DB Vault 의 'push_db_key' 와 같은 값.
+//                       넣어 두면 가족 기기 알림 주소를 이 알림 서버만 받을 수 있어요. (20단계 안내서)
 //
 //  외부 라이브러리 없이 표준 암호 기능(WebCrypto)만 써요.
 //    - 알림 내용 암호화: RFC 8291 (aes128gcm)
@@ -213,10 +215,16 @@ export function createHandler({ fetch: fetchFn = fetch, env = defaultEnv }: Opti
 
     const base = env('SUPABASE_URL').replace(/\/$/, '');
     const apikey = req.headers.get('apikey') || env('SUPABASE_ANON_KEY');
+    const pushKey = env('PUSH_DB_KEY'); // (선택) 알림 서버 전용 열쇠
     // 보낸 사람의 로그인 정보 그대로 DB에 물어봐요 (DB 보안 규칙이 그대로 적용)
     const rpc = (name: string, args: unknown) => fetchFn(`${base}/rest/v1/rpc/${name}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: authorization, ...(apikey ? { apikey } : {}) },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: authorization,
+        ...(apikey ? { apikey } : {}),
+        ...(pushKey ? { 'x-push-key': pushKey } : {}),
+      },
       body: JSON.stringify(args),
     });
 

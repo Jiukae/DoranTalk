@@ -165,6 +165,10 @@ export async function saveAvatarPhoto(file) {
     cacheControl: '31536000',
     upsert: false,
   });
+  // 하루 한도(프로필 사진 20번 · 모두 합쳐 500MB, 버전 15)를 넘으면 보안 규칙이 막아요
+  if (error && /row-level security|policy|403|Unauthorized/i.test(String(error.message || error.statusCode || ''))) {
+    throw new Error('프로필 사진은 하루에 20번까지 바꿀 수 있어요. 내일 다시 해 주세요.');
+  }
   if (error) throw error;
   try {
     await updateMyProfile({ avatar_path: path });

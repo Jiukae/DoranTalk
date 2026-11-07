@@ -907,7 +907,8 @@ select public.invite_by_handle((select v from pg_temp.ids where k='mg'), '외할
 reset role;
 select pg_temp.assert((select count(*) from net.sent) = 1, 'one invite mail sent');
 select pg_temp.assert((select body->'to'->>0 from net.sent order by id desc limit 1) = 'b@x.com', 'mail to invitee email');
-select pg_temp.assert((select body->>'html' from net.sent order by id desc limit 1) like '%&lt;b&gt;메일&lt;/b&gt;그룹%', 'group name escaped in mail');
+-- (버전 15) 태그는 글자로 바꾸고, 인터넷 주소 글자(. : / @)는 띄어 써요 → "</b>" 는 "&lt; b&gt;"
+select pg_temp.assert((select body->>'html' from net.sent order by id desc limit 1) like '%&lt;b&gt;메일&lt; b&gt;그룹%', 'group name escaped in mail');
 select pg_temp.assert((select body->>'html' from net.sent order by id desc limit 1) not like '%<b>메일%', 'no raw html from user');
 select pg_temp.assert((select headers->>'Authorization' from net.sent order by id desc limit 1) = 'Bearer re_test_key', 'mail uses vault key');
 -- 같은 사람에게 10분 안에 또 초대 → 초대는 되지만 메일은 안 감

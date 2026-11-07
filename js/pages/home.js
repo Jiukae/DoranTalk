@@ -630,7 +630,7 @@ function pushCard() {
         try {
           const r = await sendTestPush();
           if (r?.sent > 0) msg.show('시험 알림을 보냈어요. 몇 초 안에 휴대폰 알림이 와요.', 'success');
-          else msg.show('30초 뒤에 다시 눌러 주세요.', 'info');
+          else msg.show('보내지 못했어요. 30초 뒤에 다시 눌러 주세요. 계속 안 되면 운영자에게 알려 주세요.', 'info');
         } catch (err) {
           msg.show(friendlyError(err));
         } finally {

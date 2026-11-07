@@ -126,7 +126,10 @@ export async function createEvent(groupId, ev) {
     year: ev.year || null,
   };
   row.next_dates = computeNextDates(row);
-  return check(await sb.from('family_events').insert(row).select(FIELDS).single());
+  const res = await sb.from('family_events').insert(row).select(FIELDS).single();
+  // 하루 한도(한 사람 30개) · 그룹 한도(300개)를 넘으면 보안 규칙이 막아요 (버전 15)
+  if (res.error?.code === '42501') throw new Error('일정은 한 사람이 하루 30개, 한 그룹에 300개까지 만들 수 있어요.');
+  return check(res);
 }
 
 export async function deleteEvent(id) {

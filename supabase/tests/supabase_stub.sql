@@ -38,7 +38,8 @@ create table storage.objects (
   bucket_id text references storage.buckets (id),
   name text,
   owner_id text default auth.uid()::text,
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  metadata jsonb  -- 실제 Supabase: 올리기가 끝나면 크기(size) · 형식(mimetype) 등이 들어가요
 );
 create function storage.foldername(name text) returns text[] language plpgsql as $$
 declare _parts text[];
