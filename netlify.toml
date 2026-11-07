@@ -21,7 +21,7 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     X-Frame-Options = "DENY"
     Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://jksstsimlqxleoerizzy.supabase.co; connect-src 'self' https://jksstsimlqxleoerizzy.supabase.co wss://jksstsimlqxleoerizzy.supabase.co; font-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://jksstsimlqxleoerizzy.supabase.co; media-src 'self' blob: https://jksstsimlqxleoerizzy.supabase.co; connect-src 'self' https://jksstsimlqxleoerizzy.supabase.co wss://jksstsimlqxleoerizzy.supabase.co; font-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 
 # 코드가 바뀌면 휴대폰에서도 바로 새 버전을 받도록 (저장된 옛 파일 대신 서버 확인)
 [[headers]]

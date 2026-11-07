@@ -1,7 +1,8 @@
 // 채팅 관련 서버 요청 모음: 메시지, 읽음 표시, 안 읽은 수, 실시간 연결
 import { sb } from './supabase.js';
 import { state } from './state.js';
-import { shrinkImage, uploadImages, removeImages } from './images.js';
+import { prepareMedia, uploadImages, removeImages } from './images.js';
+import { GREETINGS, GREETING_TEXTS, todayStartIso } from './greetings.js';
 
 export const PAGE_SIZE = 50;
 export const MAX_MESSAGE_LENGTH = 2000;
@@ -45,10 +46,31 @@ export async function sendText(groupId, content) {
     .single()));
 }
 
-// 사진 한 장 보내기: 줄이기 → 올리기 → 메시지 저장 (저장 실패 시 올린 사진 정리)
+// 안부 인사 보내기 (데이터베이스가 버전 14 전이면 번호 없이 보통 메시지로)
+export async function sendGreeting(groupId, n) {
+  const g = GREETINGS.find((x) => x.n === n);
+  const insert = (row) => sb.from('messages').insert(row).select(FIELDS).single();
+  let res = await insert({ group_id: groupId, content: g.text, greeting: n });
+  if (res.error && (res.error.code === 'PGRST204' || res.error.code === '42703')) res = await insert({ group_id: groupId, content: g.text });
+  return shapeMessage(check(res));
+}
+
+// 오늘(한국 시간) 이 그룹에 온 안부 인사 → [{ sender_id, nickname, content, created_at }]
+export async function fetchTodayGreetings(groupId) {
+  const rows = check(await sb.from('messages')
+    .select('sender_id, content, created_at, sender:profiles!messages_sender_id_fkey(nickname)')
+    .eq('group_id', groupId)
+    .in('content', GREETING_TEXTS)
+    .gte('created_at', todayStartIso())
+    .order('created_at', { ascending: false })
+    .limit(50));
+  return rows.map((r) => ({ ...r, nickname: r.sender?.nickname ?? '(알 수 없음)' }));
+}
+
+// 사진 · 동영상 하나 보내기: (사진은 줄이기) → 올리기 → 메시지 저장 (저장 실패 시 올린 파일 정리)
 export async function sendImage(groupId, file, photoOptions = {}) {
-  const blob = await shrinkImage(file, photoOptions);
-  const [path] = await uploadImages(groupId, 'chat', [blob]);
+  const media = await prepareMedia(file, photoOptions);
+  const [path] = await uploadImages(groupId, 'chat', [media]);
   try {
     return shapeMessage(check(await sb.from('messages')
       .insert({ group_id: groupId, image_path: path })

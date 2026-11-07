@@ -18,12 +18,41 @@ export function uuid() {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
-// 사진 고르기 창 열기 (휴대폰에서는 앨범/카메라 선택)
-export function pickImages({ multiple = true } = {}) {
+// 동영상: 사진 창고에 함께 넣어요 (한 개 50MB 까지 · mp4 · mov · webm, 한 사람이 하루 10개까지)
+export const VIDEO_MAX_BYTES = 50 * 1024 * 1024;
+const VIDEO_TYPES = { 'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm' };
+const VIDEO_MIME = { mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm' };
+
+export function isVideoPath(path) {
+  return /\.(mp4|mov|webm)$/i.test(String(path || ''));
+}
+
+export function isVideoFile(file) {
+  return String(file?.type || '').startsWith('video/') || /\.(mp4|mov|webm|m4v)$/i.test(file?.name || '');
+}
+
+// 올릴 준비: 사진은 줄이고(JPEG), 동영상은 그대로 (크기 · 형식만 확인)
+// → { blob, ext, type, video }
+export async function prepareMedia(file, photoOptions = {}) {
+  if (!isVideoFile(file)) {
+    return { blob: await shrinkImage(file, photoOptions), ext: 'jpg', type: 'image/jpeg', video: false };
+  }
+  const ext = VIDEO_TYPES[file.type] || (file.name.match(/\.(mp4|mov|webm)$/i)?.[1] || (/\.m4v$/i.test(file.name) ? 'mp4' : '')).toLowerCase();
+  if (!ext) throw new Error('이 동영상 형식은 올릴 수 없어요. 휴대폰 카메라로 찍은 mp4 · mov 동영상을 골라 주세요.');
+  if (file.size > VIDEO_MAX_BYTES) {
+    throw new Error(`동영상이 너무 커요 (${Math.round(file.size / 1024 / 1024)}MB). 50MB 이하만 올릴 수 있어요. 보통 1분 정도 길이예요. 휴대폰 사진 앱에서 앞뒤를 잘라 주세요.`);
+  }
+  // 휴대폰마다 동영상 형식 이름이 비어 있기도 해서, 형식을 정확히 붙인 복사본으로 올려요
+  const blob = new Blob([await file.arrayBuffer()], { type: VIDEO_MIME[ext] });
+  return { blob, ext, type: VIDEO_MIME[ext], video: true };
+}
+
+// 사진 고르기 창 열기 (휴대폰에서는 앨범/카메라 선택). video: true 면 동영상도 고를 수 있어요
+export function pickImages({ multiple = true, video = false } = {}) {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
+    input.accept = video ? 'image/*,video/*' : 'image/*';
     input.multiple = multiple;
     input.style.display = 'none';
     input.addEventListener('change', () => {
@@ -72,19 +101,27 @@ export async function shrinkImage(file, { maxSide = MAX_SIDE, quality = QUALITY 
 }
 
 // 여러 장을 차례로 올리고, 저장된 경로 목록을 돌려줍니다.
-// folder: 'posts' 또는 'chat'. 중간에 실패하면 이미 올린 사진은 지우고 오류를 던집니다.
-export async function uploadImages(groupId, folder, blobs, onProgress = () => {}) {
+// folder: 'posts' 또는 'chat'. items: 사진 Blob(JPEG) 또는 prepareMedia() 결과 { blob, ext, type }
+// 중간에 실패하면 이미 올린 것은 지우고 오류를 던집니다.
+export async function uploadImages(groupId, folder, items, onProgress = () => {}) {
   const done = [];
   try {
-    for (let i = 0; i < blobs.length; i++) {
-      onProgress(i + 1, blobs.length);
-      const path = `${groupId}/${folder}/${uuid()}.jpg`;
-      const { error } = await sb.storage.from(BUCKET).upload(path, blobs[i], {
-        contentType: 'image/jpeg',
+    for (let i = 0; i < items.length; i++) {
+      onProgress(i + 1, items.length);
+      const it = items[i] instanceof Blob ? { blob: items[i], ext: 'jpg', type: 'image/jpeg' } : items[i];
+      const path = `${groupId}/${folder}/${uuid()}.${it.ext}`;
+      const { error } = await sb.storage.from(BUCKET).upload(path, it.blob, {
+        contentType: it.type,
         cacheControl: '31536000',
         upsert: false,
       });
-      if (error) throw error;
+      if (error) {
+        // 동영상 하루 10개를 넘으면 보안 규칙이 막아요
+        if (it.type?.startsWith('video/') && /row-level security|policy|403|Unauthorized/i.test(String(error.message || error.statusCode || ''))) {
+          throw new Error('동영상은 한 사람이 하루에 10개까지 올릴 수 있어요. 내일 다시 올려 주세요.');
+        }
+        throw error;
+      }
       done.push(path);
     }
     return done;

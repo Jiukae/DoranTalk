@@ -1318,4 +1318,105 @@ select pg_temp.assert((select j::text from ps) !~ '11111111-0000|사진엄마|�
 delete from auth.users where id = '11111111-0000-0000-0000-000000000002';
 select pg_temp.assert((select count(*) from public.premium_interest) = 0, 'interest removed with account');
 select pg_temp.assert((select count(*) from public.premium_codes where used_at is not null and used_by is null) = 2, 'code keeps used state, forgets who');
+-- =====================================================================
+-- (버전 14) 안부 인사 · 동영상 · 가족 달력   (시골집: 할머니 b1 방장 · 할아버지 b2 · 손주 b3, 이웃 b4)
+-- =====================================================================
+-- 안부 인사: 채팅 메시지 + 번호(1~20), 알림 문장은 안부 글자 그대로
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000003');
+insert into public.messages (group_id, content, greeting) values ((select v from pg_temp.ids where k='pg'), '잘 지내요? 😊', 1);
+do $$ begin
+  insert into public.messages (group_id, content, greeting) values ((select v from pg_temp.ids where k='pg'), '이상한 안부', 99);
+  raise exception 'TEST FAILED: greeting 99';
+exception when check_violation then null; end $$;
+select pg_temp.assert((select min(body) from public.push_targets('message', (select id from public.messages where greeting = 1))) = '잘 지내요? 😊', 'greeting push body');
+reset role;
+
+-- 알림 문장 (사진 · 동영상)
+select pg_temp.assert(public.media_summary(array['g/posts/a.jpg', 'g/posts/b.mp4', 'g/posts/c.jpg'], '올렸어요') = '사진 2장 · 동영상 1개 올렸어요 🎬', 'media summary mixed');
+select pg_temp.assert(public.media_summary(array['g/chat/b.MOV'], '보냈어요') = '동영상을 보냈어요 🎬', 'media summary one video');
+select pg_temp.assert(public.media_summary(array['g/posts/a.jpg', 'g/posts/b.jpg'], '올렸어요') = '사진 2장 올렸어요 📷', 'media summary photos');
+
+-- 동영상: 사진 창고가 동영상도 받아요 (50MB)
+select pg_temp.assert((select file_size_limit from storage.buckets where id = 'family-photos') = 52428800, 'bucket 50MB');
+select pg_temp.assert((select 'video/mp4' = any(allowed_mime_types) and 'video/quicktime' = any(allowed_mime_types) and 'video/webm' = any(allowed_mime_types)
+                       from storage.buckets where id = 'family-photos'), 'bucket allows video');
+-- 한 사람이 하루 10개까지 (사진은 그대로)
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000003');
+do $$ begin
+  for n in 1..10 loop
+    insert into storage.objects (bucket_id, name) values ('family-photos', (select v from pg_temp.ids where k='pg') || '/chat/v' || n || '.mp4');
+  end loop;
+end $$;
+do $$ begin
+  insert into storage.objects (bucket_id, name) values ('family-photos', (select v from pg_temp.ids where k='pg') || '/chat/v11.webm');
+  raise exception 'TEST FAILED: 11th video in a day';
+exception when insufficient_privilege then null; end $$;
+insert into storage.objects (bucket_id, name) values ('family-photos', (select v from pg_temp.ids where k='pg') || '/chat/still-ok.jpg');
+reset role;
+update storage.objects set created_at = now() - interval '2 days' where name like '%/chat/v1.mp4';
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000003');
+insert into storage.objects (bucket_id, name) values ('family-photos', (select v from pg_temp.ids where k='pg') || '/chat/v12.mp4');
+reset role;
+select pg_temp.assert((select count(*) from storage.objects where name like '%/chat/v%') = 11, 'yesterday video frees a slot');
+
+-- 가족 달력
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000003');
+insert into public.family_events (group_id, title, kind, calendar, month, day, next_dates)
+values ((select v from pg_temp.ids where k='pg'), '할머니 생신', 'birthday', 'lunar', 3, 5, array[(now() at time zone 'Asia/Seoul')::date]);
+insert into public.family_events (group_id, title, kind, calendar, month, day, next_dates)
+values ((select v from pg_temp.ids where k='pg'), '가족 여행', 'event', 'solar', 12, 24, array[(now() at time zone 'Asia/Seoul')::date + 1]);
+do $$ begin
+  insert into public.family_events (group_id, title, calendar, month, day, leap) values ((select v from pg_temp.ids where k='pg'), '윤달 양력', 'solar', 1, 1, true);
+  raise exception 'TEST FAILED: solar leap';
+exception when check_violation then null; end $$;
+do $$ begin
+  insert into public.family_events (group_id, title, calendar, month, day) values ((select v from pg_temp.ids where k='pg'), '음력 31일', 'lunar', 1, 31);
+  raise exception 'TEST FAILED: lunar day 31';
+exception when check_violation then null; end $$;
+do $$ begin
+  insert into public.family_events (group_id, title, month, day, created_by) values ((select v from pg_temp.ids where k='pg'), '남의 이름', 1, 1, 'bbbbbbbb-0000-0000-0000-000000000001');
+  raise exception 'TEST FAILED: forged created_by';
+exception when insufficient_privilege then null; end $$;
+reset role;
+insert into pg_temp.ids values ('ev1', (select id from public.family_events where title = '할머니 생신')),
+                               ('ev2', (select id from public.family_events where title = '가족 여행'));
+-- 이웃은 못 보고 · 못 넣고 · 알림도 못 보내요
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000004');
+select pg_temp.assert((select count(*) from public.family_events) = 0, 'outsider sees no events');
+do $$ begin
+  insert into public.family_events (group_id, title, month, day) values ((select v from pg_temp.ids where k='pg'), '침입', 1, 1);
+  raise exception 'TEST FAILED: outsider added event';
+exception when insufficient_privilege then null; end $$;
+select pg_temp.assert((select count(*) from public.push_targets('event', (select v from pg_temp.ids where k='ev1'))) = 0, 'outsider cannot push event');
+select pg_temp.assert((select count(*) from public.due_event_reminders()) = 0, 'outsider no reminders');
+reset role;
+-- 할머니가 앱을 열면: 오늘 생신(당일) · 내일 여행(하루 전) → 가족에게 한 번씩만
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000001');
+select pg_temp.assert((select count(*) from public.due_event_reminders()) = 2, 'two reminders due');
+reset role;
+create temp table evp as select * from public.push_targets('event', (select v from pg_temp.ids where k='ev1'));
+select pg_temp.assert((select count(*) from evp) >= 1 and (select count(*) from evp) = (
+  select count(*) from public.push_subscriptions s
+  join public.group_members m on m.user_id = s.user_id and m.group_id = (select v from pg_temp.ids where k='pg')
+  where s.user_id <> 'bbbbbbbb-0000-0000-0000-000000000001'), 'event push to family devices (not me)');
+select pg_temp.assert((select count(*) from evp where endpoint like '%/p1') = 0, 'event push not to opener');
+select pg_temp.assert((select min(body) from evp) = '오늘 · 할머니 생신 🎂 (음력 3월 5일)', 'event body today: ' || (select min(body) from evp));
+select pg_temp.assert((select min(title) from evp) = '시골집 · 가족 달력' and (select min(url) from evp) like '%/calendar', 'event title/url');
+select pg_temp.assert((select count(*) from public.push_targets('event', (select v from pg_temp.ids where k='ev1'))) = 0, 'event push only once');
+select pg_temp.assert((select min(body) from public.push_targets('event', (select v from pg_temp.ids where k='ev2'))) = '내일 · 가족 여행 📌', 'event body tomorrow');
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000003');
+select pg_temp.assert((select count(*) from public.due_event_reminders()) = 0, 'no reminders after sent');
+reset role;
+-- 고치기는 가족 누구나, 지우기는 만든 사람(손주)이나 방장(할머니)만
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000002');
+update public.family_events set title = '할머니 생신 잔치' where id = (select v from pg_temp.ids where k='ev1');
+delete from public.family_events where id = (select v from pg_temp.ids where k='ev2');
+reset role;
+select pg_temp.assert((select title from public.family_events where id = (select v from pg_temp.ids where k='ev1')) = '할머니 생신 잔치', 'member edits event');
+select pg_temp.assert((select count(*) from public.family_events where id = (select v from pg_temp.ids where k='ev2')) = 1, 'member cannot delete others event');
+select pg_temp.as_user('bbbbbbbb-0000-0000-0000-000000000001');
+delete from public.family_events where id = (select v from pg_temp.ids where k='ev2');
+reset role;
+select pg_temp.assert((select count(*) from public.family_events where id = (select v from pg_temp.ids where k='ev2')) = 0, 'owner deletes event');
+select pg_temp.assert((select count(*) from public.family_event_notices where event_id = (select v from pg_temp.ids where k='ev2')) = 0, 'notices removed with event');
 select 'ALL RLS TESTS PASSED' as result;

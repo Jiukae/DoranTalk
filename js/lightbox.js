@@ -1,17 +1,41 @@
-// 사진을 화면 가득 크게 보기 (옆으로 넘기기, 닫기)
+// 사진 · 동영상을 화면 가득 크게 보기 (옆으로 넘기기, 닫기)
+// items: 주소(문자열) 또는 { url, video } 목록
 import { el, icon } from './ui.js';
+import { isVideoPath } from './images.js';
 
-export function openLightbox(urls, start = 0) {
+// 사진 칸에 들어갈 그림: 사진은 <img>, 동영상은 첫 장면 + ▶ 표시
+export function mediaThumb(path, url, label = '사진을 불러올 수 없어요') {
+  if (!url) return el('span', { class: 'photo-missing' }, label);
+  if (isVideoPath(path)) {
+    return el('span', { class: 'video-thumb' },
+      el('video', { src: `${url}#t=0.1`, preload: 'metadata', muted: true, playsinline: true, 'aria-hidden': 'true' }),
+      el('span', { class: 'video-play', 'aria-hidden': 'true' }, icon('play', { size: 26, filled: true })));
+  }
+  return el('img', {
+    src: url, alt: '', loading: 'lazy', decoding: 'async',
+    // 주소가 만료되었거나 사진이 지워졌으면 안내 문구로 바꿔요
+    onerror: (e) => e.target.replaceWith(el('span', { class: 'photo-missing' }, label)),
+  });
+}
+
+export function openLightbox(items, start = 0) {
+  const urls = items.map((it) => (typeof it === 'string' ? { url: it, video: false } : it));
   let index = start;
-  const img = el('img', { class: 'lb-img', alt: '' });
+  let media = null;
   const counter = el('div', { class: 'lb-counter', 'aria-live': 'polite' });
   const prev = el('button', { class: 'lb-nav lb-prev', type: 'button', 'aria-label': '이전 사진' }, icon('back', { size: 30 }));
   const next = el('button', { class: 'lb-nav lb-next', type: 'button', 'aria-label': '다음 사진' }, icon('chevronRight', { size: 30 }));
   const close = el('button', { class: 'lb-close', type: 'button', 'aria-label': '닫기' }, icon('close', { size: 22 }), '닫기');
 
   const show = () => {
-    img.src = urls[index];
-    img.alt = `사진 ${index + 1} / ${urls.length}`;
+    const it = urls[index];
+    const node = it.video
+      ? el('video', { class: 'lb-img lb-video', src: it.url, controls: true, autoplay: true, playsinline: true, preload: 'auto', 'aria-label': `동영상 ${index + 1} / ${urls.length}` })
+      : el('img', { class: 'lb-img', src: it.url, alt: `사진 ${index + 1} / ${urls.length}` });
+    if (media?.pause) media.pause();
+    if (media) media.replaceWith(node);
+    else stage.prepend(node);
+    media = node;
     counter.textContent = urls.length > 1 ? `${index + 1} / ${urls.length}` : '';
     prev.hidden = index === 0;
     next.hidden = index === urls.length - 1;
@@ -25,7 +49,7 @@ export function openLightbox(urls, start = 0) {
   };
 
   // 위쪽 막대(몇 번째 사진 · 닫기) + 사진 칸(사진이 화면 안에 꼭 맞게 들어감)
-  const stage = el('div', { class: 'lb-stage' }, img, prev, next);
+  const stage = el('div', { class: 'lb-stage' }, prev, next);
   const box = el('div', { class: 'lightbox', role: 'dialog', 'aria-modal': 'true', 'aria-label': '사진 크게 보기' },
     el('div', { class: 'lb-top' }, counter, close),
     stage);
@@ -46,6 +70,7 @@ export function openLightbox(urls, start = 0) {
   });
 
   function shut() {
+    if (media?.pause) media.pause();
     box.remove();
     document.removeEventListener('keydown', onKey);
     window.removeEventListener('hashchange', shut);

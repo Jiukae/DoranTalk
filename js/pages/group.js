@@ -1,5 +1,5 @@
-// 그룹 화면: 아래쪽 탭(소식 · 채팅 · 사진 · 멤버)으로 이동합니다.
-// 소식 탭은 pages/feed.js, 채팅 탭은 pages/chat.js, 사진 탭은 pages/album.js 에 있어요.
+// 그룹 화면: 아래쪽 탭(소식 · 채팅 · 사진 · 달력 · 멤버)으로 이동합니다.
+// 소식 탭은 pages/feed.js, 채팅 탭은 pages/chat.js, 사진 탭은 pages/album.js, 달력 탭은 pages/calendar.js 에 있어요.
 import { sb } from '../supabase.js';
 import { state } from '../state.js';
 import { go, navToken, isStale } from '../router.js';
@@ -19,6 +19,7 @@ import { renderChatTab } from './chat.js';
 import { fetchUnreadCounts, watchNewMessages } from '../chat.js';
 import { notifyFamily, setAppBadge } from '../push.js';
 import { renderPhotosTab } from './album.js';
+import { renderCalendarTab } from './calendar.js';
 import { isChildUser } from '../legal.js';
 import {
   PREMIUM_PERKS, isPremium, redeemPremiumCode, registerPremiumInterest, hasPremiumInterest,
@@ -28,6 +29,7 @@ const TABS = [
   { key: 'feed', label: '소식', icon: 'feed' },
   { key: 'chat', label: '채팅', icon: 'chat' },
   { key: 'photos', label: '사진', icon: 'image' },
+  { key: 'calendar', label: '달력', icon: 'calendar' },
   { key: 'members', label: '멤버', icon: 'family' },
 ];
 
@@ -96,9 +98,9 @@ export async function renderGroup({ id, tab }) {
 
   if (tab === 'chat') return renderChatTab(main, group, token);
 
-  // 소식·사진·멤버 탭에서는 채팅 탭에 안 읽은 메시지 수를 표시
+  // 채팅 말고 다른 탭에서는 채팅 탭에 안 읽은 메시지 수를 표시
   const stopBadge = chatBadge(group.id);
-  const renderTab = { feed: renderFeedTab, photos: renderPhotosTab, members: renderMembersTab }[tab];
+  const renderTab = { feed: renderFeedTab, photos: renderPhotosTab, calendar: renderCalendarTab, members: renderMembersTab }[tab];
   const stopTab = await renderTab(main, group, token);
   return () => {
     stopBadge();

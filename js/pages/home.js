@@ -27,10 +27,12 @@ import { THEMES, getTheme, setTheme } from '../theme.js';
 import { CONTACT_EMAIL } from '../legal.js';
 import {
   pushStatus, pushServerInfo, isPushOn, enablePush, disablePush, sendTestPush, setAppBadge,
-  shouldPromptPush, dismissPushPrompt, forgetThisDevice,
+  shouldPromptPush, dismissPushPrompt, forgetThisDevice, notifyFamily,
 } from '../push.js';
 import { platform } from '../install.js';
 import { popupHelp } from './help.js';
+import { fetchMyEvents, sendDueReminders } from '../events.js';
+import { upcomingHomeCard } from './calendar.js';
 
 function meButton() {
   return el('button', { class: 'btn btn-ghost btn-small me-btn', type: 'button', onclick: () => go('/me') },
@@ -56,11 +58,15 @@ export async function renderHome() {
     let invites;
     let unread;
     let requests;
+    let events;
+    // 가족 달력: 오늘 · 내일 일정 알림을 아직 아무도 안 보냈으면 가족에게 (하루에 한 번 물어봐요)
+    sendDueReminders(notifyFamily).catch(() => {});
     try {
-      [groups, invites, unread, requests] = await Promise.all([
+      [groups, invites, unread, requests, events] = await Promise.all([
         fetchMyGroups(), fetchMyInvitations(), fetchUnreadCounts().catch(() => ({})),
         // 자녀: 내 그룹 만들기 요청 / 보호자: 자녀들이 보낸 요청 (예전 DB면 조용히 건너뜀)
         (child ? fetchMyGroupRequests() : sb.rpc('children_group_requests').then(({ data }) => data || [])).catch(() => []),
+        fetchMyEvents().catch(() => []), // 버전 14 전이면 없음
       ]);
     } catch (err) {
       if (!isStale(token)) content.replaceChildren(errorCard(friendlyError(err), load));
@@ -82,6 +88,7 @@ export async function renderHome() {
       ...[inAppBrowserNotice() || installBanner()].filter(Boolean),
       ...(child ? childRequestsSection(requests, load) : guardianRequestsCard(requests)),
       ...(invites.length > 0 ? [invitationsSection(invites, load)] : []),
+      ...[upcomingHomeCard(events)].filter(Boolean),
       groupsSection(groups, unread),
     );
     // 그룹이 있고 아직 알림을 묻지 않았다면 "알림 켜기" 안내 (알림 서버가 준비된 경우만)

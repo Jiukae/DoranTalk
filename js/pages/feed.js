@@ -14,9 +14,11 @@ import {
   fetchComments, addComment, updateComment, deleteComment, watchPosts, watchComments,
   PAGE_SIZE, MAX_IMAGES, MAX_POST_LENGTH, MAX_COMMENT_LENGTH,
 } from '../feed.js';
-import { pickImages, shrinkImage, uploadImages, removeImages, signedUrls } from '../images.js';
-import { openLightbox } from '../lightbox.js';
+import { pickImages, prepareMedia, isVideoPath, isVideoFile, uploadImages, removeImages, signedUrls } from '../images.js';
+import { openLightbox, mediaThumb } from '../lightbox.js';
 import { notifyFamily } from '../push.js';
+import { GREETINGS } from '../greetings.js';
+import { sendGreeting, fetchTodayGreetings } from '../chat.js';
 
 const GRID_LIMIT = 4; // 목록에서는 사진 4장까지만 보이고 "+N"
 
@@ -25,7 +27,7 @@ const GRID_LIMIT = 4; // 목록에서는 사진 4장까지만 보이고 "+N"
 // ------------------------------------------------------------------
 function photoGrid(paths, urls, { stacked = false } = {}) {
   if (!paths?.length) return null;
-  const all = paths.map((p) => urls[p]).filter(Boolean);
+  const items = paths.filter((p) => urls[p]).map((p) => ({ url: urls[p], video: isVideoPath(p), path: p }));
   const shown = stacked ? paths : paths.slice(0, GRID_LIMIT);
   const extra = paths.length - shown.length;
   const cls = stacked ? 'photos photos-stacked' : `photos photos-${Math.min(shown.length, 4)}`;
@@ -33,16 +35,10 @@ function photoGrid(paths, urls, { stacked = false } = {}) {
     ...shown.map((p, i) => {
       const url = urls[p];
       const btn = el('button', {
-        class: 'photo', type: 'button', 'aria-label': `사진 ${i + 1} 크게 보기`,
-        onclick: () => { if (all.length) openLightbox(all, Math.max(0, all.indexOf(url))); },
+        class: 'photo', type: 'button', 'aria-label': `${isVideoPath(p) ? '동영상' : '사진'} ${i + 1} 크게 보기`,
+        onclick: () => { if (items.length) openLightbox(items, Math.max(0, items.findIndex((it) => it.path === p))); },
       },
-        url
-          ? el('img', {
-            src: url, alt: '', loading: 'lazy', decoding: 'async',
-            // 주소가 만료되었거나 사진이 지워졌으면 안내 문구로 바꿔요
-            onerror: (e) => e.target.replaceWith(el('span', { class: 'photo-missing' }, '사진을 불러올 수 없어요')),
-          })
-          : el('span', { class: 'photo-missing' }, '사진을 불러올 수 없어요'),
+        mediaThumb(p, url),
         !stacked && i === shown.length - 1 && extra > 0 && el('span', { class: 'photo-more' }, `+${extra}`),
       );
       return btn;
@@ -127,6 +123,44 @@ function postHeader(post, menu) {
 // ------------------------------------------------------------------
 // 소식 목록 (그룹 화면의 "소식" 탭)
 // ------------------------------------------------------------------
+// 안부 인사: 한 번 누르면 가족 채팅으로 보내져요 + 오늘 안부를 보낸 가족
+function greetingCard(group) {
+  const me = state.session.user.id;
+  const today = el('p', { class: 'greet-today muted small' });
+  const chips = el('div', { class: 'greet-chips' }, ...GREETINGS.map((g) => {
+    const b = el('button', { class: 'greet-chip', type: 'button' }, g.text);
+    b.addEventListener('click', async () => {
+      b.disabled = true;
+      try {
+        const msg = await sendGreeting(group.id, g.n);
+        notifyFamily('message', msg.id); // 가족 휴대폰으로 알림
+        toast(`가족에게 "${g.text}" 보냈어요`);
+        refreshToday();
+      } catch (err) {
+        toast(friendlyError(err), 4000);
+      } finally {
+        b.disabled = false;
+      }
+    });
+    return b;
+  }));
+  async function refreshToday() {
+    try {
+      const rows = await fetchTodayGreetings(group.id);
+      const names = [...new Set(rows.map((r) => (r.sender_id === me ? '나' : r.nickname)))];
+      today.textContent = names.length ? `오늘 안부를 보낸 가족: ${names.join(' · ')}` : '오늘은 아직 안부가 없어요. 먼저 인사해 보세요!';
+    } catch {
+      today.textContent = '';
+    }
+  }
+  refreshToday();
+  return el('section', { class: 'card greet-card' },
+    el('div', { class: 'greet-head' }, el('h2', {}, '안부 인사'), el('span', { class: 'muted small' }, '누르면 채팅으로 보내져요')),
+    chips,
+    today,
+  );
+}
+
 export async function renderFeedTab(main, group, token) {
   const list = el('div', { class: 'post-list' });
   const moreBtn = el('button', { class: 'btn btn-secondary btn-block', type: 'button', hidden: true }, '이전 소식 더 보기');
@@ -134,7 +168,7 @@ export async function renderFeedTab(main, group, token) {
   let oldest = null;
 
   list.append(skeletonPosts(2));
-  main.append(composePrompt(group.id), newPill, list, moreBtn);
+  main.append(greetingCard(group), composePrompt(group.id), newPill, list, moreBtn);
 
   async function loadPage(reset) {
     if (reset) {
@@ -279,7 +313,9 @@ export async function renderWrite({ id: groupId, postId }) {
 
   const paintThumbs = () => {
     thumbs.replaceChildren(...photos.map((ph, i) => el('div', { class: 'thumb' },
-      el('img', { src: ph.preview || existingUrls[ph.path] || '', alt: `사진 ${i + 1}` }),
+      (ph.video || isVideoPath(ph.path))
+        ? mediaThumb(ph.path || 'x.mp4', ph.preview || existingUrls[ph.path] || '')
+        : el('img', { src: ph.preview || existingUrls[ph.path] || '', alt: `사진 ${i + 1}` }),
       el('button', {
         class: 'thumb-remove', type: 'button', 'aria-label': `사진 ${i + 1} 빼기`,
         onclick: () => {
@@ -290,20 +326,20 @@ export async function renderWrite({ id: groupId, postId }) {
         },
       }, icon('close', { size: 18 })),
     )));
-    addBtn.replaceChildren(icon('camera', { size: 22 }), `사진 추가 (${photos.length}/${MAX_IMAGES})`);
+    addBtn.replaceChildren(icon('camera', { size: 22 }), `사진 · 동영상 추가 (${photos.length}/${MAX_IMAGES})`);
     addBtn.disabled = photos.length >= MAX_IMAGES;
   };
 
   addBtn.addEventListener('click', async () => {
-    const files = await pickImages();
+    const files = await pickImages({ video: true });
     if (!files.length) return;
     const room = MAX_IMAGES - photos.length;
-    if (files.length > room) toast(`사진은 한 글에 ${MAX_IMAGES}장까지 올릴 수 있어요. 앞의 ${room}장만 넣을게요.`, 4000);
-    setBusy(addBtn, true, '사진 준비 중…');
+    if (files.length > room) toast(`사진 · 동영상은 한 글에 ${MAX_IMAGES}개까지 올릴 수 있어요. 앞의 ${room}개만 넣을게요.`, 4000);
+    setBusy(addBtn, true, files.some(isVideoFile) ? '준비 중…' : '사진 준비 중…');
     for (const file of files.slice(0, room)) {
       try {
-        const blob = await shrinkImage(file, photoOptions(group));
-        photos.push({ blob, preview: URL.createObjectURL(blob) });
+        const media = await prepareMedia(file, photoOptions(group));
+        photos.push({ media, blob: media.blob, video: media.video, preview: URL.createObjectURL(media.blob) });
         dirty = true;
       } catch (err) {
         toast(err.message, 4000);
@@ -325,15 +361,15 @@ export async function renderWrite({ id: groupId, postId }) {
       e.preventDefault();
       msg.clear();
       const content = textarea.value.trim();
-      if (!content && photos.length === 0) return msg.show('글을 쓰거나 사진을 한 장 이상 넣어 주세요.');
+      if (!content && photos.length === 0) return msg.show('글을 쓰거나 사진 · 동영상을 하나 이상 넣어 주세요.');
 
       const newOnes = photos.filter((p) => p.blob);
       setBusy(submit, true, '올리는 중…');
       addBtn.disabled = true;
       let uploaded = [];
       try {
-        uploaded = await uploadImages(groupId, 'posts', newOnes.map((p) => p.blob), (n, total) => {
-          submit.lastChild.textContent = `사진 올리는 중 (${n}/${total})…`;
+        uploaded = await uploadImages(groupId, 'posts', newOnes.map((p) => p.media), (n, total) => {
+          submit.lastChild.textContent = `올리는 중 (${n}/${total})…`;
         });
         newOnes.forEach((p, i) => { p.path = uploaded[i]; });
         const finalPaths = photos.map((p) => p.path);

@@ -20,7 +20,7 @@
 // =====================================================================
 
 const DEFAULT_SUBJECT = 'mailto:admin@dorantalk.com';
-const KINDS = ['message', 'post', 'comment', 'invite', 'test'];
+const KINDS = ['message', 'post', 'comment', 'invite', 'event', 'test']; // event: 가족 달력 (버전 14)
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // 휴대폰 회사의 알림 서버로만 보내요 (다른 주소로는 절대 보내지 않음)
 const PUSH_HOSTS = [

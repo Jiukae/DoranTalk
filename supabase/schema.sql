@@ -1,6 +1,6 @@
 -- =====================================================================
 --  TalkFeed 데이터베이스 설계 (테이블 + 보안 규칙 RLS + 사진 저장소)
---  ★ 버전 13 (가족 프리미엄 · 광고 성과 · 프로필 사진 · 운영자 이름 보호 · 아이디 · 초대 메일 · 자녀 그룹 승인) ★
+--  ★ 버전 14 (안부 · 동영상 · 가족 달력 · 가족 프리미엄 · 광고 성과 · 프로필 사진 · 운영자 이름 보호 · 아이디 · 초대 메일 · 자녀 그룹 승인) ★
 --    앱 주소 뒤에 #/check 를 붙여 열면 DB 버전이 최신인지 확인할 수 있어요.
 -- ---------------------------------------------------------------------
 --  사용법: Supabase 대시보드 → SQL Editor → 이 파일 내용을 전부 붙여넣고 Run
@@ -305,7 +305,7 @@ create trigger on_auth_user_created
 create or replace function public.talkfeed_schema_version()
 returns integer
 language sql immutable set search_path = ''
-as $$ select 13 $$;
+as $$ select 14 $$;
 
 -- 닉네임 형식 확인 (버전 9부터 닉네임은 겹쳐도 돼요 — 예전 앱 호환용)
 create or replace function public.is_nickname_available(nick text)
@@ -1015,6 +1015,8 @@ declare
   t_tag text;
   pid uuid;
   recipients uuid[];
+  ev_title text; ev_kind text; ev_cal text; ev_month smallint; ev_day smallint; ev_dates date[];
+  ev_today date; ev_on date; ev_stage text;
 begin
   if uid is null then
     return;
@@ -1022,7 +1024,7 @@ begin
   select p.nickname into me from public.profiles p where p.id = uid;
 
   if p_kind = 'message' then
-    select m.group_id, coalesce(nullif(btrim(m.content), ''), '사진을 보냈어요 📷')
+    select m.group_id, coalesce(nullif(btrim(m.content), ''), public.media_summary(array[m.image_path], '보냈어요'))
       into gid, t_body
     from public.messages m
     where m.id = p_id and m.sender_id = uid and m.created_at > now() - interval '10 minutes';
@@ -1037,7 +1039,7 @@ begin
 
   elsif p_kind = 'post' then
     select po.group_id,
-           me || ': ' || coalesce(nullif(btrim(po.content), ''), '사진 ' || cardinality(po.image_paths) || '장을 올렸어요 📷')
+           me || ': ' || coalesce(nullif(btrim(po.content), ''), public.media_summary(po.image_paths, '올렸어요'))
       into gid, t_body
     from public.posts po
     where po.id = p_id and po.author_id = uid and po.created_at > now() - interval '10 minutes';
@@ -1089,6 +1091,33 @@ begin
     t_url := '/#/home';
     t_tag := 'invite-' || ref;
     recipients := array[pid];
+
+  elsif p_kind = 'event' then
+    -- (버전 14) p_id = 가족 달력 일정. 오늘(당일) · 내일(하루 전)인 일정을 그룹 가족에게 한 번씩만 알려요.
+    -- 가족 누구든 앱을 열면 앱이 부탁해요 (due_event_reminders). 같은 날 · 같은 알림은 한 번만.
+    select e.group_id, g.name, e.title, e.kind, e.calendar, e.month, e.day, e.next_dates
+      into gid, gname, ev_title, ev_kind, ev_cal, ev_month, ev_day, ev_dates
+    from public.family_events e
+    join public.family_groups g on g.id = e.group_id
+    where e.id = p_id and public.is_group_member(e.group_id);
+    if gid is null then return; end if;
+    ev_today := (now() at time zone 'Asia/Seoul')::date;
+    if ev_today = any(ev_dates) then ev_stage := 'day'; ev_on := ev_today;
+    elsif ev_today + 1 = any(ev_dates) then ev_stage := 'before'; ev_on := ev_today + 1;
+    else return;
+    end if;
+    insert into public.family_event_notices (event_id, on_date, stage) values (p_id, ev_on, ev_stage)
+    on conflict do nothing;
+    if not found then return; end if;
+    ref := md5(p_id::text || ev_on::text || ev_stage)::uuid;
+    t_title := gname || ' · 가족 달력';
+    t_body := (case ev_stage when 'day' then '오늘 · ' else '내일 · ' end) || ev_title
+      || case ev_kind when 'birthday' then ' 🎂' when 'memorial' then ' 🕯️' when 'anniversary' then ' 💐' else ' 📌' end
+      || case when ev_cal = 'lunar' then ' (음력 ' || ev_month || '월 ' || ev_day || '일)' else '' end;
+    t_url := '/#/group/' || gid || '/calendar';
+    t_tag := 'event-' || p_id;
+    select array_agg(gm.user_id) into recipients
+    from public.group_members gm where gm.group_id = gid and gm.user_id <> uid;
 
   elsif p_kind = 'test' then
     -- 내 기기로 시험 알림 (30초에 한 번)
@@ -2115,6 +2144,148 @@ grant execute on function
   public.admin_create_premium_codes(integer, integer, text),
   public.admin_premium_summary()
   to authenticated;
+
+
+-- ---------------------------------------------------------------------
+-- 17. (버전 14) 안부 인사 · 동영상 · 가족 달력
+-- ---------------------------------------------------------------------
+-- (1) 안부 인사: 채팅 메시지에 "몇 번째 안부 인사인지"(1~20) 표시. 글자는 그대로 content 에 들어가요.
+alter table public.messages add column if not exists greeting smallint;
+do $$ begin
+  alter table public.messages add constraint messages_greeting_range check (greeting between 1 and 20);
+exception when duplicate_object then null; end $$;
+grant insert (group_id, content, image_path, greeting) on public.messages to authenticated;
+
+-- (2) 동영상: 사진 창고에 동영상도 (한 개 50MB 까지, mp4 · mov · webm), 한 사람이 하루 10개까지
+--     (사진 · 동영상은 같은 칸에 들어가요: posts.image_paths · messages.image_path, 확장자로 구분)
+update storage.buckets
+   set file_size_limit = 52428800,
+       allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime', 'video/webm']
+ where id = 'family-photos';
+
+create or replace function public.is_video_path(p text)
+returns boolean
+language sql immutable set search_path = ''
+as $$ select coalesce(p ~* '\.(mp4|mov|webm)$', false) $$;
+
+-- "사진 2장 · 동영상 1개 올렸어요 🎬" 같은 알림 문장
+create or replace function public.media_summary(paths text[], verb text)
+returns text
+language sql immutable set search_path = ''
+as $$
+  with c as (
+    select count(*) filter (where not public.is_video_path(p)) as photos,
+           count(*) filter (where public.is_video_path(p)) as videos
+    from unnest(coalesce(paths, '{}')) p
+  )
+  select case
+           when photos + videos = 1 then (case when videos = 1 then '동영상을 ' else '사진을 ' end) || verb
+           else concat_ws(' · ',
+                  case when photos > 0 then '사진 ' || photos || '장' end,
+                  case when videos > 0 then '동영상 ' || videos || '개' end) || ' ' || verb
+         end || case when videos > 0 then ' 🎬' else ' 📷' end
+  from c;
+$$;
+
+-- 오늘(24시간) 내가 올린 동영상 수
+create or replace function public.my_video_uploads_today()
+returns integer
+language sql stable security definer set search_path = ''
+as $$
+  select count(*)::int from storage.objects o
+  where o.bucket_id = 'family-photos' and o.owner_id = auth.uid()::text
+    and public.is_video_path(o.name) and o.created_at > now() - interval '1 day';
+$$;
+revoke execute on function public.my_video_uploads_today() from public, anon;
+grant execute on function public.my_video_uploads_today() to authenticated;
+
+-- 올리기 규칙(8번)에 "동영상은 하루 10개까지"를 더해요
+drop policy if exists "family_photos_insert_member" on storage.objects;
+create policy "family_photos_insert_member" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'family-photos'
+    and (storage.foldername(name))[2] in ('posts', 'chat')
+    and exists (
+      select 1 from public.group_members m
+      where m.group_id::text = (storage.foldername(name))[1]
+        and m.user_id = (select auth.uid())
+    )
+    and (not public.is_video_path(name) or public.my_video_uploads_today() < 10)
+  );
+
+-- (3) 가족 달력: 생신 · 기일 · 기념일 · 일정 (양력 / 음력, 매년 / 한 번)
+--   - next_dates: 앞으로 실제(양력) 날짜들. 음력 계산은 앱이 해서 넣어요 (한국천문연구원 음력 기준).
+--   - 같은 그룹 가족만 보고 · 더하고 · 고칠 수 있어요. 지우기는 만든 사람이나 방장만.
+create table if not exists public.family_events (
+  id          uuid primary key default gen_random_uuid(),
+  group_id    uuid not null references public.family_groups (id) on delete cascade,
+  title       text not null check (char_length(btrim(title)) between 1 and 30),
+  kind        text not null default 'event' check (kind in ('birthday', 'memorial', 'anniversary', 'event')),
+  calendar    text not null default 'solar' check (calendar in ('solar', 'lunar')),
+  month       smallint not null check (month between 1 and 12),
+  day         smallint not null check (day between 1 and 31),
+  leap        boolean not null default false,
+  year        smallint check (year between 1900 and 2100),   -- 한 번만 있는 일정이면 그 해, 매년이면 비워요
+  next_dates  date[] not null default '{}' check (cardinality(next_dates) <= 40),
+  memo        text check (memo is null or char_length(memo) <= 100),
+  created_by  uuid default auth.uid() references public.profiles (id) on delete set null,
+  created_at  timestamptz not null default now(),
+  check (calendar = 'lunar' or not leap),
+  check (calendar = 'solar' or day <= 30)
+);
+create index if not exists family_events_group_idx on public.family_events (group_id);
+alter table public.family_events enable row level security;
+
+drop policy if exists "events_select_member" on public.family_events;
+create policy "events_select_member" on public.family_events
+  for select to authenticated using (public.is_group_member(group_id));
+drop policy if exists "events_insert_member" on public.family_events;
+create policy "events_insert_member" on public.family_events
+  for insert to authenticated
+  with check (public.is_group_member(group_id) and created_by = (select auth.uid()));
+drop policy if exists "events_update_member" on public.family_events;
+create policy "events_update_member" on public.family_events
+  for update to authenticated
+  using (public.is_group_member(group_id)) with check (public.is_group_member(group_id));
+drop policy if exists "events_delete_owner" on public.family_events;
+create policy "events_delete_owner" on public.family_events
+  for delete to authenticated
+  using (created_by = (select auth.uid())
+         or exists (select 1 from public.family_groups g where g.id = group_id and g.created_by = (select auth.uid())));
+
+revoke all on public.family_events from anon, authenticated;
+grant select, delete on public.family_events to authenticated;
+grant insert (group_id, title, kind, calendar, month, day, leap, year, next_dates, memo) on public.family_events to authenticated;
+grant update (title, kind, calendar, month, day, leap, year, next_dates, memo) on public.family_events to authenticated;
+
+-- 알림 보낸 기록 (같은 일정 · 같은 날 · 하루 전/당일 알림은 한 번만)
+create table if not exists public.family_event_notices (
+  event_id  uuid not null references public.family_events (id) on delete cascade,
+  on_date   date not null,
+  stage     text not null check (stage in ('before', 'day')),
+  sent_at   timestamptz not null default now(),
+  primary key (event_id, on_date, stage)
+);
+alter table public.family_event_notices enable row level security;
+revoke all on public.family_event_notices from anon, authenticated;
+
+-- 내 그룹 일정 중 오늘(당일) · 내일(하루 전) 알림을 아직 안 보낸 것 → 앱이 알림 서버에 부탁해요 (push_targets 'event')
+create or replace function public.due_event_reminders()
+returns setof uuid
+language sql stable security definer set search_path = ''
+as $$
+  with d as (select (now() at time zone 'Asia/Seoul')::date as today)
+  select e.id
+  from public.family_events e, d
+  where public.is_group_member(e.group_id)
+    and ((d.today = any(e.next_dates) and not exists (
+            select 1 from public.family_event_notices n where n.event_id = e.id and n.on_date = d.today and n.stage = 'day'))
+      or (d.today + 1 = any(e.next_dates) and not exists (
+            select 1 from public.family_event_notices n where n.event_id = e.id and n.on_date = d.today + 1 and n.stage = 'before')));
+$$;
+revoke execute on function public.due_event_reminders() from public, anon;
+grant execute on function public.due_event_reminders() to authenticated;
 
 
 -- 끝! 아래 "Success. No rows returned" 가 보이면 성공입니다.

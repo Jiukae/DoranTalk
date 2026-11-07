@@ -1,11 +1,11 @@
-// 사진 탭: 소식 · 채팅에 올린 사진을 달마다 모아 보기 (누구나 무료)
-// 가족 프리미엄 그룹은 한 달 사진을 압축 파일 하나로 한 번에 내려받을 수 있어요.
+// 사진 탭: 소식 · 채팅에 올린 사진 · 동영상을 달마다 모아 보기 (누구나 무료)
+// 가족 프리미엄 그룹은 한 달 사진 · 동영상을 압축 파일 하나로 한 번에 내려받을 수 있어요.
 import { sb } from '../supabase.js';
 import { go, isStale } from '../router.js';
 import { friendlyError } from '../errors.js';
 import { el, icon, toast, emptyState, errorCard, skeletonRows, confirmDialog } from '../ui.js';
-import { signedUrls } from '../images.js';
-import { openLightbox } from '../lightbox.js';
+import { signedUrls, isVideoPath } from '../images.js';
+import { openLightbox, mediaThumb } from '../lightbox.js';
 import { isPremium } from '../premium.js';
 import { makeZip } from '../zip.js';
 
@@ -64,7 +64,7 @@ export async function renderPhotosTab(main, group, token) {
   if (isStale(token)) return undefined;
   if (!items.length) {
     body.replaceChildren(el('section', { class: 'card' },
-      emptyState('image', '아직 사진이 없어요', '소식이나 채팅에 사진을 올리면 여기에 달마다 모여요.')));
+      emptyState('image', '아직 사진이 없어요', '소식이나 채팅에 사진 · 동영상을 올리면 여기에 달마다 모여요.')));
     return undefined;
   }
 
@@ -72,7 +72,7 @@ export async function renderPhotosTab(main, group, token) {
   const months = groupByMonth(items);
   const sections = months.map((m) => monthSection(m, group, premium));
   body.replaceChildren(
-    el('p', { class: 'muted album-intro' }, `사진 ${items.length}장 · 소식과 채팅에 올린 사진이 달마다 모여요`),
+    el('p', { class: 'muted album-intro' }, `${countLabel(items)} · 소식과 채팅에 올린 사진 · 동영상이 달마다 모여요`),
     ...sections.map((s) => s.node),
   );
 
@@ -88,31 +88,31 @@ export async function renderPhotosTab(main, group, token) {
   return () => io.disconnect();
 }
 
+// "사진 3장 · 동영상 1개"
+function countLabel(items) {
+  const videos = items.filter((it) => isVideoPath(it.path)).length;
+  const photos = items.length - videos;
+  return [photos && `사진 ${photos}장`, videos && `동영상 ${videos}개`].filter(Boolean).join(' · ');
+}
+
 function monthSection(m, group, premium) {
   const paths = m.items.map((it) => it.path);
   let urls = null;
-  const imgs = [];
-  const grid = el('div', { class: 'album-grid' },
-    ...m.items.map((it, i) => {
-      const img = el('img', { alt: '', loading: 'lazy', decoding: 'async' });
-      img.addEventListener('error', () => img.classList.add('missing'));
-      imgs.push(img);
-      return el('button', {
-        class: 'album-cell', type: 'button', 'aria-label': `${monthLabel(m.key)} 사진 ${i + 1} 크게 보기`,
-        onclick: async () => {
-          await load();
-          const list = paths.map((p) => urls?.[p]).filter(Boolean);
-          if (list.length) openLightbox(list, Math.max(0, list.indexOf(urls[paths[i]])));
-        },
-      }, img);
-    }),
-  );
+  const cells = m.items.map((it, i) => el('button', {
+    class: 'album-cell', type: 'button', 'aria-label': `${monthLabel(m.key)} ${isVideoPath(it.path) ? '동영상' : '사진'} ${i + 1} 크게 보기`,
+    onclick: async () => {
+      await load();
+      const list = paths.filter((p) => urls?.[p]).map((p) => ({ url: urls[p], video: isVideoPath(p), path: p }));
+      if (list.length) openLightbox(list, Math.max(0, list.findIndex((x) => x.path === paths[i])));
+    },
+  }));
+  const grid = el('div', { class: 'album-grid' }, ...cells);
 
   async function load() {
     if (urls) return;
     try {
       urls = await signedUrls(paths);
-      imgs.forEach((img, i) => { if (urls[paths[i]]) img.src = urls[paths[i]]; else img.classList.add('missing'); });
+      cells.forEach((cell, i) => cell.replaceChildren(mediaThumb(paths[i], urls[paths[i]], '')));
     } catch {
       urls = null;
     }
@@ -124,7 +124,7 @@ function monthSection(m, group, premium) {
 
   const node = el('section', { class: 'card album-month' },
     el('div', { class: 'album-head' },
-      el('h2', {}, monthLabel(m.key), el('span', { class: 'album-count' }, `${m.items.length}장`)),
+      el('h2', {}, monthLabel(m.key), el('span', { class: 'album-count' }, countLabel(m.items))),
       download,
     ),
     grid,
@@ -156,7 +156,7 @@ async function downloadMonth(m, group, button) {
       if (!url) continue;
       const res = await fetch(url);
       if (!res.ok) continue;
-      const ext = (list[i].path.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase();
+      const ext = (list[i].path.match(/\.(\w+)$/)?.[1] || 'jpg').toLowerCase(); // 동영상은 mp4 · mov · webm 그대로
       // 이름은 영어 · 숫자로만 (한글 이름은 휴대폰 · 컴퓨터에 따라 깨지거나 "download" 로 바뀌어요)
       files.push({ name: `dorantalk-${m.key}-${String(i + 1).padStart(3, '0')}.${ext}`, data: new Uint8Array(await res.arrayBuffer()), date: new Date(list[i].at) });
     }
@@ -166,7 +166,7 @@ async function downloadMonth(m, group, button) {
     document.body.append(a);
     a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 30000);
-    toast(`사진 ${files.length}장을 압축 파일로 내려받았어요.`);
+    toast(`${files.length}개를 압축 파일로 내려받았어요.`);
   } catch (err) {
     toast(friendlyError(err), 4000);
   } finally {

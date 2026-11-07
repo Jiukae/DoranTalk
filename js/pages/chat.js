@@ -7,8 +7,9 @@ import { friendlyError } from '../errors.js';
 import { el, avatar, toast, setBusy, errorCard, emptyState, icon } from '../ui.js';
 import { timeOnly } from '../format.js';
 import { fetchMembers } from '../groups.js';
-import { signedUrls, pickImages } from '../images.js';
-import { openLightbox } from '../lightbox.js';
+import { signedUrls, pickImages, isVideoPath, isVideoFile } from '../images.js';
+import { openLightbox, mediaThumb } from '../lightbox.js';
+import { isGreeting } from '../greetings.js';
 import { notifyFamily, setAppBadge } from '../push.js';
 import {
   fetchMessages, sendText, sendImage, fetchReads, markRead, watchChat, shapeMessage, fetchUnreadCounts,
@@ -175,7 +176,12 @@ export async function renderChatTab(main, group, token) {
     const meta = el('div', { class: 'chat-meta' }, unreadEl, el('span', { class: 'chat-time' }, timeOnly(m.created_at)));
 
     let bubble;
-    if (m.image_path) {
+    if (m.image_path && isVideoPath(m.image_path)) {
+      bubble = el('button', {
+        class: 'chat-photo chat-video', type: 'button', 'aria-label': '동영상 보기',
+        onclick: () => { if (url) openLightbox([{ url, video: true }], 0); },
+      }, mediaThumb(m.image_path, url, '동영상을 불러올 수 없어요'));
+    } else if (m.image_path) {
       bubble = el('button', {
         class: 'chat-photo', type: 'button', 'aria-label': '사진 크게 보기',
         onclick: () => { if (url) openLightbox([url], 0); },
@@ -187,7 +193,8 @@ export async function renderChatTab(main, group, token) {
         })
         : el('span', { class: 'photo-missing' }, '사진을 불러올 수 없어요'));
     } else {
-      bubble = el('div', { class: 'chat-bubble' }, m.content);
+      // 안부 인사는 조금 크고 따뜻하게
+      bubble = el('div', { class: `chat-bubble ${isGreeting(m.content) ? 'chat-greeting' : ''}` }, m.content);
     }
 
     const row = el('div', { class: `chat-row ${m.isMine ? 'mine' : 'theirs'} ${continued ? 'continued' : ''}` },
@@ -269,7 +276,7 @@ export async function renderChatTab(main, group, token) {
       class: 'input textarea composer-input', rows: 1, maxlength: MAX_MESSAGE_LENGTH,
       placeholder: '메시지 입력', 'aria-label': '메시지 입력', enterkeyhint: 'send',
     });
-    const photoBtn = el('button', { class: 'composer-photo', type: 'button', 'aria-label': '사진 보내기' }, icon('camera', { size: 24 }));
+    const photoBtn = el('button', { class: 'composer-photo', type: 'button', 'aria-label': '사진 · 동영상 보내기' }, icon('camera', { size: 24 }));
     const send = el('button', { class: 'btn composer-send', type: 'button' }, '보내기');
     const api = { pending: 0 };
 
@@ -297,9 +304,9 @@ export async function renderChatTab(main, group, token) {
       box.focus();
     });
     photoBtn.addEventListener('click', async () => {
-      const files = await pickImages();
+      const files = await pickImages({ video: true });
       for (const file of files.slice(0, 10)) sendWithPending({ file });
-      if (files.length > 10) toast('사진은 한 번에 10장까지 보낼 수 있어요.', 3500);
+      if (files.length > 10) toast('사진 · 동영상은 한 번에 10개까지 보낼 수 있어요.', 3500);
     });
 
     function sendCurrent() {
@@ -316,7 +323,9 @@ export async function renderChatTab(main, group, token) {
       const preview = file ? URL.createObjectURL(file) : null;
       const status = el('span', { class: 'chat-status' }, '보내는 중…');
       const bubble = file
-        ? el('div', { class: 'chat-photo pending' }, el('img', { src: preview, alt: '보내는 사진' }))
+        ? el('div', { class: 'chat-photo pending' }, isVideoFile(file)
+          ? mediaThumb('x.mp4', preview)
+          : el('img', { src: preview, alt: '보내는 사진' }))
         : el('div', { class: 'chat-bubble' }, text);
       const row = el('div', { class: 'chat-row mine pending' },
         el('div', { class: 'chat-col' }, el('div', { class: 'chat-line' }, bubble, el('div', { class: 'chat-meta' }, status))));
