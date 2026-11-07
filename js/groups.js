@@ -17,7 +17,11 @@ export async function fetchMyGroups() {
 }
 
 export async function fetchGroup(id) {
-  return check(await sb.from('family_groups').select('id, name, created_by, created_at').eq('id', id).maybeSingle());
+  const query = (fields) => sb.from('family_groups').select(fields).eq('id', id).maybeSingle();
+  let res = await query('id, name, created_by, created_at, premium_until');
+  // 데이터베이스가 버전 13(가족 프리미엄) 전이면 프리미엄 칸 없이
+  if (res.error?.code === '42703') res = await query('id, name, created_by, created_at');
+  return check(res);
 }
 
 export async function createGroup(name) {

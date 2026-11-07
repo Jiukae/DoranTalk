@@ -8,6 +8,7 @@ import {
 } from '../ui.js';
 import { timeAgo } from '../format.js';
 import { fetchGroup } from '../groups.js';
+import { photoOptions } from '../premium.js';
 import {
   fetchPosts, fetchPost, createPost, updatePost, deletePost, setLike, fetchLikers,
   fetchComments, addComment, updateComment, deleteComment, watchPosts, watchComments,
@@ -301,7 +302,7 @@ export async function renderWrite({ id: groupId, postId }) {
     setBusy(addBtn, true, '사진 준비 중…');
     for (const file of files.slice(0, room)) {
       try {
-        const blob = await shrinkImage(file);
+        const blob = await shrinkImage(file, photoOptions(group));
         photos.push({ blob, preview: URL.createObjectURL(blob) });
         dirty = true;
       } catch (err) {

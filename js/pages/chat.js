@@ -14,6 +14,7 @@ import {
   fetchMessages, sendText, sendImage, fetchReads, markRead, watchChat, shapeMessage, fetchUnreadCounts,
   PAGE_SIZE, MAX_MESSAGE_LENGTH,
 } from '../chat.js';
+import { photoOptions } from '../premium.js';
 
 const dayFmt = new Intl.DateTimeFormat('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
 const GROUP_GAP_MS = 3 * 60 * 1000; // 같은 사람이 3분 안에 이어 보낸 메시지는 이름을 한 번만
@@ -324,7 +325,7 @@ export async function renderChatTab(main, group, token) {
       scrollToBottom(true);
 
       try {
-        const msg = file ? await sendImage(group.id, file) : await sendText(group.id, text);
+        const msg = file ? await sendImage(group.id, file, photoOptions(group)) : await sendText(group.id, text);
         notifyFamily('message', msg.id); // 가족 휴대폰으로 알림
         row.remove();
         await addMessage(msg);

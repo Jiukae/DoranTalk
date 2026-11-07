@@ -1,5 +1,5 @@
-// 그룹 화면: 아래쪽 탭(소식 · 채팅 · 멤버)으로 이동합니다.
-// 소식 탭은 pages/feed.js, 채팅 탭은 pages/chat.js 에 있어요.
+// 그룹 화면: 아래쪽 탭(소식 · 채팅 · 사진 · 멤버)으로 이동합니다.
+// 소식 탭은 pages/feed.js, 채팅 탭은 pages/chat.js, 사진 탭은 pages/album.js 에 있어요.
 import { sb } from '../supabase.js';
 import { state } from '../state.js';
 import { go, navToken, isStale } from '../router.js';
@@ -18,10 +18,16 @@ import { renderFeedTab } from './feed.js';
 import { renderChatTab } from './chat.js';
 import { fetchUnreadCounts, watchNewMessages } from '../chat.js';
 import { notifyFamily, setAppBadge } from '../push.js';
+import { renderPhotosTab } from './album.js';
+import { isChildUser } from '../legal.js';
+import {
+  PREMIUM_PERKS, isPremium, redeemPremiumCode, registerPremiumInterest, hasPremiumInterest,
+} from '../premium.js';
 
 const TABS = [
   { key: 'feed', label: '소식', icon: 'feed' },
   { key: 'chat', label: '채팅', icon: 'chat' },
+  { key: 'photos', label: '사진', icon: 'image' },
   { key: 'members', label: '멤버', icon: 'family' },
 ];
 
@@ -90,11 +96,10 @@ export async function renderGroup({ id, tab }) {
 
   if (tab === 'chat') return renderChatTab(main, group, token);
 
-  // 소식·멤버 탭에서는 채팅 탭에 안 읽은 메시지 수를 표시
+  // 소식·사진·멤버 탭에서는 채팅 탭에 안 읽은 메시지 수를 표시
   const stopBadge = chatBadge(group.id);
-  const stopTab = tab === 'feed'
-    ? await renderFeedTab(main, group, token)
-    : await renderMembersTab(main, group, token);
+  const renderTab = { feed: renderFeedTab, photos: renderPhotosTab, members: renderMembersTab }[tab];
+  const stopTab = await renderTab(main, group, token);
   return () => {
     stopBadge();
     if (typeof stopTab === 'function') stopTab();
@@ -136,6 +141,8 @@ async function renderMembersTab(main, group, token) {
   const membersBox = el('section', {});
 
   main.append(inviteSection, pendingBox, membersBox);
+  // 데이터베이스가 버전 13(가족 프리미엄) 이상일 때만
+  if ('premium_until' in group) main.append(premiumCard(group));
   if (isOwner) main.append(renameForm(group));
   main.append(leaveSection(group));
 
@@ -275,6 +282,98 @@ function renameForm(group) {
     msg,
     submit,
   );
+}
+
+// ------------------------------------------------------------------
+// 가족 프리미엄 (베타): 쿠폰으로 켜기 · 관심 신청
+// ------------------------------------------------------------------
+const untilFmt = new Intl.DateTimeFormat('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Seoul' });
+
+function premiumCard(group) {
+  const card = el('section', { class: 'card premium-card' });
+  const child = isChildUser(state.session?.user);
+
+  const draw = () => {
+    const on = isPremium(group);
+    const perks = el('ul', { class: 'premium-perks' },
+      ...PREMIUM_PERKS.map((p) => el('li', {},
+        el('span', { class: `premium-perk-icon ${on ? 'on' : ''}`, 'aria-hidden': 'true' }, icon(on ? 'check' : p.icon, { size: 20 })),
+        el('div', {}, el('b', {}, p.title), el('p', { class: 'muted small' }, p.desc)),
+      )));
+    const head = el('div', { class: 'card-head' },
+      iconTile('sparkles', 'tone-violet'),
+      el('div', {},
+        el('h2', {}, '가족 프리미엄', el('span', { class: `badge ${on ? 'badge-premium' : ''}` }, on ? '사용 중' : '베타')),
+        el('p', { class: 'muted' }, on
+          ? `${untilFmt.format(new Date(group.premium_until))}까지 · 이 그룹 가족 모두`
+          : '한 명이 켜면 이 그룹 가족 모두 써요'),
+      ),
+    );
+    const parts = [head, perks];
+    if (!on) parts.push(el('p', { class: 'muted small premium-free' }, '소식 · 채팅 · 알림 · 사진 탭 같은 기본 기능은 언제나 무료예요.'));
+    if (child) {
+      parts.push(el('p', { class: 'muted small' }, '쿠폰은 보호자 같은 어른 가족이 넣어 주세요.'));
+    } else {
+      parts.push(couponForm(on));
+    }
+    if (!on) parts.push(interestBox());
+    card.replaceChildren(...parts);
+  };
+
+  function couponForm(on) {
+    const input = el('input', {
+      class: 'input coupon-input', type: 'text', maxlength: 20, autocapitalize: 'characters', spellcheck: 'false',
+      placeholder: '쿠폰 번호', 'aria-label': '쿠폰 번호',
+    });
+    const msg = messageBox();
+    const submit = el('button', { class: 'btn btn-secondary', type: 'submit' }, on ? '기간 늘리기' : '쿠폰 넣기');
+    const form = el('form', {
+      class: 'coupon-form', novalidate: true,
+      onsubmit: async (e) => {
+        e.preventDefault();
+        msg.clear();
+        if (!input.value.trim()) return msg.show('쿠폰 번호를 넣어 주세요.');
+        setBusy(submit, true, '확인 중…');
+        try {
+          group.premium_until = await redeemPremiumCode(group.id, input.value);
+          toast(`가족 프리미엄이 켜졌어요! ${untilFmt.format(new Date(group.premium_until))}까지예요.`, 3500);
+          draw();
+        } catch (err) {
+          msg.show(friendlyError(err));
+          setBusy(submit, false);
+        }
+      },
+    },
+      el('label', { class: 'coupon-label', for: 'coupon-code' }, on ? '쿠폰이 더 있으면 기간을 늘릴 수 있어요' : '쿠폰이 있나요?'),
+      el('div', { class: 'coupon-row' }, input, submit),
+      msg,
+    );
+    input.id = 'coupon-code';
+    return form;
+  }
+
+  function interestBox() {
+    const box = el('div', { class: 'premium-interest' },
+      el('p', { class: 'muted small' }, '결제는 아직 준비 중이에요. 나오면 쓰고 싶다면 알려 주세요.'));
+    const btn = el('button', { class: 'btn btn-ghost btn-block', type: 'button' }, icon('bell', { size: 20 }), '프리미엄이 나오면 쓰고 싶어요');
+    const done = () => btn.replaceChildren(icon('check', { size: 20 }), '관심 신청했어요. 고마워요!');
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      try {
+        await registerPremiumInterest(group.id);
+        done();
+      } catch (err) {
+        btn.disabled = false;
+        toast(friendlyError(err), 4000);
+      }
+    });
+    hasPremiumInterest().then((yes) => { if (yes) { btn.disabled = true; done(); } });
+    box.append(btn);
+    return box;
+  }
+
+  draw();
+  return card;
 }
 
 function leaveSection(group) {

@@ -1205,4 +1205,117 @@ select pg_temp.assert((select (j->'weekly'->1->>'new_groups')::int from st) = (s
 select pg_temp.assert((select sum((w->>'new_groups')::int) from st, jsonb_array_elements(j->'weekly') w) = (select count(*) from public.family_groups), 'all groups within 8 weeks');
 -- 이메일 · 이름은 들어 있지 않아요
 select pg_temp.assert((select j::text from st) !~ '@x\.com|사진엄마|광고가입', 'stats has no personal info');
+-- =====================================================================
+-- (버전 13) 가족 프리미엄 · 쿠폰
+-- =====================================================================
+-- 운영자만 쿠폰을 만들 수 있어요
+select pg_temp.as_user('11111111-0000-0000-0000-000000000001');
+do $$ begin
+  perform public.admin_create_premium_codes(1, 1, '');
+  raise exception 'TEST FAILED: non-admin created code';
+exception when insufficient_privilege then null; end $$;
+do $$ begin
+  perform * from public.premium_codes;
+  raise exception 'TEST FAILED: read premium_codes directly';
+exception when insufficient_privilege then null; end $$;
+do $$ begin
+  perform * from public.premium_interest;
+  raise exception 'TEST FAILED: read premium_interest directly';
+exception when insufficient_privilege then null; end $$;
+-- 멤버도 프리미엄 기간을 직접 바꿀 수 없어요
+do $$ begin
+  update public.family_groups set premium_until = now() + interval '10 years' where id = (select v from pg_temp.ids where k='avg');
+  raise exception 'TEST FAILED: member set premium_until';
+exception when insufficient_privilege then null; end $$;
+reset role;
+set role anon;
+do $$ begin
+  perform public.redeem_premium_code(gen_random_uuid(), 'DORAN-AAAA-AAAA');
+  raise exception 'TEST FAILED: anon redeem';
+exception when insufficient_privilege then null; end $$;
+reset role;
+select pg_temp.as_user('ffffffff-0000-0000-0000-000000000001');
+create temp table pc as select c from public.admin_create_premium_codes(3, 2, '베타 선물') c;
+reset role;
+select pg_temp.assert((select count(*) from pc) = 3, 'admin made 3 codes');
+select pg_temp.assert((select bool_and(c ~ '^DORAN-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$') from pc), 'code format (no 0 O 1 I)');
+insert into pg_temp.ids values ('pc1', null);
+create temp table pcs as select c, row_number() over (order by c) n from pc;
+grant select on pcs to authenticated;
+do $$ begin
+  perform public.admin_create_premium_codes(51, 1, '');
+  raise exception 'TEST FAILED: superuser bypassed admin check';
+exception when raise_exception then null; when insufficient_privilege then null; end $$;
+
+-- 모르는 사람(그룹 멤버 아님)은 쓸 수 없어요
+select pg_temp.as_user('11111111-0000-0000-0000-000000000003');
+do $$ begin
+  perform public.redeem_premium_code((select v from pg_temp.ids where k='avg'), (select c from pcs where n = 1));
+  raise exception 'TEST FAILED: non-member redeemed';
+exception when raise_exception then
+  if sqlerrm not like '%멤버만%' then raise; end if;
+end $$;
+reset role;
+-- 그룹 멤버는 쓸 수 있어요 (소문자 · 띄어쓰기 · 대시 없이 넣어도 돼요)
+select pg_temp.as_user('11111111-0000-0000-0000-000000000002');
+select pg_temp.assert(not public.is_premium_group((select v from pg_temp.ids where k='avg')), 'not premium before');
+select public.redeem_premium_code((select v from pg_temp.ids where k='avg'), lower(replace((select c from pcs where n = 1), '-', ' ')));
+select pg_temp.assert(public.is_premium_group((select v from pg_temp.ids where k='avg')), 'premium after redeem');
+select pg_temp.assert((select premium_until from public.family_groups where id = (select v from pg_temp.ids where k='avg'))
+  between now() + interval '2 months' - interval '1 minute' and now() + interval '2 months' + interval '1 minute', 'premium 2 months');
+-- 같은 쿠폰은 한 번만
+do $$ begin
+  perform public.redeem_premium_code((select v from pg_temp.ids where k='avg'), (select c from pcs where n = 1));
+  raise exception 'TEST FAILED: code reused';
+exception when raise_exception then
+  if sqlerrm not like '%이미 사용한%' then raise; end if;
+end $$;
+-- 틀린 번호
+do $$ begin
+  perform public.redeem_premium_code((select v from pg_temp.ids where k='avg'), 'DORAN-ZZZZ-ZZZZ');
+  raise exception 'TEST FAILED: wrong code accepted';
+exception when raise_exception then
+  if sqlerrm not like '%다시 확인%' then raise; end if;
+end $$;
+-- 두 번째 쿠폰은 기간을 이어서 늘려요 (2 + 2 = 4개월)
+select public.redeem_premium_code((select v from pg_temp.ids where k='avg'), (select c from pcs where n = 2));
+select pg_temp.assert((select premium_until from public.family_groups where id = (select v from pg_temp.ids where k='avg'))
+  between now() + interval '4 months' - interval '1 minute' and now() + interval '4 months' + interval '1 minute', 'premium extends to 4 months');
+-- 멤버는 프리미엄 기간을 볼 수 있어요
+select pg_temp.assert((select premium_until from public.family_groups where id = (select v from pg_temp.ids where k='avg')) is not null, 'member sees premium_until');
+-- 관심 신청 (두 번 눌러도 한 번)
+select pg_temp.assert(not public.has_premium_interest(), 'no interest yet');
+select public.register_premium_interest((select v from pg_temp.ids where k='avg'));
+select public.register_premium_interest((select v from pg_temp.ids where k='avg'));
+select pg_temp.assert(public.has_premium_interest(), 'interest registered');
+reset role;
+select pg_temp.assert((select count(*) from public.premium_interest where user_id = '11111111-0000-0000-0000-000000000002') = 1, 'interest once');
+-- 만 14세 미만은 쿠폰을 못 써요 (꼬마 = 자녀 계정)
+do $$
+declare kid uuid := (select c.child_id from public.guardian_consents c join public.group_members m on m.user_id = c.child_id limit 1);
+declare kg uuid := (select m.group_id from public.group_members m where m.user_id = kid limit 1);
+begin
+  if kid is null or kg is null then raise exception 'TEST SETUP: no child in a group'; end if;
+  perform set_config('request.jwt.claim.sub', kid::text, false);
+  execute 'set role authenticated';
+  begin
+    perform public.redeem_premium_code(kg, (select c from pcs where n = 3));
+    raise exception 'TEST FAILED: child redeemed';
+  exception when raise_exception then
+    if sqlerrm not like '%어른 가족%' then raise; end if;
+  end;
+  execute 'reset role';
+end $$;
+-- 운영자 현황: 숫자와 쿠폰 목록 (누가 썼는지는 없음)
+select pg_temp.as_user('ffffffff-0000-0000-0000-000000000001');
+create temp table ps as select public.admin_premium_summary() as j;
+reset role;
+select pg_temp.assert((select (j->>'premium_groups')::int from ps) = 1, 'summary premium groups');
+select pg_temp.assert((select (j->>'interest_users')::int from ps) = 1, 'summary interest');
+select pg_temp.assert((select (j->>'codes_used')::int from ps) = 2 and (select (j->>'codes_unused')::int from ps) = 1, 'summary codes used/unused');
+select pg_temp.assert((select j::text from ps) !~ '11111111-0000|사진엄마|사진 가족', 'summary has no who/which group');
+-- 탈퇴하면 관심 신청도 지워져요
+delete from auth.users where id = '11111111-0000-0000-0000-000000000002';
+select pg_temp.assert((select count(*) from public.premium_interest) = 0, 'interest removed with account');
+select pg_temp.assert((select count(*) from public.premium_codes where used_at is not null and used_by is null) = 2, 'code keeps used state, forgets who');
 select 'ALL RLS TESTS PASSED' as result;

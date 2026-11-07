@@ -49,10 +49,11 @@ export function loadImage(file) {
 }
 
 // 사진을 적당한 크기의 JPEG로 줄이기 (사진의 회전 정보는 브라우저가 자동 반영)
-export async function shrinkImage(file) {
+// 가족 프리미엄 그룹은 { maxSide: 4096, quality: 0.9 } 로 원본에 가깝게 (premium.js)
+export async function shrinkImage(file, { maxSide = MAX_SIDE, quality = QUALITY } = {}) {
   const { img, url } = await loadImage(file);
   try {
-    const scale = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
     const w = Math.max(1, Math.round(img.naturalWidth * scale));
     const h = Math.max(1, Math.round(img.naturalHeight * scale));
     const canvas = document.createElement('canvas');
@@ -62,7 +63,7 @@ export async function shrinkImage(file) {
     ctx.fillStyle = '#ffffff'; // 투명한 PNG가 검게 나오지 않도록
     ctx.fillRect(0, 0, w, h);
     ctx.drawImage(img, 0, 0, w, h);
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', QUALITY));
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
     if (!blob) throw new Error('사진을 준비하지 못했어요. 다른 사진으로 해 보세요.');
     return blob;
   } finally {

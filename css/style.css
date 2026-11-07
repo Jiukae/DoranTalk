@@ -887,7 +887,7 @@ img.brand-logo { object-fit: cover; }
   max-width: var(--max-width);
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
 }
 .tab {
   display: flex;
@@ -1482,6 +1482,43 @@ body.typing .page-chat { padding-bottom: calc(100px + env(safe-area-inset-bottom
 .request-text { flex: 1; min-width: 0; }
 .request-text p { margin: 0; }
 .request-title { font-weight: 800; font-size: 1.08rem; }
+/* ---------- 사진 탭 (달마다 모아 보기) ---------- */
+.album-intro { margin: 0 0 12px; font-size: 0.92rem; }
+.album-month { padding-bottom: 14px; }
+.album-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin-bottom: 12px; }
+.album-head h2 { margin: 0; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+.album-count { font-size: 0.92rem; font-weight: 700; color: var(--muted); }
+.album-download { flex: none; white-space: nowrap; margin-left: auto; padding-inline: 10px; }
+.album-download.locked { color: var(--muted); }
+.album-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 0 -6px; }
+.album-cell { position: relative; aspect-ratio: 1; padding: 0; border: 0; border-radius: 8px; overflow: hidden; background: var(--fill); cursor: pointer; }
+.album-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.album-cell img:not([src]), .album-cell img.missing { visibility: hidden; }
+@media (min-width: 520px) { .album-grid { grid-template-columns: repeat(4, 1fr); } }
+
+/* ---------- 가족 프리미엄 ---------- */
+.premium-card .card-head h2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.badge-premium { background: #f0ebff; color: #6d28d9; }
+:root[data-theme='black'] .badge-premium { background: #2a2140; color: #b9a0ff; }
+.premium-perks { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.premium-perks li { display: flex; align-items: flex-start; gap: 12px; }
+.premium-perks b { display: block; font-weight: 800; }
+.premium-perks p { margin: 2px 0 0; }
+.premium-perk-icon { flex: none; width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--fill); color: var(--muted); }
+.premium-perk-icon.on { background: #e3f5ea; color: #1f8a4c; }
+.premium-free { margin: 12px 0 0; }
+.coupon-form { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.coupon-label { display: block; font-weight: 800; margin-bottom: 8px; }
+.coupon-row { display: flex; gap: 8px; }
+.coupon-row .input { flex: 1; min-width: 0; font-family: ui-monospace, monospace; letter-spacing: 0.04em; text-transform: uppercase; }
+.coupon-row .btn { flex: none; width: auto; white-space: nowrap; }
+.premium-interest { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.premium-interest p { margin: 0 0 8px; }
+.coupon-make-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.coupon-made { margin-top: 12px; }
+.coupon-code-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; }
+.coupon-code-row code, .stat-row code { font-family: ui-monospace, monospace; font-weight: 800; letter-spacing: 0.03em; overflow-wrap: anywhere; }
+
 /* ---------- 운영자: 광고 성과 ---------- */
 .stat-intro { margin: 0 0 12px; font-size: 0.92rem; }
 .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

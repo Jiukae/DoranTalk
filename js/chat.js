@@ -46,8 +46,8 @@ export async function sendText(groupId, content) {
 }
 
 // 사진 한 장 보내기: 줄이기 → 올리기 → 메시지 저장 (저장 실패 시 올린 사진 정리)
-export async function sendImage(groupId, file) {
-  const blob = await shrinkImage(file);
+export async function sendImage(groupId, file, photoOptions = {}) {
+  const blob = await shrinkImage(file, photoOptions);
   const [path] = await uploadImages(groupId, 'chat', [blob]);
   try {
     return shapeMessage(check(await sb.from('messages')
