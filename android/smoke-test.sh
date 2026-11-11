@@ -76,18 +76,20 @@ check(info['bridge'] == 'object', '웹 ↔ 앱 통로(DoranTalkApp)가 있어요
 res = info.get('info') if isinstance(info.get('info'), dict) else {}
 check(res.get('ok') is True and res.get('result', {}).get('push') in ('unavailable', 'default', 'granted', 'denied'), '통로가 앱 정보로 답해요: ' + json.dumps(res.get('result'), ensure_ascii=False))
 
+# 뒤로 가기: 앱 안 화면에서 한 단계 뒤로 (다른 앱이 앞에 뜨기 전에 먼저 시험)
+before = ev('location.hash')
+ev("location.hash = '#/help'; 1")
+time.sleep(2)
+mid = ev('location.hash')
+subprocess.run(['adb', 'shell', 'input', 'keyevent', 'KEYCODE_BACK'])
+time.sleep(2)
+after = ev('location.hash')
+check(mid == '#/help' and after == before, f'뒤로 가기 버튼이 앱 안에서 이전 화면으로 가요 ({before} → {mid} → 뒤로 → {after})')
+
 # 다른 사이트 주소는 앱 안에서 열지 않아요 (휴대폰의 다른 앱으로 넘기거나 "열 수 있는 앱이 없어요")
 ev("location.href = 'https://example.com/'; 1")
 time.sleep(4)
 check(ev('location.href').startswith('https://www.dorantalk.com/'), '다른 사이트(example.com)는 앱 안에서 열리지 않아요')
-
-# 뒤로 가기: 앱 안 화면에서 한 단계 뒤로
-before = ev('location.hash')
-ev("location.hash = '#/help'; 1")
-time.sleep(2)
-subprocess.run(['adb', 'shell', 'input', 'keyevent', 'KEYCODE_BACK'])
-time.sleep(2)
-check(ev('location.hash') == before, f'뒤로 가기 버튼이 앱 안에서 이전 화면으로 가요 ({before})')
 ws.close()
 if not ok:
     print('SMOKE_FAIL: 앱 안 화면 시험 중 FAIL 이 있어요')
