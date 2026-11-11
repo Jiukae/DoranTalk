@@ -42,9 +42,9 @@ if not page:
     print('SMOKE_FAIL: 앱 안 화면을 찾지 못했어요'); sys.exit(1)
 ws = websocket.create_connection(page['webSocketDebuggerUrl'], timeout=40, suppress_origin=True)
 n = [0]
-def ev(expr):
+def ev(expr, gesture=False):
     n[0] += 1
-    ws.send(json.dumps({'id': n[0], 'method': 'Runtime.evaluate', 'params': {'expression': expr, 'awaitPromise': True, 'returnByValue': True}}))
+    ws.send(json.dumps({'id': n[0], 'method': 'Runtime.evaluate', 'params': {'expression': expr, 'awaitPromise': True, 'returnByValue': True, 'userGesture': gesture}}))
     while True:
         m = json.loads(ws.recv())
         if m.get('id') == n[0]:
@@ -77,14 +77,21 @@ res = info.get('info') if isinstance(info.get('info'), dict) else {}
 check(res.get('ok') is True and res.get('result', {}).get('push') in ('unavailable', 'default', 'granted', 'denied'), '통로가 앱 정보로 답해요: ' + json.dumps(res.get('result'), ensure_ascii=False))
 
 # 뒤로 가기: 앱 안 화면에서 한 단계 뒤로 (다른 앱이 앞에 뜨기 전에 먼저 시험)
+# 사람이 버튼을 눌러 화면을 옮긴 것처럼(userGesture) 해요. 크롬 엔진은 사람이 누르지 않고 생긴
+# 방문 기록은 뒤로 가기에서 건너뛰어요 (자동으로 넘어가는 화면에 갇히지 않게 하는 보호 장치).
+def front():
+    out = subprocess.run(['adb', 'shell', 'dumpsys', 'activity', 'activities'], capture_output=True, text=True).stdout
+    line = next((l for l in out.splitlines() if 'topResumedActivity' in l or 'mResumedActivity' in l), '')
+    return 'com.dorantalk.app' in line
 before = ev('location.hash')
-ev("location.hash = '#/help'; 1")
+ev("location.hash = '#/help'; 1", gesture=True)
 time.sleep(2)
 mid = ev('location.hash')
 subprocess.run(['adb', 'shell', 'input', 'keyevent', 'KEYCODE_BACK'])
 time.sleep(2)
 after = ev('location.hash')
-check(mid == '#/help' and after == before, f'뒤로 가기 버튼이 앱 안에서 이전 화면으로 가요 ({before} → {mid} → 뒤로 → {after})')
+still = front()
+check(mid == '#/help' and after == before and still, f'뒤로 가기 버튼이 앱 안에서 이전 화면으로 가요 ({before} → {mid} → 뒤로 → {after}, 앱이 앞에 {"있음" if still else "없음"})')
 
 # 다른 사이트 주소는 앱 안에서 열지 않아요 (휴대폰의 다른 앱으로 넘기거나 "열 수 있는 앱이 없어요")
 ev("location.href = 'https://example.com/'; 1")
