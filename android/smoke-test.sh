@@ -9,11 +9,13 @@
 set -u
 APK=apk/dorantalk-smoke.apk
 FAIL=0
-fail() { echo "SMOKE_FAIL: $*"; FAIL=1; }
+: > results.txt
+note() { echo "$*" | tee -a results.txt; }
+fail() { note "SMOKE_FAIL: $*"; FAIL=1; }
 
 adb install -r "$APK" || exit 1
-adb shell pm disable-user --user 0 com.android.chrome > /dev/null 2>&1 && echo "크롬 사용 중지함"
-adb shell pm list packages -d | grep -q com.android.chrome && echo "확인: 크롬 꺼짐" || echo "참고: 크롬이 없거나 끌 수 없음"
+adb shell pm disable-user --user 0 com.android.chrome > /dev/null 2>&1 && note "크롬 사용 중지함"
+adb shell pm list packages -d | grep -q com.android.chrome && note "확인: 크롬 꺼짐" || note "참고: 크롬이 없거나 끌 수 없음"
 adb shell pm grant com.dorantalk.app android.permission.POST_NOTIFICATIONS || true
 adb logcat -c
 adb shell am start -W -n com.dorantalk.app/.MainActivity
@@ -24,12 +26,13 @@ adb logcat -d -b crash > crash.txt || true
 grep -q "com.dorantalk.app" crash.txt && { fail "앱이 꺼졌어요"; cat crash.txt; }
 PID=$(adb shell pidof com.dorantalk.app | tr -d '\r')
 [ -n "$PID" ] || fail "앱이 실행 중이 아니에요"
-echo "앱 PID=$PID"
+note "앱 PID=$PID"
 
 # --- 앱 안 화면(WebView) 들여다보기: 주소 · 통로 · 다른 사이트 막기 · 뒤로 가기 ---
 adb forward tcp:9223 "localabstract:webview_devtools_remote_$PID"
 pip3 install -q websocket-client > /dev/null 2>&1 || true
-python3 - <<'PY' || FAIL=1
+python3 - <<'PY' 2>&1 | tee -a results.txt
+
 import json, time, urllib.request, subprocess, websocket, sys
 
 targets = json.load(urllib.request.urlopen('http://127.0.0.1:9223/json'))
@@ -86,8 +89,10 @@ subprocess.run(['adb', 'shell', 'input', 'keyevent', 'KEYCODE_BACK'])
 time.sleep(2)
 check(ev('location.hash') == before, f'뒤로 가기 버튼이 앱 안에서 이전 화면으로 가요 ({before})')
 ws.close()
-sys.exit(0 if ok else 1)
+if not ok:
+    print('SMOKE_FAIL: 앱 안 화면 시험 중 FAIL 이 있어요')
 PY
+grep -q "SMOKE_FAIL" results.txt && FAIL=1
 
 # --- 시험 알림: 이 앱의 높음 중요도 채널로 위에 팝업 ---
 adb shell am start -n com.dorantalk.app/.MainActivity --ez testNotify true > /dev/null
@@ -95,17 +100,17 @@ sleep 1.5
 adb exec-out screencap -p > popup.png
 sleep 2
 echo "--- 도란톡 앱의 알림 ---"
-adb shell dumpsys notification --noredact | grep -E "NotificationRecord.*pkg=com\.dorantalk\.app" | head -3
+adb shell dumpsys notification --noredact | grep -E "NotificationRecord.*pkg=com\.dorantalk\.app" | head -3 | tee -a results.txt
 adb shell dumpsys notification --noredact | grep -E "NotificationRecord.*pkg=com\.dorantalk\.app" | grep -q "channel=family_alerts" \
   || adb shell dumpsys notification --noredact | grep -A3 "pkg=com.dorantalk.app" | grep -q "family_alerts" \
   || fail "시험 알림이 도란톡 알림 채널로 오지 않았어요"
 adb shell dumpsys notification --noredact | grep -E "mId='family_alerts'|id=family_alerts" | head -2
 adb shell dumpsys notification --noredact | grep -A6 "family_alerts" | grep -qiE "mImportance=4|importance=4|IMPORTANCE_HIGH" \
-  && echo "OK   알림 채널 중요도: 높음 (위에 팝업)" || fail "알림 채널 중요도가 높음이 아니에요"
+  && note "OK   알림 채널 중요도: 높음 (위에 팝업)" || fail "알림 채널 중요도가 높음이 아니에요"
 if adb shell dumpsys notification --noredact | grep -E "NotificationRecord" | grep -q "pkg=com.android.chrome"; then
   fail "크롬 알림(Chrome에서 실행 중 등)이 있어요"
 else
-  echo "OK   'Chrome에서 실행 중' 같은 크롬 알림이 없어요"
+  note "OK   'Chrome에서 실행 중' 같은 크롬 알림이 없어요"
 fi
 adb logcat -d -b crash > crash2.txt || true
 grep -q "com.dorantalk.app" crash2.txt && { fail "알림 시험 중에 앱이 꺼졌어요"; cat crash2.txt; }
@@ -113,4 +118,7 @@ grep -q "com.dorantalk.app" crash2.txt && { fail "알림 시험 중에 앱이 �
 for f in smoke popup; do
   echo "${f^^}_PNG_BEGIN"; base64 -w 3000 $f.png; echo "${f^^}_PNG_END"
 done
+# 결과 요약은 맨 끝에 (로그 끝부분만 읽어도 보이게)
+echo "=== 결과 요약 ==="
+cat results.txt
 [ "$FAIL" = 0 ] && echo "SMOKE_OK: 모든 시험 통과" || { echo "SMOKE_FAIL: 위의 FAIL 을 확인해 주세요"; exit 1; }
