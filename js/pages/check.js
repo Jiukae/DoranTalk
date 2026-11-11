@@ -5,7 +5,7 @@ import { el, render, brandHeader } from '../ui.js';
 import { APP_VERSION } from '../version.js';
 
 // 앱이 기대하는 schema.sql 버전. SQL 파일 맨 위 "버전 N" 과 같아야 해요.
-export const REQUIRED_SCHEMA_VERSION = 15;
+export const REQUIRED_SCHEMA_VERSION = 16;
 
 const CHECKS = [
   { id: 'config', title: '설정 파일', run: checkConfigStep },
@@ -36,7 +36,9 @@ async function checkPushStep() {
     if (status === 401) return { status: 'warn', detail: '알림 서버의 "Verify JWT" 설정을 꺼 주세요. (안내서 9단계)' };
     return { status: 'warn', detail: '아직 설정 전이거나 알림 서버에 연결하지 못했어요. 알림을 쓰려면 안내서 9단계를 따라 주세요.' };
   }
-  if (data?.ready) return { status: 'ok', detail: '알림 서버가 준비됐어요. 내 정보 → 알림에서 켤 수 있어요.' };
+  // (버전 16) 크롬 없이 도는 안드로이드 앱의 알림(Firebase)도 준비됐는지
+  const app = data?.fcm === true ? ' 안드로이드 앱 알림(Firebase)도 준비됐어요.' : ' 안드로이드 앱 알림(Firebase)은 아직이에요 (안내서 21단계).';
+  if (data?.ready) return { status: 'ok', detail: `알림 서버가 준비됐어요. 내 정보 → 알림에서 켤 수 있어요.${app}` };
   return { status: 'warn', detail: data?.error || '알림 열쇠(VAPID)를 Secrets 에 넣어 주세요. (앱 주소 뒤에 #/push-setup)' };
 }
 

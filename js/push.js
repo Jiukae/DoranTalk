@@ -3,13 +3,33 @@
 // - 가족이 채팅 · 글 · 댓글 · 초대를 보내면 알림 서버가 이 기기로 알림을 보내고,
 //   앱이 꺼져 있어도 서비스 워커(sw.js)가 알림을 띄워요.
 // - 아이폰은 "홈 화면에 추가"한 도란톡 앱(iOS 16.4 이상)에서만 알림을 받을 수 있어요.
+// - 크롬 없이 도는 도란톡 안드로이드 앱(버전 2) 안에서는 웹 알림 대신 앱의 Firebase 알림을 써요 (native.js)
 import { sb } from './supabase.js';
 import { isStandalone, platform } from './install.js';
+import { inNativeApp, nativeCall } from './native.js';
 
 const FUNCTION = 'push';
 const ON_KEY = 'talkfeed.pushOn'; // 이 기기에서 알림을 켜 두었는지 (주소가 바뀌면 다시 등록하려고)
 const PROMPT_KEY = 'talkfeed.pushPromptAt';
 let serverInfo = null; // { ready, publicKey }
+let appPush = null; // 앱 안: 'unavailable' · 'granted' · 'default' · 'denied'
+
+// 앱 안: 앱에 알림 상태를 다시 물어봐요 (휴대폰 설정에서 바꿨을 수 있어서)
+export async function refreshAppPushState() {
+  if (!inNativeApp()) return null;
+  try {
+    appPush = (await nativeCall('info', {}, 5000))?.push || null;
+  } catch {
+    appPush = null;
+  }
+  return appPush;
+}
+if (inNativeApp()) refreshAppPushState();
+
+async function appToken() {
+  const r = await nativeCall('pushToken', {}, 30000).catch(() => null);
+  return r?.token || null;
+}
 
 function remember(key, value) {
   try {
@@ -38,7 +58,12 @@ function bytesToB64u(buf) {
 //  'denied'      : 알림을 막아 둠 (휴대폰 설정에서 허용해야 함)
 //  'default'     : 아직 묻지 않음
 //  'granted'     : 허용함
+//  'app-not-ready' : 도란톡 앱 안인데 앱 알림(Firebase)이 아직 준비 전 (관리자 21단계)
 export function pushStatus() {
+  if (inNativeApp()) {
+    if (appPush === 'unavailable') return 'app-not-ready';
+    return appPush === 'granted' || appPush === 'denied' ? appPush : 'default';
+  }
   const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   if (platform() === 'ios' && !isStandalone()) return 'ios-install';
   if (!supported) return 'unsupported';
@@ -50,7 +75,9 @@ export async function pushServerInfo({ fresh = false } = {}) {
   if (serverInfo && !fresh) return serverInfo;
   try {
     const { data, error } = await sb.functions.invoke(FUNCTION, { method: 'GET' });
-    serverInfo = error ? { ready: false, error: error.message } : { ready: Boolean(data?.ready), publicKey: data?.publicKey, error: data?.error };
+    // 앱 안에서는 앱 알림(Firebase)을 보낼 준비가 됐는지가 중요해요
+    serverInfo = error ? { ready: false, error: error.message }
+      : { ready: inNativeApp() ? data?.fcm === true : Boolean(data?.ready), publicKey: data?.publicKey, error: data?.error };
   } catch (err) {
     serverInfo = { ready: false, error: err.message };
   }
@@ -62,6 +89,7 @@ async function registration() {
 }
 
 export async function currentSubscription() {
+  if (inNativeApp()) return null;
   if (pushStatus() === 'unsupported' || pushStatus() === 'ios-install') return null;
   const reg = await registration();
   return reg.pushManager.getSubscription();
@@ -96,6 +124,25 @@ async function subscribe(publicKey) {
 
 // "알림 켜기" (버튼을 누른 순간에 불러야 해요 — 브라우저가 허락 창을 띄우는 조건)
 export async function enablePush() {
+  if (inNativeApp()) {
+    const info = await pushServerInfo({ fresh: true });
+    if (!info.ready) throw new Error('server-not-ready');
+    let r;
+    try {
+      r = await nativeCall('pushEnable', {}, 120000); // 휴대폰이 "알림 허용" 창을 띄워요
+    } catch (err) {
+      await refreshAppPushState();
+      if (err.code === 'denied') throw Object.assign(new Error('denied'), { code: 'denied' });
+      if (err.code === 'unavailable') throw new Error('server-not-ready');
+      throw err;
+    }
+    if (!r?.token) throw new Error('알림 주소를 받지 못했어요. 잠시 뒤 다시 눌러 주세요.');
+    const { error } = await sb.rpc('push_subscribe_fcm', { p_token: r.token, p_device: '안드로이드 앱' });
+    if (error) throw error;
+    remember(ON_KEY, '1');
+    await refreshAppPushState();
+    return;
+  }
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') {
     const err = new Error(permission === 'denied' ? 'denied' : 'dismissed');
@@ -112,6 +159,11 @@ export async function enablePush() {
 export async function disablePush() {
   remember(ON_KEY, null);
   dismissPushPrompt(); // 직접 끈 경우 홈에서 다시 조르지 않기
+  if (inNativeApp()) {
+    const token = await appToken();
+    if (token) await sb.rpc('push_unsubscribe', { p_endpoint: `fcm:${token}` });
+    return;
+  }
   const sub = await currentSubscription();
   if (!sub) return;
   await sb.rpc('push_unsubscribe', { p_endpoint: sub.endpoint });
@@ -121,6 +173,11 @@ export async function disablePush() {
 // 로그아웃할 때: 이 기기로 내 알림이 더 오지 않게 (다음에 로그인한 사람은 다시 켤 수 있어요)
 export async function forgetThisDevice() {
   try {
+    if (inNativeApp()) {
+      const token = await appToken();
+      if (token) await sb.rpc('push_unsubscribe', { p_endpoint: `fcm:${token}` });
+      return;
+    }
     const sub = await currentSubscription();
     if (sub) await sb.rpc('push_unsubscribe', { p_endpoint: sub.endpoint });
   } catch { /* 로그아웃은 그대로 진행 */ }
@@ -128,6 +185,12 @@ export async function forgetThisDevice() {
 
 // 앱을 열 때: 알림을 켜 둔 기기는 등록 정보를 최신으로 (주소가 바뀌었거나, 다른 계정이 쓰던 기기인 경우)
 export async function refreshPush() {
+  if (inNativeApp()) {
+    if (recall(ON_KEY) !== '1' || (await refreshAppPushState()) !== 'granted') return;
+    const token = await appToken(); // Firebase 주소가 바뀌었을 수 있어서 다시 등록
+    if (token) await sb.rpc('push_subscribe_fcm', { p_token: token, p_device: '안드로이드 앱' }); // 실패해도 다음에 다시 (오류를 던지지 않아요)
+    return;
+  }
   if (pushStatus() !== 'granted' || recall(ON_KEY) !== '1') return;
   try {
     const info = await pushServerInfo();
@@ -137,6 +200,7 @@ export async function refreshPush() {
 
 // 이 기기에서 알림을 받고 있는지
 export async function isPushOn() {
+  if (inNativeApp()) return (await refreshAppPushState()) === 'granted' && recall(ON_KEY) === '1';
   if (pushStatus() !== 'granted') return false;
   return Boolean(await currentSubscription().catch(() => null));
 }
@@ -153,6 +217,11 @@ export async function sendTestPush() {
   return data;
 }
 
+// 앱 안: 휴대폰 설정의 "도란톡 알림" 화면 열기
+export function openAppNotificationSettings() {
+  return nativeCall('openNotificationSettings', {}, 5000).catch(() => {});
+}
+
 // 앱 아이콘의 숫자 (안 읽은 채팅 수) — 지원하는 휴대폰에서만
 export function setAppBadge(count) {
   try {
@@ -163,6 +232,7 @@ export function setAppBadge(count) {
 
 // 홈 화면의 "알림 켜기" 안내: 아직 묻지 않았고, 최근 2주 안에 "나중에"를 누르지 않았을 때만
 export function shouldPromptPush() {
+  if (inNativeApp() && recall(ON_KEY) === '1') return false;
   const status = pushStatus();
   // 아직 묻지 않았거나, 허락은 했지만 이 앱에서 알림을 켠 적이 없을 때
   if (status !== 'default' && !(status === 'granted' && recall(ON_KEY) !== '1')) return false;

@@ -1,78 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 도란톡 앱: 실행하면 https://www.dorantalk.com 을 주소창 없이 앱 화면으로 열어요 (Trusted Web Activity).
-     www.dorantalk.com/.well-known/assetlinks.json 에 이 앱의 서명 지문이 있어야 주소창이 숨겨져요. -->
+<!-- 도란톡 앱 (버전 2): 크롬 없이 앱 안의 화면(WebView)으로 https://www.dorantalk.com 을 열어요.
+     알림은 Firebase Cloud Messaging 으로 받아서 이 앱이 직접 "높음" 중요도(카카오톡처럼 위에 팝업)로 띄워요. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 안드로이드 9 이하에서만: 사진 · 압축 파일을 휴대폰 "다운로드 · 사진" 폴더에 저장할 때 -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
 
-    <!-- 안드로이드 11 이상: 휴대폰에 있는 브라우저(크롬 등)를 찾을 수 있게 -->
+    <!-- 사진 · 동영상 올릴 때 "카메라로 찍기"를 보여 주려고 (카메라 권한은 쓰지 않아요) -->
     <queries>
         <intent>
-            <action android:name="android.support.customtabs.action.CustomTabsService" />
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
         </intent>
         <intent>
-            <action android:name="android.intent.action.VIEW" />
-            <category android:name="android.intent.category.BROWSABLE" />
-            <data android:scheme="https" />
+            <action android:name="android.media.action.VIDEO_CAPTURE" />
         </intent>
     </queries>
 
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/appName"
-        android:manageSpaceActivity="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.Translucent.NoTitleBar">
-
-        <meta-data
-            android:name="asset_statements"
-            android:resource="@string/assetStatements" />
-        <meta-data
-            android:name="web_manifest_url"
-            android:value="https://www.dorantalk.com/manifest.webmanifest" />
-
-        <activity android:name="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity">
-            <meta-data
-                android:name="android.support.customtabs.trusted.MANAGE_SPACE_URL"
-                android:value="@string/launchUrl" />
-        </activity>
+        android:theme="@style/Theme.DoranTalk"
+        android:usesCleartextTraffic="false">
 
         <activity
-            android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
-            android:alwaysRetainTaskState="true"
+            android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density"
             android:exported="true"
-            android:label="@string/launcherName">
-            <meta-data
-                android:name="android.support.customtabs.trusted.DEFAULT_URL"
-                android:value="@string/launchUrl" />
-            <meta-data
-                android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
-                android:resource="@color/statusBarColor" />
-            <meta-data
-                android:name="android.support.customtabs.trusted.NAVIGATION_BAR_COLOR"
-                android:resource="@color/navigationBarColor" />
-            <meta-data
-                android:name="android.support.customtabs.trusted.SPLASH_IMAGE_DRAWABLE"
-                android:resource="@drawable/splash" />
-            <meta-data
-                android:name="android.support.customtabs.trusted.SPLASH_SCREEN_BACKGROUND_COLOR"
-                android:resource="@color/backgroundColor" />
-            <meta-data
-                android:name="android.support.customtabs.trusted.SPLASH_SCREEN_FADE_OUT_DURATION"
-                android:value="300" />
-            <meta-data
-                android:name="android.support.customtabs.trusted.FILE_PROVIDER_AUTHORITY"
-                android:value="@string/providerAuthority" />
-            <meta-data
-                android:name="android.support.customtabs.trusted.SCREEN_ORIENTATION"
-                android:value="portrait" />
-
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- www.dorantalk.com 링크를 누르면 앱으로 열기 (dorantalk.com 은 www 로 넘어가서 자동 확인이 안 돼요) -->
+            <!-- www.dorantalk.com 링크를 누르면 이 앱으로 열기 (assetlinks.json 의 서명 지문으로 확인) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -83,42 +52,40 @@
             </intent-filter>
         </activity>
 
-        <activity android:name="com.google.androidbrowserhelper.trusted.FocusActivity" />
+        <!-- 알림 받기 (Firebase) -->
+        <service
+            android:name=".PushService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <!-- 알림을 켜기 전에는 Firebase 주소(토큰)를 만들지 않아요 -->
+        <meta-data
+            android:name="firebase_messaging_auto_init_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="firebase_analytics_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="@string/channelId" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification_icon" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/brandColor" />
 
-        <activity
-            android:name="com.google.androidbrowserhelper.trusted.NotificationPermissionRequestActivity" />
-
-        <activity
-            android:name="com.google.androidbrowserhelper.trusted.WebViewFallbackActivity"
-            android:configChanges="orientation|screenSize" />
-
+        <!-- 카메라로 바로 찍은 사진 · 동영상을 올릴 때 잠깐 쓰는 파일 -->
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="@string/providerAuthority"
+            android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/filepaths" />
         </provider>
-
-        <!-- 웹 알림을 이 앱의 알림으로 보여 주기 (앱 아이콘 · 이름으로).
-             USE_HIGH_PRI_NOTIFICATIONS: 알림 종류(채널)를 "높음" 중요도로 만들어 카카오톡처럼 위에 팝업으로 떠요.
-             (웹 앱 · PWA 의 알림은 크롬이 "보통" 중요도로 만들어서 아이콘만 떠요) -->
-        <service
-            android:name="com.google.androidbrowserhelper.trusted.DelegationService"
-            android:enabled="true"
-            android:exported="true">
-            <meta-data
-                android:name="android.support.customtabs.trusted.SMALL_ICON"
-                android:resource="@drawable/ic_notification_icon" />
-            <meta-data
-                android:name="androidx.browser.trusted.USE_HIGH_PRI_NOTIFICATIONS"
-                android:value="true" />
-            <intent-filter>
-                <action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </service>
     </application>
 </manifest>

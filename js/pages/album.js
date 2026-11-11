@@ -8,6 +8,7 @@ import { signedUrls, isVideoPath } from '../images.js';
 import { openLightbox, mediaThumb } from '../lightbox.js';
 import { isPremium } from '../premium.js';
 import { makeZip } from '../zip.js';
+import { inNativeApp, saveFileInApp } from '../native.js';
 
 const MAX_ITEMS = 600; // 소식 · 채팅 각각 최근 600개까지
 
@@ -162,6 +163,14 @@ async function downloadMonth(m, group, button) {
     }
     if (!files.length) throw new Error('사진을 받아 오지 못했어요. 인터넷 연결을 확인하고 다시 해 주세요.');
     const blob = makeZip(files);
+    if (inNativeApp()) {
+      // 도란톡 앱 안: 앱이 휴대폰 "다운로드/DoranTalk" 폴더에 저장해요
+      await saveFileInApp(blob, `dorantalk-${m.key}.zip`, (part) => {
+        button.replaceChildren(el('span', { class: 'spinner spinner-sm', 'aria-hidden': 'true' }), ` 저장 ${Math.round(part * 100)}%`);
+      });
+      toast(`${files.length}개를 압축 파일로 저장했어요. (다운로드 → DoranTalk 폴더)`, 4000);
+      return;
+    }
     const a = el('a', { href: URL.createObjectURL(blob), download: `dorantalk-${m.key}.zip` });
     document.body.append(a);
     a.click();

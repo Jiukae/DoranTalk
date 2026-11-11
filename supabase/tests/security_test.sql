@@ -769,6 +769,51 @@ delete from vault.decrypted_secrets where name = 'push_db_key';
 
 
 -- =====================================================================
+-- F. 안드로이드 앱(크롬 없이) 알림: Firebase 알림 주소 (버전 16)
+-- =====================================================================
+select pg_temp.login('dad');
+select pg_temp.raises('DB-F01', '앱 알림 (Firebase)', 'Firebase 알림 주소는 정해진 모양만 받아요 (이상한 글자 · 너무 짧은 주소 거절)',
+  $q$select public.push_subscribe_fcm('bad token!')$q$, '%올바르지%');
+select pg_temp.allowed('DB-F02', '앱 알림 (Firebase)', '(정상 기능) 안드로이드 앱이 이 휴대폰의 Firebase 알림 주소를 등록해요',
+  $q$select public.push_subscribe_fcm('dadTOKEN_' || repeat('a', 140), '안드로이드 앱')$q$);
+select pg_temp.raises('DB-F03', '앱 알림 (Firebase)', '웹 알림 등록으로 fcm: 주소를 몰래 만들 수 없어요',
+  $q$select public.push_subscribe('fcm:hack' || repeat('b', 40), repeat('A', 87), repeat('B', 22))$q$);
+select pg_temp.db();
+select pg_temp.expect('DB-F04', '앱 알림 (Firebase)', 'Firebase 주소는 fcm: 으로 저장되고, 웹 알림 열쇠 칸은 비어 있어요',
+  $q$select (kind = 'fcm' and p256dh is null and auth is null and user_id = pg_temp.id('dad')::uuid)::text
+     from public.push_subscriptions where endpoint = 'fcm:dadTOKEN_' || repeat('a', 140)$q$, 'true');
+select pg_temp.raises('DB-F05', '앱 알림 (Firebase)', 'Firebase 주소 칸에 웹 알림 열쇠를 섞어 넣을 수 없어요',
+  $q$insert into public.push_subscriptions (endpoint, user_id, kind, p256dh, auth) values ('fcm:mixed' || repeat('c', 30), pg_temp.id('dad')::uuid, 'fcm', repeat('A', 87), repeat('B', 22))$q$);
+select pg_temp.login('mom');
+with x as (insert into public.messages (group_id, content) values (pg_temp.id('g1')::uuid, '앱 알림 시험') returning id)
+insert into pg_temp.ids select 'mf', id::text from x;
+select pg_temp.expect('DB-F06', '앱 알림 (Firebase)', '알림 서버 전용 열쇠가 없으면 Firebase 주소는 누구에게도 나가지 않아요 (웹 알림은 그대로)',
+  $q$select 'fcm=' || count(*) filter (where kind = 'fcm') || '|web=' || count(*) filter (where kind = 'web') from public.push_targets('message', pg_temp.id('mf')::uuid)$q$, 'fcm=0|web=2');
+select pg_temp.db();
+insert into vault.decrypted_secrets values ('push_db_key', 'k-fcm-test');
+select pg_temp.login('mom');
+with x as (insert into public.messages (group_id, content) values (pg_temp.id('g1')::uuid, '앱 알림 시험 2') returning id)
+insert into pg_temp.ids select 'mf2', id::text from x;
+select set_config('request.headers', '{"x-push-key":"k-wrong"}', false);
+select pg_temp.expect('DB-F07', '앱 알림 (Firebase)', '틀린 열쇠로는 Firebase 주소도 웹 주소도 못 받아요',
+  $q$select count(*)::text from public.push_targets('message', pg_temp.id('mf2')::uuid)$q$, '0');
+select set_config('request.headers', '{"x-push-key":"k-fcm-test"}', false);
+select pg_temp.expect('DB-F08', '앱 알림 (Firebase)', '(정상 기능) 맞는 열쇠를 가진 알림 서버만 가족의 Firebase 주소까지 받아요',
+  $q$select 'fcm=' || count(*) filter (where kind = 'fcm') || '|web=' || count(*) filter (where kind = 'web') from public.push_targets('message', pg_temp.id('mf2')::uuid)$q$, 'fcm=1|web=2');
+select set_config('request.headers', '{}', false);
+select pg_temp.db();
+delete from vault.decrypted_secrets where name = 'push_db_key';
+select pg_temp.login('out');
+select pg_temp.allowed('DB-F09', '앱 알림 (Firebase)', '(설계 확인) 같은 휴대폰에서 다른 계정으로 로그인하면 그 계정이 Firebase 주소를 이어받아요',
+  $q$select public.push_subscribe_fcm('dadTOKEN_' || repeat('a', 140), '같은 휴대폰')$q$);
+select pg_temp.allowed('DB-F10', '앱 알림 (Firebase)', '(정상 기능) 로그아웃하면 이 휴대폰의 Firebase 주소를 지워요',
+  $q$select public.push_unsubscribe('fcm:dadTOKEN_' || repeat('a', 140))$q$, 0);
+select pg_temp.db();
+select pg_temp.expect('DB-F11', '앱 알림 (Firebase)', '지운 Firebase 주소는 정말 없어졌어요',
+  $q$select count(*)::text from public.push_subscriptions where endpoint like 'fcm:dadTOKEN_%'$q$, '0');
+
+
+-- =====================================================================
 -- R. 도배 · 과다 사용 막기 (하루 한도)
 -- =====================================================================
 -- 그룹 만들기: 하루 5개

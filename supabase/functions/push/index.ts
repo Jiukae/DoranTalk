@@ -15,10 +15,14 @@
 //    VAPID_SUBJECT      (선택) 연락처. 기본값 mailto:admin@dorantalk.com
 //    PUSH_DB_KEY        (선택, 버전 15) 알림 서버 전용 열쇠. DB Vault 의 'push_db_key' 와 같은 값.
 //                       넣어 두면 가족 기기 알림 주소를 이 알림 서버만 받을 수 있어요. (20단계 안내서)
+//                       안드로이드 앱(버전 2)의 Firebase 알림은 이 열쇠가 있어야 가요.
+//    FCM_SERVICE_ACCOUNT (안드로이드 앱 알림, 버전 16) Firebase 서비스 계정 열쇠(JSON 파일 내용 전체). (21단계 안내서)
+//                       비밀번호와 같아요 — Secrets 말고 어디에도 붙여 넣지 마세요.
 //
 //  외부 라이브러리 없이 표준 암호 기능(WebCrypto)만 써요.
 //    - 알림 내용 암호화: RFC 8291 (aes128gcm)
 //    - 보낸 곳 증명(VAPID): RFC 8292
+//    - 안드로이드 앱: Firebase Cloud Messaging HTTP v1 (서비스 계정 RS256 서명 → 접근 토큰)
 // =====================================================================
 
 const DEFAULT_SUBJECT = 'mailto:admin@dorantalk.com';
@@ -36,7 +40,8 @@ const enc = new TextEncoder();
 
 type Bytes = Uint8Array<ArrayBuffer>;
 type Keys = { privateKey: CryptoKey; publicB64: string };
-type Target = { endpoint: string; p256dh: string; auth: string; title: string; body: string; url: string; tag: string; badge: number };
+type Target = { endpoint: string; p256dh: string | null; auth: string | null; title: string; body: string; url: string; tag: string; badge: number; kind?: string };
+type ServiceAccount = { project_id: string; client_email: string; private_key: string };
 type Env = (name: string) => string;
 type Options = { fetch?: typeof fetch; env?: Env };
 
@@ -152,6 +157,40 @@ export function allowedEndpoint(endpoint: string): boolean {
   }
 }
 
+// ---------------------------------------------------------------------
+// 안드로이드 앱 알림 (Firebase Cloud Messaging HTTP v1)
+// ---------------------------------------------------------------------
+const FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
+const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+
+export function parseServiceAccount(raw: string): ServiceAccount | null {
+  if (!raw) return null;
+  try {
+    const sa = JSON.parse(raw);
+    if (typeof sa.project_id !== 'string' || !/^[a-z0-9-]{4,40}$/.test(sa.project_id)) return null;
+    if (typeof sa.client_email !== 'string' || !sa.client_email.includes('@')) return null;
+    if (typeof sa.private_key !== 'string' || !sa.private_key.includes('PRIVATE KEY')) return null;
+    return { project_id: sa.project_id, client_email: sa.client_email, private_key: sa.private_key };
+  } catch {
+    return null;
+  }
+}
+
+async function importRsaKey(pem: string): Promise<CryptoKey> {
+  const b64 = pem.replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '').replace(/\\n/g, '').replace(/\s+/g, '');
+  const der = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+  return crypto.subtle.importKey('pkcs8', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
+}
+
+// 서비스 계정으로 서명한 증명(JWT)을 구글에 보내고 1시간짜리 접근 토큰을 받아요
+export async function googleAssertion(sa: ServiceAccount, nowSec = Math.floor(Date.now() / 1000)): Promise<string> {
+  const head = b64u(enc.encode(JSON.stringify({ alg: 'RS256', typ: 'JWT' })));
+  const claims = b64u(enc.encode(JSON.stringify({ iss: sa.client_email, scope: FCM_SCOPE, aud: GOOGLE_TOKEN_URL, iat: nowSec, exp: nowSec + 3600 })));
+  const key = await importRsaKey(sa.private_key);
+  const sig = new Uint8Array(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, enc.encode(`${head}.${claims}`)));
+  return `${head}.${claims}.${b64u(sig)}`;
+}
+
 function defaultEnv(name: string): string {
   // deno-lint-ignore no-explicit-any
   const g = globalThis as any;
@@ -161,6 +200,21 @@ function defaultEnv(name: string): string {
 // 서버 본체. 시험할 때는 fetch · env 를 바꿔 끼울 수 있어요.
 export function createHandler({ fetch: fetchFn = fetch, env = defaultEnv }: Options = {}) {
   let cached: { pub: string; priv: string; keys: Keys } | null = null;
+  let fcmToken: { email: string; token: string; exp: number } | null = null;
+  async function fcmAccessToken(sa: ServiceAccount): Promise<string> {
+    const now = Math.floor(Date.now() / 1000);
+    if (fcmToken && fcmToken.email === sa.client_email && fcmToken.exp > now + 120) return fcmToken.token;
+    const res = await fetchFn(GOOGLE_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: await googleAssertion(sa, now) }).toString(),
+    });
+    if (!res.ok) throw new Error(`google token ${res.status}`);
+    const j = await res.json();
+    if (typeof j.access_token !== 'string') throw new Error('google token');
+    fcmToken = { email: sa.client_email, token: j.access_token, exp: now + (Number(j.expires_in) || 3600) };
+    return fcmToken.token;
+  }
   async function vapidKeys(): Promise<Keys | null> {
     const pub = env('VAPID_PUBLIC_KEY');
     const priv = env('VAPID_PRIVATE_KEY');
@@ -183,9 +237,11 @@ export function createHandler({ fetch: fetchFn = fetch, env = defaultEnv }: Opti
     if (req.method === 'GET') {
       try {
         const keys = await vapidKeys();
-        return json({ ready: Boolean(keys), publicKey: keys ? keys.publicB64 : null });
+        // fcm: 안드로이드 앱(버전 2) 알림을 보낼 준비 (서비스 계정 + 알림 서버 전용 열쇠)
+        const fcm = Boolean(parseServiceAccount(env('FCM_SERVICE_ACCOUNT')) && env('PUSH_DB_KEY'));
+        return json({ ready: Boolean(keys), publicKey: keys ? keys.publicB64 : null, fcm });
       } catch (err) {
-        return json({ ready: false, publicKey: null, error: (err as Error).message });
+        return json({ ready: false, publicKey: null, fcm: false, error: (err as Error).message });
       }
     }
     if (req.method !== 'POST') return json({ error: 'GET 또는 POST 만 돼요.' }, 405);
@@ -240,14 +296,47 @@ export function createHandler({ fetch: fetchFn = fetch, env = defaultEnv }: Opti
     const gone: string[] = [];
     let sent = 0;
     let failed = 0;
+    const sa = parseServiceAccount(env('FCM_SERVICE_ACCOUNT'));
     await Promise.all(targets.map(async (t) => {
+      // 안드로이드 앱(버전 2): Firebase 로 "데이터 알림" (앱이 직접 높음 중요도 알림을 만들어요)
+      if (t.kind === 'fcm') {
+        const token = String(t.endpoint).slice(4);
+        if (!sa || !String(t.endpoint).startsWith('fcm:') || !/^[A-Za-z0-9_:-]{20,900}$/.test(token)) {
+          failed += 1;
+          return;
+        }
+        try {
+          const access = await fcmAccessToken(sa);
+          const r = await fetchFn(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${access}`, 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({
+              message: {
+                token,
+                data: { kind, title: t.title, body: t.body, url: t.url, tag: t.tag, badge: String(t.badge ?? 0) },
+                android: { priority: urgency === 'high' ? 'HIGH' : 'NORMAL', ttl: `${24 * 3600}s` },
+              },
+            }),
+          });
+          if (r.status >= 200 && r.status < 300) sent += 1;
+          else {
+            failed += 1;
+            const text = await r.text().catch(() => '');
+            // 앱을 지웠거나 주소가 바뀐 휴대폰 → 목록에서 지워요
+            if (r.status === 404 || /UNREGISTERED|registration token is not a valid/i.test(text)) gone.push(t.endpoint);
+          }
+        } catch {
+          failed += 1;
+        }
+        return;
+      }
       if (!allowedEndpoint(t.endpoint)) {
         failed += 1;
         return;
       }
       const payload = JSON.stringify({ kind, title: t.title, body: t.body, url: t.url, tag: t.tag, badge: t.badge });
       try {
-        const body = await encryptPayload(payload, t.p256dh, t.auth);
+        const body = await encryptPayload(payload, String(t.p256dh), String(t.auth));
         const r = await fetchFn(t.endpoint, {
           method: 'POST',
           headers: {

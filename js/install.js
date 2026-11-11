@@ -7,6 +7,7 @@
 import { el, iconTile } from './ui.js';
 import { reloadOnNextNavigation } from './router.js';
 import { KAKAO_UA, IN_APP_UA } from './source.js';
+import { inNativeApp } from './native.js';
 
 // 도란톡 안드로이드 앱(APK). android/ 를 고쳐 새로 서명하면 download/dorantalk.apk 파일과 아래 버전을 함께 바꿔요
 export const ANDROID_APP = { url: '/download/dorantalk.apk', version: '1.0.1', size: '0.7MB' };
@@ -36,10 +37,10 @@ export function setupInstall() {
   }
 }
 
-// 도란톡 안드로이드 앱(TWA)으로 열면 처음 주소의 referrer 가 android-app://com.dorantalk.app 이에요.
+// 예전 도란톡 안드로이드 앱(버전 1, 크롬으로 열리는 앱)으로 열면 처음 주소의 referrer 가 android-app://com.dorantalk.app 이에요.
 // 화면을 옮기면 referrer 가 사라져서 이 탭(sessionStorage)에만 기억해요. (크롬과 저장소를 같이 써서 localStorage 는 안 돼요)
 const PLAY_APP_KEY = 'talkfeed.playapp';
-export function isAndroidApp() {
+function isChromeApp() {
   const fromApp = document.referrer.startsWith('android-app://com.dorantalk.app');
   try {
     if (fromApp) sessionStorage.setItem(PLAY_APP_KEY, '1');
@@ -47,6 +48,11 @@ export function isAndroidApp() {
   } catch {
     return fromApp;
   }
+}
+
+// 도란톡 안드로이드 앱 안인지 (버전 2: 크롬 없이 도는 앱 · 버전 1: 크롬으로 열리는 앱)
+export function isAndroidApp() {
+  return inNativeApp() || isChromeApp();
 }
 
 export function isStandalone() {
@@ -116,7 +122,11 @@ export function inAppBrowserNotice() {
 export function installBanner() {
   const p = platform();
   if (dismissedRecently()) return null;
-  if (p === 'android') return isAndroidApp() ? null : androidAppPrompt();
+  if (p === 'android') {
+    // 예전 앱(크롬으로 열리는 앱)을 쓰는 가족에게는 새 앱(크롬 없이 실행)으로 바꾸라고 알려요
+    if (isChromeApp() && !inNativeApp() && Number(ANDROID_APP.version.split('.')[0]) >= 2) return androidAppPrompt(true);
+    return isAndroidApp() ? null : androidAppPrompt();
+  }
   if (p === 'ios' && !isStandalone()) return iosHomeScreenTip();
   return null;
 }
@@ -125,7 +135,7 @@ function bannerHead(title) {
   return el('div', { class: 'notice-head' }, iconTile('download'), el('p', { class: 'notice-title' }, title));
 }
 
-function androidAppPrompt() {
+function androidAppPrompt(update = false) {
   const box = el('div', { class: 'notice notice-install' });
   const later = el('button', {
     class: 'btn btn-ghost btn-small', type: 'button',
@@ -135,21 +145,25 @@ function androidAppPrompt() {
     class: 'btn', href: ANDROID_APP.url, download: 'dorantalk.apk',
     // 링크가 내려받기를 시작하고, 이 안내는 설치 방법으로 바뀌어요
     onclick: () => { rememberDismiss(); setTimeout(showSteps, 300); },
-  }, '설치하기');
+  }, update ? '새 버전 받기' : '설치하기');
   box.append(
-    bannerHead('도란톡 안드로이드 앱을 설치할까요?'),
-    el('p', {}, '설치하면 알림이 카카오톡처럼 ', el('strong', {}, '위에 팝업'), '으로 떠요. (약 ', ANDROID_APP.size, ')'),
+    bannerHead(update ? '도란톡 앱 새 버전이 나왔어요' : '도란톡 안드로이드 앱을 설치할까요?'),
+    update
+      ? el('p', {}, '이제 ', el('strong', {}, '크롬 없이'), ' 실행돼요. "Chrome에서 실행 중" 알림도 사라져요. (약 ', ANDROID_APP.size, ' · 설치하면 한 번 다시 로그인해요)')
+      : el('p', {}, '설치하면 알림이 카카오톡처럼 ', el('strong', {}, '위에 팝업'), '으로 떠요. (약 ', ANDROID_APP.size, ')'),
     el('div', { class: 'btn-row' }, install, later),
   );
   // 이미 설치된 휴대폰이면 묻지 않아요
-  hasAndroidAppInstalled().then((yes) => { if (yes) box.remove(); });
+  if (!update) hasAndroidAppInstalled().then((yes) => { if (yes) box.remove(); });
 
   function showSteps() {
     const b = (text) => el('strong', {}, text);
     box.replaceChildren(
       bannerHead('받은 파일을 열어 설치해 주세요'),
       el('ol', { class: 'steps' },
-        el('li', {}, '예전에 홈 화면에 추가한 도란톡이 있으면 ', b('먼저 지워요'), ' (아이콘 길게 누르기 → 삭제)'),
+        update
+          ? el('li', {}, '지금 앱을 ', b('지우지 않아도 돼요'), '. 설치하면 새 버전으로 바뀌어요')
+          : el('li', {}, '예전에 홈 화면에 추가한 도란톡이 있으면 ', b('먼저 지워요'), ' (아이콘 길게 누르기 → 삭제)'),
         el('li', {}, '알림창의 ', b('다운로드 완료'), ' 또는 ', b('내 파일 → 다운로드 → dorantalk.apk'), ' 를 눌러요'),
         el('li', {}, b('"출처를 알 수 없는 앱"'), '이 나오면 ', b('설정 → 이 출처 허용'), ' → 뒤로'),
         el('li', {}, b('설치'), ' → ', b('열기')),

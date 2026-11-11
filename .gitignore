@@ -6,3 +6,8 @@ node_modules/
 # 앱 서명 열쇠(키스토어)는 절대 올리지 않아요
 *.jks
 *.keystore
+# 안드로이드 앱 만들 때 생기는 파일
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties

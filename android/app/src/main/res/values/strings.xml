@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="appName">도란톡</string>
-    <string name="launcherName">도란톡</string>
-    <string name="launchUrl">https://www.dorantalk.com/?from=app</string>
-    <string name="providerAuthority">com.dorantalk.app.fileprovider</string>
-    <string name="assetStatements" translatable="false">
-        [{ \"relation\": [\"delegate_permission/common.handle_all_urls\"],
-           \"target\": {\"namespace\": \"web\", \"site\": \"https://www.dorantalk.com\"}}]
-    </string>
+    <string name="channelId" translatable="false">family_alerts</string>
+    <string name="channelName">가족 소식 · 채팅 알림</string>
+    <string name="channelDesc">가족이 채팅 · 새 소식 · 댓글 · 초대 · 생신 알림을 보내면 위에 팝업으로 알려 드려요</string>
+    <string name="savePhoto">사진 저장</string>
+    <string name="saved">휴대폰에 저장했어요</string>
+    <string name="saveFailed">저장하지 못했어요. 다시 해 주세요.</string>
+    <string name="noApp">이 링크를 열 수 있는 앱이 없어요</string>
+    <string name="chooseFile">사진 · 동영상 고르기</string>
 </resources>

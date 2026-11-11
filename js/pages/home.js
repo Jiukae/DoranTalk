@@ -28,7 +28,9 @@ import { CONTACT_EMAIL } from '../legal.js';
 import {
   pushStatus, pushServerInfo, isPushOn, enablePush, disablePush, sendTestPush, setAppBadge,
   shouldPromptPush, dismissPushPrompt, forgetThisDevice, notifyFamily,
+  refreshAppPushState, openAppNotificationSettings,
 } from '../push.js';
+import { inNativeApp } from '../native.js';
 import { platform } from '../install.js';
 import { popupHelp } from './help.js';
 import { fetchMyEvents, sendDueReminders } from '../events.js';
@@ -154,7 +156,7 @@ function pushPrompt() {
 function pushErrorText(err) {
   if (err?.code === 'denied' || err?.message === 'denied') return '알림이 막혀 있어요. 내 정보 → 알림에서 허용하는 방법을 확인해 주세요.';
   if (err?.code === 'default' || err?.message === 'dismissed') return '알림을 켜려면 휴대폰이 묻는 창에서 "허용"을 눌러 주세요.';
-  if (err?.message === 'server-not-ready') return '알림 서버가 아직 준비되지 않았어요.';
+  if (err?.message === 'server-not-ready') return inNativeApp() ? '앱 알림을 아직 준비하고 있어요. (관리자: 안내서 21단계)' : '알림 서버가 아직 준비되지 않았어요.';
   return friendlyError(err);
 }
 
@@ -610,9 +612,19 @@ function pushCard() {
   const msg = messageBox();
 
   async function paint() {
+    if (inNativeApp()) await refreshAppPushState();
     const status = pushStatus();
     let body;
-    if (status === 'ios-install') {
+    if (status === 'app-not-ready') {
+      body = [el('p', { class: 'muted' }, '앱 알림을 준비하고 있어요. 조금만 기다려 주세요. (관리자: 안내서 21단계)')];
+    } else if (status === 'denied' && inNativeApp()) {
+      const open = el('button', { class: 'btn btn-secondary btn-block', type: 'button' }, icon('bell', { size: 22 }), '휴대폰 알림 설정 열기');
+      open.addEventListener('click', () => openAppNotificationSettings());
+      body = [
+        el('p', {}, '휴대폰 설정에서 도란톡 알림이 꺼져 있어요. 아래 버튼 → ', el('strong', {}, '알림 허용'), '을 켠 뒤 돌아오세요.'),
+        open,
+      ];
+    } else if (status === 'ios-install') {
       body = [
         el('p', {}, '아이폰은 ', el('strong', {}, '홈 화면에 추가한 도란톡 앱'), '에서 알림을 받을 수 있어요. (iOS 16.4 이상)'),
         el('a', { href: '#/help', class: 'btn btn-secondary btn-block' }, '홈 화면에 추가하는 방법'),
@@ -677,6 +689,14 @@ function pushCard() {
   }
   box.append(head, el('p', { class: 'muted' }, '확인하는 중…'));
   paint();
+  // 앱 안: 휴대폰 알림 설정에서 돌아오면 다시 확인
+  if (inNativeApp()) {
+    const onVisible = () => {
+      if (!box.isConnected) document.removeEventListener('visibilitychange', onVisible);
+      else if (document.visibilityState === 'visible') paint();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+  }
   return box;
 }
 

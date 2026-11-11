@@ -2,17 +2,39 @@ plugins {
     id 'com.android.application'
 }
 
+// 알림(Firebase Cloud Messaging) 설정: Firebase 에서 받은 google-services.json 을 이 폴더(android/app)에 두면 켜져요.
+// 없으면 알림만 빠진 채로 앱이 만들어져요. (이 파일의 값은 앱 안에 그대로 들어가는 공개 값이라 저장소에 올려도 괜찮아요.
+//  알림을 "보내는" 비밀 열쇠(서비스 계정)는 절대 여기에 두지 않고 Supabase Secrets 에만 넣어요.)
+def firebase = [:]
+def googleServices = file('google-services.json')
+if (googleServices.exists()) {
+    def json = new groovy.json.JsonSlurper().parse(googleServices)
+    def client = json.client.find { it.client_info.android_client_info.package_name == 'com.dorantalk.app' }
+    if (client == null) throw new GradleException('google-services.json 에 com.dorantalk.app 앱이 없어요. Firebase 에서 패키지 이름을 확인해 주세요.')
+    firebase = [
+        appId    : client.client_info.mobilesdk_app_id,
+        apiKey   : client.api_key[0].current_key,
+        projectId: json.project_info.project_id,
+        senderId : json.project_info.project_number,
+    ]
+}
+
 android {
     namespace 'com.dorantalk.app'
     compileSdk 36
 
     defaultConfig {
         applicationId 'com.dorantalk.app'
-        minSdk 24   // 안드로이드 7.0 이상 (androidbrowserhelper 2.7 이 요구)
+        minSdk 24   // 안드로이드 7.0 이상
         targetSdk 36
         // 새 APK 를 낼 때마다 versionCode 를 1씩 올려요 (같은 업로드 키로 서명해야 덮어 설치돼요)
-        versionCode 2
-        versionName '1.0.1'
+        versionCode 3
+        versionName '2.0.0'
+        // Firebase 는 이 글자들로 스스로 켜져요 (비어 있으면 알림 없이 동작)
+        resValue 'string', 'google_app_id', firebase.appId ?: ''
+        resValue 'string', 'google_api_key', firebase.apiKey ?: ''
+        resValue 'string', 'project_id', firebase.projectId ?: ''
+        resValue 'string', 'gcm_defaultSenderId', firebase.senderId ?: ''
     }
 
     buildTypes {
@@ -24,18 +46,24 @@ android {
         }
     }
 
+    buildFeatures {
+        buildConfig true
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
 
     lint {
-        // 웹앱을 여는 껍데기라, 빌드를 막는 검사는 끄고 경고만 봐요
         abortOnError false
         checkReleaseBuilds false
     }
 }
 
 dependencies {
-    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.4'
+    implementation platform('com.google.firebase:firebase-bom:33.16.0')
+    implementation 'com.google.firebase:firebase-messaging'
+    implementation 'androidx.core:core:1.16.0'
+    implementation 'androidx.webkit:webkit:1.13.0'
 }

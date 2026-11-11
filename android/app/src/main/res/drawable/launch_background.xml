@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 안드로이드 11 이하: 앱을 켤 때 잠깐 보이는 첫 화면 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/backgroundColor" />
+    <item android:gravity="center" android:width="128dp" android:height="128dp" android:drawable="@drawable/splash" />
+</layer-list>

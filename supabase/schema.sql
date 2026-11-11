@@ -1,6 +1,6 @@
 -- =====================================================================
 --  TalkFeed 데이터베이스 설계 (테이블 + 보안 규칙 RLS + 사진 저장소)
---  ★ 버전 15 (보안 보강 · 안부 · 동영상 · 가족 달력 · 가족 프리미엄 · 광고 성과 · 프로필 사진 · 운영자 이름 보호 · 아이디 · 초대 메일 · 자녀 그룹 승인) ★
+--  ★ 버전 16 (안드로이드 앱 Firebase 알림 · 보안 보강 · 안부 · 동영상 · 가족 달력 · 가족 프리미엄 · 광고 성과 · 프로필 사진 · 운영자 이름 보호 · 아이디 · 초대 메일 · 자녀 그룹 승인) ★
 --    앱 주소 뒤에 #/check 를 붙여 열면 DB 버전이 최신인지 확인할 수 있어요.
 -- ---------------------------------------------------------------------
 --  사용법: Supabase 대시보드 → SQL Editor → 이 파일 내용을 전부 붙여넣고 Run
@@ -305,7 +305,7 @@ create trigger on_auth_user_created
 create or replace function public.talkfeed_schema_version()
 returns integer
 language sql immutable set search_path = ''
-as $$ select 15 $$;
+as $$ select 16 $$;
 
 -- 닉네임 형식 확인 (버전 9부터 닉네임은 겹쳐도 돼요 — 예전 앱 호환용)
 create or replace function public.is_nickname_available(nick text)
@@ -978,6 +978,28 @@ exception when others then
 end;
 $$;
 
+-- (버전 16) 알림 서버 전용 열쇠가 "설정돼 있고" 맞을 때만 참 (안드로이드 앱의 Firebase 주소는 이때만 내보내요)
+create or replace function public.push_caller_verified()
+returns boolean
+language plpgsql stable security definer set search_path = ''
+as $$
+declare
+  expected text;
+begin
+  if to_regclass('vault.decrypted_secrets') is null then
+    return false;
+  end if;
+  execute 'select decrypted_secret from vault.decrypted_secrets where name = $1 limit 1'
+    into expected using 'push_db_key';
+  if coalesce(expected, '') = '' then
+    return false;
+  end if;
+  return coalesce(nullif(current_setting('request.headers', true), '')::json ->> 'x-push-key', '') = expected;
+exception when others then
+  return false;
+end;
+$$;
+
 -- 이 기기를 내 알림 주소로 등록 (같은 기기를 다른 계정이 쓰던 기록이 있으면 내 것으로 바꿈)
 -- (버전 15) 다른 사람의 기기 주소는 "같은 암호 열쇠"를 가진 그 기기에서만 넘겨받을 수 있어요 (주소만 알아낸 사람이 가로채지 못하게)
 create or replace function public.push_subscribe(p_endpoint text, p_p256dh text, p_auth text, p_device text default null)
@@ -1027,8 +1049,9 @@ $$;
 --   p_kind: 'message'(채팅) · 'post'(새 소식) · 'comment'(댓글) · 'invite'(초대, p_id = 그룹) · 'test'(내 기기로 시험)
 --   - 내가 방금(10분 안에) 보낸 것만, 한 번만 보낼 수 있어요.
 --   - 받는 사람은 지금 그 그룹의 멤버만 (나 자신은 빼고)
+drop function if exists public.push_targets(text, uuid);  -- (버전 16) 돌려주는 칸(kind)이 늘어서 새로 만들어요
 create or replace function public.push_targets(p_kind text, p_id uuid default null)
-returns table (endpoint text, p256dh text, auth text, title text, body text, url text, tag text, badge integer)
+returns table (endpoint text, p256dh text, auth text, title text, body text, url text, tag text, badge integer, kind text)
 language plpgsql security definer set search_path = ''
 as $$
 #variable_conflict use_column
@@ -1180,11 +1203,13 @@ begin
     return;
   end if;
 
+  -- (버전 16) 안드로이드 앱의 Firebase 주소(kind = 'fcm')는 알림 서버 전용 열쇠가 맞을 때만 내보내요
   return query
     select s.endpoint, s.p256dh, s.auth, t_title, left(t_body, 140), t_url, t_tag,
-           public.unread_total_for(s.user_id)
+           public.unread_total_for(s.user_id), s.kind
     from public.push_subscriptions s
-    where s.user_id = any(coalesce(recipients, '{}'));
+    where s.user_id = any(coalesce(recipients, '{}'))
+      and (s.kind = 'web' or public.push_caller_verified());
 end;
 $$;
 
@@ -1205,6 +1230,7 @@ $$;
 
 revoke execute on function
   public.push_caller_ok(),
+  public.push_caller_verified(),
   public.push_subscribe(text, text, text, text),
   public.push_unsubscribe(text),
   public.unread_total_for(uuid),
@@ -2427,6 +2453,51 @@ drop policy if exists "events_insert_member" on public.family_events;
 create policy "events_insert_member" on public.family_events
   for insert to authenticated
   with check (created_by = (select auth.uid()) and public.can_add_event(group_id));
+
+
+-- ---------------------------------------------------------------------
+-- 19. (버전 16) 안드로이드 앱(버전 2) 알림: Firebase Cloud Messaging
+--   - 크롬 없이 도는 도란톡 앱은 웹 알림 대신 Firebase 알림 주소(토큰)를 써요. → 주소 앞에 'fcm:' 을 붙여 저장
+--   - 가족 기기의 Firebase 주소는 "알림 서버 전용 열쇠"(Vault 'push_db_key')를 가진 알림 서버만 받아요.
+--     (열쇠를 안 넣으면 앱 알림은 가지 않아요 — 주소가 새면 남이 가로챌 수 있어서 꼭 열쇠로 지켜요)
+-- ---------------------------------------------------------------------
+alter table public.push_subscriptions add column if not exists kind text not null default 'web';
+alter table public.push_subscriptions drop constraint if exists push_subscriptions_kind_check;
+alter table public.push_subscriptions add constraint push_subscriptions_kind_check check (kind in ('web', 'fcm'));
+alter table public.push_subscriptions alter column p256dh drop not null;
+alter table public.push_subscriptions alter column auth drop not null;
+alter table public.push_subscriptions drop constraint if exists push_subscriptions_endpoint_check;
+alter table public.push_subscriptions add constraint push_subscriptions_endpoint_check check (
+  char_length(endpoint) <= 1000
+  and ((kind = 'web' and endpoint ~ '^https://') or (kind = 'fcm' and endpoint ~ '^fcm:[A-Za-z0-9_:-]{20,}$')));
+alter table public.push_subscriptions drop constraint if exists push_subscriptions_p256dh_check;
+alter table public.push_subscriptions add constraint push_subscriptions_p256dh_check check (
+  (kind = 'web' and char_length(p256dh) between 40 and 200) or (kind = 'fcm' and p256dh is null));
+alter table public.push_subscriptions drop constraint if exists push_subscriptions_auth_check;
+alter table public.push_subscriptions add constraint push_subscriptions_auth_check check (
+  (kind = 'web' and char_length(auth) between 10 and 100) or (kind = 'fcm' and auth is null));
+
+-- 안드로이드 앱: 이 휴대폰의 Firebase 알림 주소를 내 것으로 등록
+-- (Firebase 주소는 그 휴대폰과 알림 서버만 알아요. 같은 휴대폰에서 다른 계정으로 로그인하면 그 계정이 이어받아요)
+create or replace function public.push_subscribe_fcm(p_token text, p_device text default null)
+returns void
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  if auth.uid() is null then
+    raise exception '로그인이 필요해요.';
+  end if;
+  if coalesce(p_token, '') !~ '^[A-Za-z0-9_:-]{20,}$' or char_length(p_token) > 900 then
+    raise exception '알림 주소가 올바르지 않아요. 앱을 다시 열어 주세요.';
+  end if;
+  insert into public.push_subscriptions (endpoint, user_id, kind, device)
+  values ('fcm:' || p_token, auth.uid(), 'fcm', left(p_device, 200))
+  on conflict (endpoint) do update
+    set user_id = excluded.user_id, device = excluded.device, created_at = now();
+end;
+$$;
+revoke execute on function public.push_subscribe_fcm(text, text) from public, anon, authenticated;
+grant execute on function public.push_subscribe_fcm(text, text) to authenticated;
 
 
 -- 끝! 아래 "Success. No rows returned" 가 보이면 성공입니다.

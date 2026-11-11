@@ -1,9 +1,10 @@
-# 도란톡 Android 앱(APK · AAB) 만들기
+# 도란톡 Android 앱 (APK · AAB) 만들기 — 버전 2: 크롬 없이 앱 안의 화면(WebView) + Firebase 알림
 # android/ 폴더가 바뀌거나, Actions 탭에서 "Run workflow" 를 누르면 실행돼요.
 # 결과 파일은 실행 화면 아래 Artifacts 에서 받을 수 있어요.
 #  - 저장소 Secrets 에 ANDROID_UPLOAD_KEYSTORE_B64 · ANDROID_UPLOAD_KEYSTORE_PASSWORD 가 있으면
-#    업로드 키로 서명된 AAB(Play 스토어에 바로 올릴 수 있는 파일)를 만들어요.
-#  - 없으면 서명 안 된 AAB 만 만들어요.
+#    업로드 키로 서명된 APK(바로 설치 · 덮어 설치)와 AAB(Play 스토어용)를 만들어요.
+#  - 없으면 서명 안 된 파일만 만들어요. (설치하려면 서명이 필요해요)
+#  - android/app/google-services.json 이 있으면 알림(Firebase)이 켜진 앱이 만들어져요.
 name: Android 앱 (APK · AAB)
 
 on:
@@ -35,58 +36,52 @@ jobs:
           "$SDKM" --install "platforms;android-36" "build-tools;36.0.0" > /dev/null
           ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools"
 
-      - name: AAB 만들기
+      - name: 앱 만들기 (APK · AAB · 시험용 디버그 APK)
         working-directory: android
-        run: ./gradlew --no-daemon --stacktrace bundleRelease assembleRelease
-
-      - name: 시험용 APK 만들기 (에뮬레이터 실행 시험용 · 임시 열쇠로 서명)
         run: |
-          BT="$ANDROID_HOME/build-tools/36.0.0"
-          mkdir -p apk
-          keytool -genkeypair -keystore "$RUNNER_TEMP/smoke.jks" -storepass smoketest -keypass smoketest \
-            -alias smoke -keyalg RSA -keysize 2048 -validity 2 -dname CN=smoke > /dev/null 2>&1
-          "$BT/zipalign" -p -f 4 android/app/build/outputs/apk/release/app-release-unsigned.apk apk/dorantalk-unsigned-aligned.apk
-          "$BT/apksigner" sign --ks "$RUNNER_TEMP/smoke.jks" --ks-pass pass:smoketest --out apk/dorantalk-smoke.apk apk/dorantalk-unsigned-aligned.apk
-          ls -la apk android/app/build/outputs/bundle/release
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dorantalk-smoke-apk
-          path: apk/dorantalk-smoke.apk
-
-      # 바로 설치하는 APK (서명 전). 업로드 키로 서명하면 휴대폰에 설치할 수 있어요
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dorantalk-apk-unsigned
-          path: apk/dorantalk-unsigned-aligned.apk
-
-      - name: 라이브러리 정보 (문제 생겼을 때 참고용)
-        continue-on-error: true
-        run: |
-          curl -fsS https://dl.google.com/android/maven2/com/google/androidbrowserhelper/androidbrowserhelper/maven-metadata.xml | grep -oE '<version>[^<]+' | tail -5 || true
-          AAR=$(find ~/.gradle/caches -name 'androidbrowserhelper-*.aar' | head -1)
-          echo "$AAR"
-          if [ -n "$AAR" ]; then unzip -p "$AAR" classes.jar > "$RUNNER_TEMP/abh.jar" && unzip -l "$RUNNER_TEMP/abh.jar" | grep -E 'trusted/(LauncherActivity|ManageDataLauncherActivity|FocusActivity|WebViewFallbackActivity|NotificationPermissionRequestActivity|DelegationService|NotificationDelegationExtraCommandHandler)\.class' || true; fi
+          [ -f app/google-services.json ] && echo "알림(Firebase) 켜진 앱" || echo "google-services.json 없음 → 알림 없이 만들어요"
+          ./gradlew --no-daemon --stacktrace assembleRelease bundleRelease assembleDebug
 
       - name: 업로드 키로 서명 (Secrets 가 있을 때만)
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_B64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
         run: |
+          BT="$ANDROID_HOME/build-tools/36.0.0"
+          APK=android/app/build/outputs/apk/release/app-release-unsigned.apk
           AAB=android/app/build/outputs/bundle/release/app-release.aab
           mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk out/dorantalk-smoke.apk
+          "$BT/zipalign" -p -f 4 "$APK" out/dorantalk-unsigned-aligned.apk
           if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ]; then
             echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            "$BT/apksigner" sign --ks "$RUNNER_TEMP/upload.jks" --ks-key-alias upload \
+              --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEYSTORE_PASSWORD \
+              --out out/dorantalk.apk out/dorantalk-unsigned-aligned.apk
             jarsigner -sigalg SHA256withRSA -digestalg SHA-256 \
               -keystore "$RUNNER_TEMP/upload.jks" -storepass:env KEYSTORE_PASSWORD \
               -signedjar out/dorantalk.aab "$AAB" upload
             rm -f "$RUNNER_TEMP/upload.jks"
-            jarsigner -verify out/dorantalk.aab | tail -1
+            "$BT/apksigner" verify --print-certs out/dorantalk.apk | grep -E "SHA-256|Signer"
+            echo "SIGNED=yes"
           else
             cp "$AAB" out/dorantalk-unsigned.aab
-            echo "서명 열쇠가 없어서 서명 안 된 AAB 를 만들었어요."
+            echo "SIGNED=no 서명 열쇠(Secrets)가 없어서 서명 안 된 파일만 만들었어요."
           fi
           ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dorantalk-smoke-apk
+          path: out/dorantalk-smoke.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dorantalk-apk
+          path: |
+            out/dorantalk.apk
+            out/dorantalk-unsigned-aligned.apk
+          if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
         with:
@@ -134,7 +129,7 @@ jobs:
           grep -q 'com.dorantalk.app' dal.json || { echo "Google 이 앱 지문을 못 읽었어요"; exit 1; }
           echo "OK Google 확인"
 
-  # 에뮬레이터(안드로이드 16 + 크롬)에서 설치 · 실행해 보고, 알림이 위에 팝업으로 뜨는지 화면을 찍어요
+  # 에뮬레이터(안드로이드 16)에서 크롬을 끈 채로 설치 · 실행해 보고, 알림이 위에 팝업으로 뜨는지 화면을 찍어요
   smoke-test:
     needs: bundle
     runs-on: ubuntu-latest
@@ -169,7 +164,7 @@ jobs:
             popup.png
           if-no-files-found: ignore
 
-  # 서명 안 된 APK 를 글자(base64)로 로그에 적어 둬요.
+  # 서명된(없으면 서명 안 된) APK 를 글자(base64)로 로그에 적어 둬요.
   # Artifacts 를 내려받을 수 없는 곳(예: Claude 작업 환경)에서 이 로그만 읽어 파일을 되살릴 수 있게.
   export-log:
     needs: bundle
@@ -180,10 +175,12 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: dorantalk-apk-unsigned
+          name: dorantalk-apk
       - name: APK 를 base64 로 출력
         run: |
-          F=dorantalk-unsigned-aligned.apk
+          F=dorantalk.apk
+          [ -f "$F" ] || F=dorantalk-unsigned-aligned.apk
+          echo "APK_FILE $F"
           echo "APK_SHA256 $(sha256sum "$F" | cut -d' ' -f1)"
           echo "APK_BEGIN"
           base64 -w 3000 "$F"

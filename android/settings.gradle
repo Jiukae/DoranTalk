@@ -1,4 +1,4 @@
-// 도란톡 Android 앱 (Play 스토어용) — dorantalk.com 을 앱 화면으로 여는 TWA(Trusted Web Activity)
+// 도란톡 Android 앱 — 크롬 없이 앱 안의 화면(WebView)으로 www.dorantalk.com 을 열고, 알림은 Firebase 로 받아요
 pluginManagement {
     repositories {
         google()
